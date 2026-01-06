@@ -1,0 +1,50 @@
+﻿@inherits LayoutComponentBase
+@inject IJSRuntime JS
+
+<div class="layout">
+    <header class="app-header">
+        <div class="left">
+            <button class="menu-btn" @onclick="ToggleMenu">☰</button>
+            <span class="logo">Kharbarchi</span>
+        </div>
+
+        <nav class="nav @(menuOpen ? "open" : "")">
+            <NavLink href="/" Match="NavLinkMatch.All" @onclick="CloseMenu">خانه</NavLink>
+            <NavLink href="/products" @onclick="CloseMenu">محصولات</NavLink>
+            <NavLink href="/cart" @onclick="CloseMenu">سبد خرید</NavLink>
+            <NavLink href="/admin/Dashboard" @onclick="CloseMenu">مدیریت</NavLink>
+            <NavLink href="/auth/login" @onclick="CloseMenu">ورود</NavLink>
+        </nav>
+
+        <button class="theme-btn" @onclick="ToggleTheme">🌓</button>
+    </header>
+
+    <main class="content px-4">
+        @Body
+    </main>
+
+    <footer class="app-footer">
+        © Design By Hamid
+    </footer>
+</div>
+
+@code {
+    bool menuOpen;
+    bool darkMode;
+
+    protected override async Task OnInitializedAsync()
+    {
+        darkMode = await JS.InvokeAsync<string?>("localStorage.getItem", "theme") == "dark";
+        await JS.InvokeVoidAsync("setTheme", darkMode);
+    }
+
+    void ToggleMenu() => menuOpen = !menuOpen;
+    void CloseMenu() => menuOpen = false;
+
+    async Task ToggleTheme()
+    {
+        darkMode = !darkMode;
+        await JS.InvokeVoidAsync("localStorage.setItem", "theme", darkMode ? "dark" : "light");
+        await JS.InvokeVoidAsync("setTheme", darkMode);
+    }
+}

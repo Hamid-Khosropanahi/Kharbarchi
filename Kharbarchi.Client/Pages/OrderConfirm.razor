@@ -1,0 +1,36 @@
+﻿@page "/order/confirm/{Id:int}"
+@inject OrderService OrderService
+
+@using Kharbarchi.Shared.Models
+@using Microsoft.AspNetCore.Components
+@using Kharbarchi.Client.Services
+
+<h2>سفارش ثبت شد</h2>
+
+@if (order == null)
+{
+    <p>در حال بارگذاری...</p>
+}
+else
+{
+    <p>شماره سفارش: @order.Id</p>
+    <p>وضعیت: @order.Status</p>
+    <p>مبلغ: @order.TotalAmount.ToString("N0") تومان</p>
+
+    @if (order.Status == "New" && order.PaymentMethod == "Offline")
+    {
+        <h3>روش پرداخت: کارت به کارت</h3>
+        <p>لطفاً مبلغ را به شماره کارت زیر واریز کنید:</p>
+        <h3>6037-9918-1234-5678</h3>
+    }
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+    private OrderDetailDto? order;
+
+    protected override async Task OnInitializedAsync()
+    {
+        order = await OrderService.GetOrderAsync(Id);
+    }
+}

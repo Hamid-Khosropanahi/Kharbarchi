@@ -1,0 +1,6 @@
+@Kharbarchi.Server_HostAddress = http://localhost:5097
+
+GET {{Kharbarchi.Server_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

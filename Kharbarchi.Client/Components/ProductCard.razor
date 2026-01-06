@@ -1,0 +1,13 @@
+﻿@using Kharbarchi.Shared.Models
+@using Microsoft.AspNetCore.Components
+@inject NavigationManager Nav
+
+<NavLink href="@($"/products/{Product.Slug}")" class="product-card">
+    <img src="@Product.ImageUrl" alt="@Product.Name" />
+    <h4>@Product.Name</h4>
+    <p>@Product.Price.ToString("N0") تومان</p>
+</NavLink>
+
+@code {
+    [Parameter] public ProductDto Product { get; set; } = default!;
+}

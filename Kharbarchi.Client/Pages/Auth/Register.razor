@@ -1,0 +1,47 @@
+﻿@page "/auth/register"
+@using Kharbarchi.Client.Services
+@using Microsoft.AspNetCore.Components
+@inject AuthService AuthService
+@inject NavigationManager Nav
+
+<h2>ثبت نام</h2>
+
+<div>
+    <label>نام کاربری:</label>
+    <input @bind="userName" />
+</div>
+<div>
+    <label>ایمیل:</label>
+    <input @bind="email" />
+</div>
+<div>
+    <label>نام کامل:</label>
+    <input @bind="fullName" />
+</div>
+<div>
+    <label>رمز عبور:</label>
+    <input type="password" @bind="password" />
+</div>
+
+<button @onclick="Rgister">ثبت نام</button>
+
+@if (!string.IsNullOrEmpty(message))
+{
+    <p>@message</p>
+}
+
+@code {
+    private string userName = "";
+    private string email = "";
+    private string fullName = "";
+    private string password = "";
+    private string? message;
+
+    private async Task Rgister()
+    {
+        var ok = await AuthService.RegisterAsync(userName, password, email, fullName);
+        message = ok ? "ثبت نام با موفقیت انجام شد." : "خطا در ثبت نام.";
+        if (ok)
+            Nav.NavigateTo("/auth/login");
+    }
+}

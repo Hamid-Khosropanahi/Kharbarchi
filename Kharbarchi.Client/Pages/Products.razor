@@ -1,0 +1,30 @@
+﻿@page "/products"
+@using Kharbarchi.Client.Services
+@inject ProductService ProductService
+
+<PageTitle>محصولات | Kharbarchi</PageTitle>
+
+<h2>محصولات</h2>
+
+@if (products == null)
+{
+    <p>در حال بارگذاری...</p>
+}
+else
+{
+    <div class="product-grid">
+        @foreach (var p in products)
+        {
+            <ProductCard Product="p" />
+        }
+    </div>
+}
+
+@code {
+    private List<Kharbarchi.Shared.Models.ProductDto>? products;
+
+    protected override async Task OnInitializedAsync()
+    {
+        products = await ProductService.GetAllAsync();
+    }
+}

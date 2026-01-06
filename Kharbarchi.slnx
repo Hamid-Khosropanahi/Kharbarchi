@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="Kharbarchi.Shared/Kharbarchi.Shared.csproj" />
+  <Project Path="Kharbarchi.Client/Kharbarchi.Client.csproj" />
+  <Project Path="Kharbarchi.Server/Kharbarchi.Server.csproj" />
+</Solution>
