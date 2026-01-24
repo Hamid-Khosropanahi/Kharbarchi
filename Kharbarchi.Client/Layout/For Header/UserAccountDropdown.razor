@@ -1,0 +1,42 @@
+﻿@* UserAccountDropdown.razor *@
+<div class="wd-header-my-account wd-tools-element wd-event-hover wd-with-username wd-design-1 wd-account-style-icon whb-y44vgu0l4o7ai2qgq2hp">
+    <a href="./my-account/" title="حساب کاربری من">
+        <span class="wd-tools-icon"></span>
+        <span class="wd-tools-text">سلام، @UserName</span>
+    </a>
+
+    @if (IsDropdownOpen)
+    {
+        <div class="wd-dropdown wd-dropdown-menu wd-dropdown-my-account wd-design-default color-scheme-dark">
+            <ul class="wd-sub-menu">
+                @foreach (var link in AccountLinks)
+                {
+                    <li class="@link.Class">
+                        <a href="@link.Url"><span>@link.Title</span></a>
+                    </li>
+                }
+            </ul>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public string UserName { get; set; } = "admin";
+
+    private bool IsDropdownOpen { get; set; }
+
+    private List<AccountLink> AccountLinks => new()
+    {
+        new("پیشخوان", "./my-account/", "woocommerce-MyAccount-navigation-link--dashboard"),
+        new("سفارش‌ها", "./my-account/orders/", "woocommerce-MyAccount-navigation-link--orders"),
+        new("دانلودها", "./my-account/downloads/", "woocommerce-MyAccount-navigation-link--downloads"),
+        new("نشانی", "./my-account/edit-address/", "woocommerce-MyAccount-navigation-link--edit-address"),
+        new("جزئیات حساب", "./my-account/edit-account/", "woocommerce-MyAccount-navigation-link--edit-account"),
+        new("خروج", "./my-account/customer-logout/?_wpnonce=275a96d75e", "woocommerce-MyAccount-navigation-link--customer-logout")
+    };
+
+    private void ToggleDropdown() => IsDropdownOpen = !IsDropdownOpen;
+
+    private record AccountLink(string Title, string Url, string Class);
+}

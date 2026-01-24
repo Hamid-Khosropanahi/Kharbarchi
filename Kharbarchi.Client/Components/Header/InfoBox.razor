@@ -1,0 +1,36 @@
+﻿@namespace Kharbarchi.Client.Components.Header
+@using Kharbarchi.Client.Model
+@using Kharbarchi.Client.Model.Header
+
+<div class="info-box-wrapper @CssClass">
+    <div id="@BoxId" class="wd-info-box text-right box-icon-align-right box-style-base color-scheme- wd-bg-none wd-items-top">
+        <div class="box-icon-wrapper box-with-icon box-icon-simple">
+            <div class="info-box-icon">
+                <img width="@IconData.IconWidth" 
+                     height="@IconData.IconHeight" 
+                     src="@IconData.IconUrl" 
+                     class="attachment- size-" 
+                     alt="@IconData.Title" 
+                     decoding="async"
+                     loading="lazy">
+            </div>
+        </div>
+        <div class="info-box-content">
+            <div class="info-box-title title box-title-style-default wd-fontsize-s">
+                @IconData.Title
+            </div>
+            <div class="info-box-inner reset-last-child"></div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public InfoBoxData IconData { get; set; } = new();
+
+    [Parameter]
+    public string CssClass { get; set; } = string.Empty;
+
+    [Parameter]
+    public string BoxId { get; set; } = $"wd-{Guid.NewGuid():N}";
+}

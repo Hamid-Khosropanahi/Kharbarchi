@@ -1,0 +1,47 @@
+﻿@namespace Kharbarchi.Client.Components.Header
+
+<div class="site-logo @CssClass @(HasStickyLogo ? "wd-switch-logo" : "")">
+    <a href="@HomeUrl" class="wd-logo wd-main-logo" rel="home" aria-label="@AltText">
+        <img src="@LogoUrl" 
+             alt="@AltText" 
+             style="max-width: @MaxWidth;" 
+             loading="lazy"
+             @attributes="AdditionalAttributes">
+    </a>
+    
+    @if (HasStickyLogo)
+    {
+        <a href="@HomeUrl" class="wd-logo wd-sticky-logo" rel="home">
+            <img src="@StickyLogoUrl" 
+                 alt="@AltText" 
+                 style="max-width: @MaxWidth;" 
+                 loading="lazy"
+                 @attributes="AdditionalAttributes">
+        </a>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public string LogoUrl { get; set; } = string.Empty;
+
+    [Parameter]
+    public string StickyLogoUrl { get; set; } = string.Empty;
+
+    [Parameter]
+    public string AltText { get; set; } = "لوگوی وب سایت";
+
+    [Parameter]
+    public string HomeUrl { get; set; } = "./";
+
+    [Parameter]
+    public string MaxWidth { get; set; } = "339px";
+
+    [Parameter]
+    public string CssClass { get; set; } = string.Empty;
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private bool HasStickyLogo => !string.IsNullOrEmpty(StickyLogoUrl);
+}

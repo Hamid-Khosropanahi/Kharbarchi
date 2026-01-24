@@ -1,4 +1,79 @@
 ﻿
+/* Fonts */
+
+/* Yekan */
+@font-face {
+    font-family: 'Yekan';
+    src: url(font/yekan.woff)  format('woff'), url('./font/yekan.ttf') format('truetype'), url('./font/yekan.eot') format('embedded-opentype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+/* Vazir */
+@font-face {
+    font-family: 'Vazir';
+    src:  url('./font/vazir.woff') format('woff'), url('./font/vazir.ttf') format('truetype'), url('./font/vazir.eot') format('embedded-opentype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+/* Shabnam */
+@font-face {
+    font-family: 'Shabnam';
+    src: url('./font/shabnam/Shabnam-Light-FD.woff2') format('woff2'), url('./font/shabnam/Shabnam-Light-FD.woff') format('woff'), url('./fonts/shabnam/Shabnam-Light-FD.ttf') format('truetype'), url('./font/shabnam/Shabnam-Light-FD.eot') format('embedded-opentype');
+    font-weight: 200; /* Light */
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Shabnam';
+    src: url('./font/shabnam/Shabnam-FD.woff2') format('woff2'), url('./font/shabnam/Shabnam-FD.woff') format('woff'), url('./font/shabnam/Shabnam-FD.ttf') format('truetype'), url('./font/shabnam/Shabnam-FD.eot') format('embedded-opentype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Shabnam';
+    src: url('./font/shabnam/Shabnam-Bold-FD.woff2') format('woff2'), url('./font/shabnam/Shabnam-Bold-FD.woff') format('woff'), url('./font/shabnam/Shabnam-Bold-FD.ttf') format('truetype'), url('./font/shabnam/Shabnam-Bold-FD.eot') format('embedded-opentype');
+    font-weight: bold;
+    font-style: normal;
+}
+
+/* Iranyekan */
+@font-face {
+    font-family: 'Iranyekan';
+    src: url('./font/iranyekan/woff/IRANYekanXVF.woff2') format('woff2'), url('./font/iranyekan/woff/IRANYekanXVF.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+}
+
+/* IranSansX */
+@font-face {
+    font-family: 'IranSansX';
+    src: url('./font/iransansx/woff/IRANSansXFaNum-UltraLight.woff') format('woff'), url('./font/iransansx/woff/IRANSansXFaNum-Thin.woff') format('woff'), url('./font/iransansx/woff/IRANSansXFaNum-Regular.woff') format('woff'), url('./font/iransansx/woff/IRANSansXFaNum-Medium.woff') format('woff'), url('./font/iransansx/woff/IRANSansXFaNum-Light.woff') format('woff'), url('./font/iransansx/woff/IRANSansXFaNum-ExtraBold.woff') format('woff'), url('./font/iransansx/woff/IRANSansXFaNum-DemiBold.woff') format('woff'), url('./font/iransansx/woff/IRANSansXFaNum-Bold.woff') format('woff'), url('./font/iransansx/woff/IRANSansXFaNum-Black.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+}
+
+/* Dana */
+@font-face {
+    font-family: 'Dana';
+    src: url('./font/dana/woff/DanaFaNum-UltraLight.woff') format('woff'), url('./font/dana/woff/DanaFaNum-Thin.woff') format('woff'), url('./font/dana/woff/DanaFaNum-Regular.woff') format('woff'), url('./font/dana/woff/DanaFaNum-Medium.woff') format('woff'), url('./font/dana/woff/DanaFaNum-Light.woff') format('woff'), url('./font/dana/woff/DanaFaNum-Heavy.woff') format('woff'), url('./font/dana/woff/DanaFaNum-Hairline.woff') format('woff'), url('./font/dana/woff/DanaFaNum-fat.woff') format('woff'), url('./font/dana/woff/DanaFaNum-ExtraBold.woff') format('woff'), url('./font/dana/woff/DanaFaNum-ExtraBlack.woff') format('woff'), url('./font/dana/woff/DanaFaNum-DemiBold.woff') format('woff'), url('./font/dana/woff/DanaFaNum-Bold.woff') format('woff'), url('./font/dana/woff/DanaFaNum-Black.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+}
+
+/* Bakh */
+@font-face {
+    font-family: 'Bakh';
+    src: url('font/bakh/woff2/YekanBakhFaNum-Thin.woff2') format('woff2'), url('font/bakh/woff2/YekanBakhFaNum-SemiBold.woff2') format('woff2'), url('font/bakh/woff2/YekanBakhFaNum-Regular.woff2') format('woff2'), url('font/bakh/woff2/YekanBakhFaNum-Light.woff2') format('woff2'), url('font/bakh/woff2/YekanBakhFaNum-ExtraBold.woff2') format('woff2'), url('font/bakh/woff2/YekanBakhFaNum-ExtraBlack.woff2') format('woff2'), url('font/bakh/woff2/YekanBakhFaNum-Bold.woff2') format('woff2'), url('font/bakh/woff2/YekanBakhFaNum-Black.woff2') format('woff2'), url('font/bakh/woff/YekanBakhFaNum-Thin.woff') format('woff'), url('font/bakh/woff/YekanBakhFaNum-SemiBold.woff') format('woff'), url('font/bakh/woff/YekanBakhFaNum-Regular.woff') format('woff'), url('font/bakh/woff/YekanBakhFaNum-Light.woff') format('woff'), url('font/bakh/woff/YekanBakhFaNum-ExtraBold.woff') format('woff'), url('font/bakh/woff/YekanBakhFaNum-ExtraBlack.woff') format('woff'), url('font/bakh/woff/YekanBakhFaNum-Bold.woff') format('woff'), url('font/bakh/woff/YekanBakhFaNum-Black.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+}
+
+
+
+
 #blazor-error-ui {
     background: lightyellow;
     bottom: 0;
@@ -45,7 +120,7 @@ body.dark {
 
 body {
     margin: 0;
-    font-family: system-ui, sans-serif;
+    font-family: Iranyekan;
     background: var(--bg);
     color: var(--text);
     direction: rtl;
@@ -123,7 +198,7 @@ body {
     background: #eee;
     text-align: center;
     display: flex;
-    margin-top: calc(100vh - 44px ); 
+    margin-top: calc(100vh - 44px );
 }
 
 /* ===== Fade Animation ===== */
@@ -150,25 +225,26 @@ body {
         position: relative;
     }
 
-    header nav {
-        position: fixed;
-        top: 56px;
-        left: 0;
-        right: 0;
-        max-height: 40vh; /* 🔑 IMPORTANT */
-        overflow-y: auto;
-        z-index: 1000;
-    }
+        header nav {
+            position: fixed;
+            top: 56px;
+            left: 0;
+            right: 0;
+            max-height: 40vh; /* 🔑 IMPORTANT */
+            overflow-y: auto;
+            z-index: 1000;
+        }
 
 
-    header nav.open {
-        display: flex;
-    }
+            header nav.open {
+                display: flex;
+            }
 
     .menu-btn {
         display: block;
     }
 }
+
 .loading-progress {
     position: relative;
     display: block;
@@ -177,19 +253,19 @@ body {
     margin: 20vh auto 1rem auto;
 }
 
-.loading-progress circle {
-    fill: none;
-    stroke: #e0e0e0;
-    stroke-width: 0.6rem;
-    transform-origin: 50% 50%;
-    transform: rotate(-90deg);
-}
+    .loading-progress circle {
+        fill: none;
+        stroke: #e0e0e0;
+        stroke-width: 0.6rem;
+        transform-origin: 50% 50%;
+        transform: rotate(-90deg);
+    }
 
-.loading-progress circle:last-child {
-    stroke: #1b6ec2;
-    stroke-dasharray: calc(3.141 * var(--blazor-load-percentage, 0%) * 0.8), 500%;
-    transition: stroke-dasharray 0.05s ease-in-out;
-}
+        .loading-progress circle:last-child {
+            stroke: #1b6ec2;
+            stroke-dasharray: calc(3.141 * var(--blazor-load-percentage, 0%) * 0.8), 500%;
+            transition: stroke-dasharray 0.05s ease-in-out;
+        }
 
 .loading-progress-text {
     position: absolute;
@@ -198,9 +274,9 @@ body {
     inset: calc(20vh + 3.25rem) 0 auto 0.2rem;
 }
 
-.loading-progress-text:after {
-    content: var(--blazor-load-percentage-text, "Loading");
-}
+    .loading-progress-text:after {
+        content: var(--blazor-load-percentage-text, "Loading");
+    }
 
 :root {
     --bg: #ffffff;
@@ -218,32 +294,32 @@ body.dark {
 }
 
 body {
-    font-family: sans-serif;
+    font-family: Iranyekan;
     margin: 0;
     background: var(--bg);
     color: var(--text);
     direction: rtl;
 }
 
-    header .logo {
-        font-size: 20px;
-        font-weight: bold;
+header .logo {
+    font-size: 20px;
+    font-weight: bold;
+}
+
+header nav {
+    display: flex;
+    gap: 16px;
+}
+
+    header nav a {
+        color: white;
+        text-decoration: none;
+        font-weight: 600;
     }
 
-    header nav {
-        display: flex;
-        gap: 16px;
-    }
-
-        header nav a {
-            color: white;
-            text-decoration: none;
-            font-weight: 600;
+        header nav a:hover {
+            text-decoration: underline;
         }
-
-            header nav a:hover {
-                text-decoration: underline;
-            }
 
 .menu-btn {
     display: none;
@@ -433,3 +509,7 @@ button {
     .loading-progress-text:after {
         content: var(--blazor-load-percentage-text, "Loading");
     }
+
+
+
+

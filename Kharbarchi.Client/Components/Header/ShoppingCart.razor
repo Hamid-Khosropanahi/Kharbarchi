@@ -1,0 +1,34 @@
+﻿@namespace Kharbarchi.Client.Components.Header
+@using Kharbarchi.Client.Model
+@using Kharbarchi.Client.Model.Header
+
+<div class="wd-header-cart wd-tools-element @DesignClass cart-widget-opener @CssClass">
+    <a href="@CartUrl" title="سبد خرید">
+        <span class="wd-tools-icon">
+            <span class="wd-cart-number wd-tools-count">
+                @CartData.ItemCount <span>محصول</span>
+            </span>
+        </span>
+        <span class="wd-tools-text">
+            <span class="wd-cart-subtotal">
+                <span class="woocommerce-Price-amount amount">
+                    <bdi>@CartData.Total.ToString("N0")&nbsp;<span class="woocommerce-Price-currencySymbol">@CartData.Currency</span></bdi>
+                </span>
+            </span>
+        </span>
+    </a>
+</div>
+
+@code {
+    [Parameter]
+    public CartInfo CartData { get; set; } = new();
+
+    [Parameter]
+    public string CartUrl { get; set; } = "./cart/";
+
+    [Parameter]
+    public string DesignClass { get; set; } = "wd-design-2";
+
+    [Parameter]
+    public string CssClass { get; set; } = string.Empty;
+}

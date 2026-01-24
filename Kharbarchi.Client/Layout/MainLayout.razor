@@ -2,53 +2,11 @@
 @inject IJSRuntime JS
 
 <div class="layout">
-    <header class="app-header">
-        <div class="left">
-            @* <button class="menu-btn" @onclick="ToggleMenu">☰</button> *@
-             <div>
-                <NavMenu/>
-
-            </div>
-            <span class="logo">Kharbarchi</span>
-        </div>
-       
-        @* <nav class="nav @(menuOpen ? "open" : "")">
-            <NavLink href="/" Match="NavLinkMatch.All" @onclick="CloseMenu">خانه</NavLink>
-            <NavLink href="/products" @onclick="CloseMenu">محصولات</NavLink>
-
-            <AuthorizeView>
-                <Authorized>
-                    <NavLink href="/cart" @onclick="CloseMenu">سبد خرید</NavLink>
-					
-                </Authorized>
-                
-            </AuthorizeView>
-
-            <AuthorizeView>
-                <Authorized>
-                    <NavLink href="/admin/Dashboard" @onclick="CloseMenu">مدیریت</NavLink>
-					
-                </Authorized>
-                
-            </AuthorizeView>
-            
-            <AuthorizeView>
-                <Authorized>
-                    <a href="/auth/logout" class="btn-danger">خروج</a>
-					
-                </Authorized>
-                <NotAuthorized>
-                    <a href="/auth/login" class="btn">ورود</a>
-                </NotAuthorized>
-            </AuthorizeView>
-            
-            @* <NavLink href="/auth/login" @onclick="CloseMenu">ورود</NavLink> *@
-        @* </nav> *@
- 
-        <button class="theme-btn" @onclick="ToggleTheme">🌓</button>
+    <header>
+        <Header/>
     </header>
 
-    <main class="layout">
+    <main class="layout" >
         @Body
     </main>
 

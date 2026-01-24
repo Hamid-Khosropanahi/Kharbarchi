@@ -1,0 +1,65 @@
+﻿.site-header {
+    position: relative;
+    background: white;
+    z-index: 1000;
+}
+
+    /* Sticky */
+    .site-header.sticky {
+        position: fixed;
+        top: 0;
+        width: 100%;
+        box-shadow: 0 2px 10px rgba(0,0,0,.1);
+    }
+
+/* Mobile */
+.mobile-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+}
+
+.menu-btn {
+    font-size: 24px;
+    background: none;
+    border: none;
+}
+
+/* Mobile Menu */
+.overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.4);
+}
+
+.mobile-menu {
+    position: fixed;
+    top: 0;
+    right: -280px;
+    width: 280px;
+    height: 100vh;
+    background: white;
+    transition: right .3s ease;
+    padding: 16px;
+}
+
+    .mobile-menu.open {
+        right: 0;
+    }
+
+/* Desktop */
+.desktop-header {
+    display: none;
+}
+
+/* Responsive */
+@media (min-width: 992px) {
+    .mobile-header {
+        display: none;
+    }
+
+    .desktop-header {
+        display: flex;
+    }
+}

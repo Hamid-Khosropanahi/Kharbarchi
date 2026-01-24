@@ -1,0 +1,218 @@
+﻿@namespace Kharbarchi.Client.Components.Header
+@using Kharbarchi.Client.Model.Header
+@inject IJSRuntime JSRuntime
+@implements IAsyncDisposable
+
+<nav class="whb-header whb-scroll-stick whb-sticky-real whb-sticky-prepared">
+    <div class="whb-main-header">
+
+        <!-- Top Bar -->
+        <div class="whb-row whb-top-bar whb-not-sticky-row whb-with-bg whb-without-border whb-color-dark whb-hidden-mobile whb-flex-equal-sides">
+            <div class="container">
+                <div class="whb-flex-row whb-top-bar-inner">
+                    <div class="whb-column whb-col-left whb-column5 whb-visible-lg">
+                        <SocialIcons SocialIcons="@socialIcons" />
+                    </div>
+                    <div class="whb-column whb-col-center whb-column6 whb-visible-lg whb-empty-column"></div>
+                    <div class="whb-column whb-col-right whb-column7 whb-visible-lg">
+                        <NavigationMenu MenuItems="@topMenuItems"
+                                      NavClass="wd-header-nav wd-header-secondary-nav whb-rbolg44gjrvghdho9924 text-left"
+                                      MenuClass="menu wd-nav wd-nav-header wd-nav-secondary wd-style-separated wd-gap-m"
+                                      MenuId="menu-top-bar"
+                                      AriaLabel="نوار بالای سربرگ" />
+                    </div>
+                    <div class="whb-column whb-col-mobile whb-column_mobile1 whb-hidden-lg whb-empty-column"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- General Header -->
+        <div class="whb-row whb-general-header whb-sticky-row whb-with-bg whb-without-border whb-color-dark whb-with-shadow whb-flex-equal-sides">
+            <div class="container">
+                <div class="whb-flex-row whb-general-header-inner">
+                    <div class="whb-column whb-col-left whb-column8 whb-visible-lg">
+                        <UserAccount Username="@currentUser"
+                                   AccountUrl="./my-account/"
+                                   AccountLinks="@accountLinks" />
+                        
+                        <div class="wd-header-divider whb-divider-default whb-jdzuarb1mey0nszun3jt"></div>
+                        
+                        <InfoBox IconData="@deliveryInfo"
+                               CssClass="whb-wafnbs36h7690ijjmevd"
+                               BoxId="wd-696bef957c380" />
+                    </div>
+                    
+                    <div class="whb-column whb-col-center whb-column9 whb-visible-lg">
+                        <Logo LogoUrl="./css/For_Header/Asset-2@184.png"
+                            AltText="خواربارچی"
+                            MaxWidth="339px"
+                            CssClass="whb-qti1igqvj1kghkll7nnw" />
+                    </div>
+                    
+                    <div class="whb-column whb-col-right whb-column10 whb-visible-lg">
+                        <SearchButton CssClass="whb-sbo223hcef74cxvn0qlm" 
+                                    OnSearchClick="@HandleSearch" />
+                        
+                        <div class="wd-header-divider whb-divider-default whb-albm5uxuxxedb5jx8bqe"></div>
+                        
+                        <Wishlist WishlistCount="@wishlistCount"
+                                CssClass="whb-bn4605p0rzbsu7kup2fa" />
+                        
+                        <div class="wd-header-divider whb-divider-default whb-8ijvbgnt2ft9e1z9jshj"></div>
+                        <div class="wd-header-divider whb-divider-default whb-r4fzfqsna41dpbb48o2q"></div>
+                        
+                        <ShoppingCart CartData="@cartInfo"
+                                    CssClass="whb-909xiifk7ve155p9rk10" />
+                    </div>
+                    
+                    <!-- Mobile Columns -->
+                    <div class="whb-column whb-mobile-left whb-column_mobile2 whb-hidden-lg">
+                        <MobileMenuButton CssClass="whb-aon6pij7oan3rmwur4yl"
+                                        OnMenuClick="@HandleMobileMenu" />
+                    </div>
+                    
+                    <div class="whb-column whb-mobile-center whb-column_mobile3 whb-hidden-lg">
+                        <Logo LogoUrl="./css/For_Header/TypoGraphy@184.png"
+                            StickyLogoUrl="./css/For_Header/TypoGraphy@184.png"
+                            AltText="Kharbarchi"
+                            MaxWidth="150px"
+                            CssClass="whb-u3r4psb6w1c2nlkk82rj" />
+                    </div>
+                    
+                    <div class="whb-column whb-mobile-right whb-column_mobile4 whb-hidden-lg">
+                        <ShoppingCart CartData="@cartInfo"
+                                    DesignClass="wd-design-5"
+                                    CssClass="whb-n54o37l7tfuvsmhfskq0" />
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Header Bottom -->
+        <div class="whb-row whb-header-bottom whb-sticky-row whb-with-bg whb-without-border whb-color-light whb-hidden-mobile whb-flex-equal-sides">
+            <div class="container">
+                <div class="whb-flex-row whb-header-bottom-inner">
+                    <div class="whb-column whb-col-left whb-column11 whb-visible-lg">
+                        <NavigationMenu MenuItems="@mainMenuItemsRight"
+                                      NavClass="wd-header-nav wd-header-secondary-nav whb-12h0h9459wa7mu5h8ran text-right"
+                                      MenuClass="menu wd-nav wd-nav-header wd-nav-secondary wd-style-default wd-gap-s wd-offsets-calculated"
+                                      MenuId="menu-main-right"
+                                      AriaLabel="منوی اصلی راست" />
+                    </div>
+                    <div class="whb-column whb-col-center whb-column12 whb-visible-lg whb-empty-column"></div>
+                    <div class="whb-column whb-col-right whb-column13 whb-visible-lg">
+                        <NavigationMenu MenuItems="@mainMenuItemsLeft"
+                                      NavClass="wd-header-nav wd-header-secondary-nav whb-7owsphvfa2xjclaxkj3r text-left"
+                                      MenuClass="menu wd-nav wd-nav-header wd-nav-secondary wd-style-default wd-gap-l"
+                                      MenuId="menu-main-left"
+                                      AriaLabel="منوی چپ" />
+                    </div>
+                    <div class="whb-column whb-col-mobile whb-column_mobile5 whb-hidden-lg whb-empty-column"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</nav>
+
+@code {
+    private string currentUser = "admin";
+    private int wishlistCount = 0;
+    private CartInfo cartInfo = new() { ItemCount = 1, Total = 2900000 };
+    
+    private InfoBoxData deliveryInfo = new()
+    {
+        Title = "ارسال روز",
+        IconUrl = "./css/For_Header/same-day-delivery-41x24-1.png",
+        IconWidth = 41,
+        IconHeight = 24
+    };
+
+    private List<SocialIcon> socialIcons = new()
+    {
+        new() { Name = "Facebook", Url = "./#", AriaLabel = "Facebook link", CssClass = "social-facebook" },
+        new() { Name = "Twitter", Url = "./#", AriaLabel = "لینک شبکه X", CssClass = "social-twitter" },
+        new() { Name = "Instagram", Url = "./#", AriaLabel = "لینک اینستاگرام", CssClass = "social-instagram" },
+        new() { Name = "Youtube", Url = "./#", AriaLabel = "Youtube link", CssClass = "social-youtube" },
+        new() { Name = "Pinterest", Url = "./#", AriaLabel = "لینک Pinterest", CssClass = "social-pinterest" }
+    };
+
+    private List<UserAccountLink> accountLinks = new()
+    {
+        new() { Title = "پیشخوان", Url = "./my-account/", Icon = "dashboard" },
+        new() { Title = "سفارش‌ها", Url = "./my-account/orders/", Icon = "orders" },
+        new() { Title = "دانلودها", Url = "./my-account/downloads/", Icon = "downloads" },
+        new() { Title = "نشانی", Url = "./my-account/edit-address/", Icon = "edit-address" },
+        new() { Title = "جزئیات حساب", Url = "./my-account/edit-account/", Icon = "edit-account" },
+        new() { Title = "خروج", Url = "./my-account/customer-logout/?_wpnonce=275a96d75e", Icon = "customer-logout" }
+    };
+
+    private List<MenuItem> topMenuItems = new()
+    {
+        new() { Id = 18, Title = "فروشگاه", Url = "./shop/", CssClass = "" },
+        new() { Id = 17, Title = "بلاگ", Url = "./mag/", CssClass = "" },
+        new() { Id = 16, Title = "برند ها", Url = "./#", CssClass= "" },
+        new() { Id = 15, Title = "مطالب کاربران", Url = "./#", CssClass= "" }
+    };
+
+    private List<MenuItem> mainMenuItemsRight = new()
+    {
+        new() { Id = 19, Title = "صفحه اصلی", Url = "./", CssClass= "current-menu-item page_item page-item-13 current_page_item" },
+        new() 
+        { 
+            Id = 24, 
+            Title = "فروشگاه", 
+            Url = "./shop/",
+            CssClass= "menu-item-has-children",
+            Children = new List<MenuItem>
+            {
+                new() { Id = 23, Title = "سبد خرید", Url = "./cart/", CssClass= "" },
+                new() { Id = 22, Title = "حساب کاربری", Url = "./my-account/",CssClass= "" },
+                new() { Id = 21, Title = "پرداخت", Url = "./checkout/", CssClass= "" }
+            }
+        }
+    };
+
+    private List<MenuItem> mainMenuItemsLeft = new()
+    {
+        new() { Id = 282, Title = "بلاگ", Url = "./mag/", CssClass= "" },
+        new() { Id = 283, Title = "حساب کاربری", Url = "./my-account/", CssClass= "" }
+    };
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                await Task.Delay(200);
+                await JSRuntime.InvokeVoidAsync("headerSticky.init");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error initializing header: {ex.Message}");
+            }
+        }
+    }
+
+    private void HandleSearch()
+    {
+        Console.WriteLine("Search clicked");
+    }
+
+    private void HandleMobileMenu()
+    {
+        Console.WriteLine("Mobile menu clicked");
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("headerSticky.destroy");
+        }
+        catch
+        {
+            // Ignore errors during disposal
+        }
+    }
+}
