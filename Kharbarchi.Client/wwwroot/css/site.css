@@ -56,12 +56,104 @@
 }
 
 /* Dana */
+
+/* Thin (200) */
 @font-face {
     font-family: 'Dana';
-    src: url('./font/dana/woff/DanaFaNum-UltraLight.woff') format('woff'), url('./font/dana/woff/DanaFaNum-Thin.woff') format('woff'), url('./font/dana/woff/DanaFaNum-Regular.woff') format('woff'), url('./font/dana/woff/DanaFaNum-Medium.woff') format('woff'), url('./font/dana/woff/DanaFaNum-Light.woff') format('woff'), url('./font/dana/woff/DanaFaNum-Heavy.woff') format('woff'), url('./font/dana/woff/DanaFaNum-Hairline.woff') format('woff'), url('./font/dana/woff/DanaFaNum-fat.woff') format('woff'), url('./font/dana/woff/DanaFaNum-ExtraBold.woff') format('woff'), url('./font/dana/woff/DanaFaNum-ExtraBlack.woff') format('woff'), url('./font/dana/woff/DanaFaNum-DemiBold.woff') format('woff'), url('./font/dana/woff/DanaFaNum-Bold.woff') format('woff'), url('./font/dana/woff/DanaFaNum-Black.woff') format('woff');
-    font-weight: normal;
+    src: url('./font/dana/woff/DanaFaNum-Thin.woff') format('woff');
+    font-weight: 200;
     font-style: normal;
+    font-display: swap;
 }
+
+/* Light (300) */
+@font-face {
+    font-family: 'Dana';
+    src: url('./font/dana/woff/DanaFaNum-Light.woff') format('woff');
+    font-weight: 300;
+    font-style: normal;
+    font-display: swap;
+}
+
+/* Regular / Normal (400) */
+@font-face {
+    font-family: 'Dana';
+    src: url('./font/dana/woff/DanaFaNum-Regular.woff') format('woff');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+/* Medium (500) */
+@font-face {
+    font-family: 'Dana';
+    src: url('./font/dana/woff/DanaFaNum-Medium.woff') format('woff');
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+}
+
+/* DemiBold / SemiBold (600) */
+@font-face {
+    font-family: 'Dana';
+    src: url('./font/dana/woff/DanaFaNum-DemiBold.woff') format('woff');
+    font-weight: 600;
+    font-style: normal;
+    font-display: swap;
+}
+
+/* Bold (700) */
+@font-face {
+    font-family: 'Dana';
+    src: url('./font/dana/woff/DanaFaNum-Bold.woff') format('woff');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+
+/* ExtraBold (800) */
+@font-face {
+    font-family: 'Dana';
+    src: url('./font/dana/woff/DanaFaNum-ExtraBold.woff') format('woff');
+    font-weight: 800;
+    font-style: normal;
+    font-display: swap;
+}
+
+/* Black / Heavy (900) */
+@font-face {
+    font-family: 'Dana';
+    src: url('./font/dana/woff/DanaFaNum-Black.woff') format('woff');
+    font-weight: 850;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Dana';
+    src: url('./font/dana/woff/DanaFaNum-Heavy.woff') format('woff');
+    font-weight: 900;
+    font-style: normal;
+    font-display: swap;
+}
+
+/* Fat / ExtraBlack (950) - Some fonts use this */
+@font-face {
+    font-family: 'Dana';
+    src: url('./font/dana/woff/DanaFaNum-fat.woff') format('woff');
+    font-weight: 920;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Dana';
+    src: url('./font/dana/woff/DanaFaNum-ExtraBlack.woff') format('woff');
+    font-weight: 950;
+    font-style: normal;
+    font-display: swap;
+}
+
 
 /* Bakh */
 @font-face {
@@ -110,6 +202,7 @@
     --primary: #2f855a;
     --primary-dark: #276749;
     --card: #f8f8f8;
+    --Base_Header_Color: rgb(44, 171, 103);
 }
 
 body.dark {
@@ -512,4 +605,8 @@ button {
 
 
 
-
+    .badge{
+        font-size:10px !important;
+        z-index:1;
+            
+    }

@@ -38,7 +38,6 @@ builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<ProductAdminService>();
 builder.Services.AddScoped<OrderAdminService>();
 builder.Services.AddScoped<UserAdminService>();
-builder.Services.AddScoped<HeaderState>();
 
 
 await builder.Build().RunAsync();

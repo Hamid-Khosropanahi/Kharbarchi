@@ -48,18 +48,17 @@
                             MaxWidth="339px"
                             CssClass="whb-qti1igqvj1kghkll7nnw" />
                     </div>
-                    
                     <div class="whb-column whb-col-right whb-column10 whb-visible-lg">
-                        <SearchButton CssClass="whb-sbo223hcef74cxvn0qlm" 
+                        <SearchButton CssClass="bi bi-search whb-sbo223hcef74cxvn0qlm" 
                                     OnSearchClick="@HandleSearch" />
                         
                         <div class="wd-header-divider whb-divider-default whb-albm5uxuxxedb5jx8bqe"></div>
                         
                         <Wishlist WishlistCount="@wishlistCount"
-                                CssClass="whb-bn4605p0rzbsu7kup2fa" />
+                                CssClass="bi bi-heart whb-bn4605p0rzbsu7kup2fa" />
                         
                         <div class="wd-header-divider whb-divider-default whb-8ijvbgnt2ft9e1z9jshj"></div>
-                        <div class="wd-header-divider whb-divider-default whb-r4fzfqsna41dpbb48o2q"></div>
+                        @*<div class="wd-header-divider whb-divider-default whb-r4fzfqsna41dpbb48o2q"></div>*@
                         
                         <ShoppingCart CartData="@cartInfo"
                                     CssClass="whb-909xiifk7ve155p9rk10" />
@@ -129,21 +128,21 @@
 
     private List<SocialIcon> socialIcons = new()
     {
-        new() { Name = "Facebook", Url = "./#", AriaLabel = "Facebook link", CssClass = "social-facebook" },
-        new() { Name = "Twitter", Url = "./#", AriaLabel = "لینک شبکه X", CssClass = "social-twitter" },
-        new() { Name = "Instagram", Url = "./#", AriaLabel = "لینک اینستاگرام", CssClass = "social-instagram" },
-        new() { Name = "Youtube", Url = "./#", AriaLabel = "Youtube link", CssClass = "social-youtube" },
-        new() { Name = "Pinterest", Url = "./#", AriaLabel = "لینک Pinterest", CssClass = "social-pinterest" }
+        new() { Name = "Facebook", Url = "./#", AriaLabel = "Facebook link", CssClass = "bi bi-facebook" },
+        new() { Name = "Twitter", Url = "./#", AriaLabel = "لینک شبکه X", CssClass = "bi bi-twitter-x" },
+        new() { Name = "Instagram", Url = "./#", AriaLabel = "لینک اینستاگرام", CssClass = "bi bi-instagram" },
+        new() { Name = "Youtube", Url = "./#", AriaLabel = "Youtube link", CssClass = "bi bi-youtube" },
+        new() { Name = "Pinterest", Url = "./#", AriaLabel = "لینک Pinterest", CssClass = "bi bi-pinterest" }
     };
 
     private List<UserAccountLink> accountLinks = new()
     {
-        new() { Title = "پیشخوان", Url = "./my-account/", Icon = "dashboard" },
-        new() { Title = "سفارش‌ها", Url = "./my-account/orders/", Icon = "orders" },
-        new() { Title = "دانلودها", Url = "./my-account/downloads/", Icon = "downloads" },
-        new() { Title = "نشانی", Url = "./my-account/edit-address/", Icon = "edit-address" },
-        new() { Title = "جزئیات حساب", Url = "./my-account/edit-account/", Icon = "edit-account" },
-        new() { Title = "خروج", Url = "./my-account/customer-logout/?_wpnonce=275a96d75e", Icon = "customer-logout" }
+        new() { Title = "پیشخوان", Url = "./my-account/", Icon = "" },
+        new() { Title = "سفارش‌ها", Url = "./my-account/orders/", Icon = "" },
+        new() { Title = "دانلودها", Url = "./my-account/downloads/", Icon = "" },
+        new() { Title = "نشانی", Url = "./my-account/edit-address/", Icon = "" },
+        new() { Title = "جزئیات حساب", Url = "./my-account/edit-account/", Icon = "" },
+        new() { Title = "خروج", Url = "./my-account/customer-logout/?_wpnonce=275a96d75e", Icon = "" }
     };
 
     private List<MenuItem> topMenuItems = new()
@@ -175,7 +174,7 @@
     private List<MenuItem> mainMenuItemsLeft = new()
     {
         new() { Id = 282, Title = "بلاگ", Url = "./mag/", CssClass= "" },
-        new() { Id = 283, Title = "حساب کاربری", Url = "./my-account/", CssClass= "" }
+        new() { Id = 283, Title = "حساب کاربری", Url = "./my-account/", CssClass= "bi bi-person-bounding-box" }
     };
 
     protected override async Task OnAfterRenderAsync(bool firstRender)

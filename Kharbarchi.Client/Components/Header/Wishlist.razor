@@ -1,12 +1,11 @@
 ﻿@namespace Kharbarchi.Client.Components.Header
 
-<div class="wd-header-wishlist wd-tools-element wd-style-icon wd-with-count wd-design-2 @CssClass" title="لیست علاقمندی های من">
+<div class="wd-header-wishlist bi bi-heart fs-4  wd-with-count wd-design-2 @CssClass" style="color:dimgray" title="لیست علاقمندی های من">
     <a href="@WishlistUrl" title="محصولات علاقه مندی">
-        <span class="wd-tools-icon">
-            <span class="wd-tools-count">@WishlistCount</span>
+        <span class="position-absolute">
+            <span class="top-0 start-100 translate-middle badge rounded-pill text-bg-success" style="font-size:10px">@WishlistCount</span>
         </span>
         <span class="wd-tools-text">
-            علاقه مندی
         </span>
     </a>
 </div>
