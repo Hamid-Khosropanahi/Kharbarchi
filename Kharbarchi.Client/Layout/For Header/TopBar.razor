@@ -1,0 +1,40 @@
+﻿@using Kharbarchi.Client.Model
+<div class="whb-row whb-top-bar whb-not-sticky-row whb-with-bg whb-without-border whb-color-dark whb-hidden-mobile whb-flex-equal-sides">
+    <div class="container">
+        <div class="whb-flex-row whb-top-bar-inner">
+            <div class="whb-column whb-col-left whb-column5 whb-visible-lg">
+                <O_SocialIcon O_SocialIcon="socialIcons" />
+            </div>
+            <div class="whb-column whb-col-center whb-column6 whb-visible-lg whb-empty-column">
+            </div>
+            <div class="whb-column whb-col-right whb-column7 whb-visible-lg">
+                <Menu NavClass="wd-header-nav wd-header-secondary-nav whb-rbolg44gjrvghdho9924 text-left"
+                      AriaLabel="نوار بالای سربرگ"
+                      MenuId="menu-top-bar"
+                      MenuClass="wd-style-separated wd-gap-m"
+                      MenuItems="topBarMenuItems" />
+            </div>
+            <div class="whb-column whb-col-mobile whb-column_mobile1 whb-hidden-lg whb-empty-column">
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<O_SocialIcon> socialIcons = new List<O_SocialIcon>
+    {
+        new O_SocialIcon { Name = "Facebook", Url = "./#", AriaLabel = "Facebook link", Class = "social-facebook" },
+        new O_SocialIcon { Name = "Twitter", Url = "./#", AriaLabel = "لینک شبکه X", Class = "social-twitter" },
+        new O_SocialIcon { Name = "Instagram", Url = "./#", AriaLabel = "لینک اینستاگرام", Class = "social-instagram" },
+        new O_SocialIcon { Name = "Youtube", Url = "./#", AriaLabel = "Youtube link", Class = "social-youtube" },
+        new O_SocialIcon { Name = "Pinterest", Url = "./#", AriaLabel = "لینک Pinterest", Class = "social-pinterest" }
+    };
+
+    private List<O_MenuItem> topBarMenuItems = new List<O_MenuItem>
+    {
+        new O_MenuItem { Id = 18, Title = "فروشگاه", Url = "./shop/" },
+        new O_MenuItem { Id = 17, Title = "بلاگ", Url = "./mag/" },
+        new O_MenuItem { Id = 16, Title = "برند ها", Url = "./#" },
+        new O_MenuItem { Id = 15, Title = "مطالب کاربران", Url = "./#" }
+    };
+}

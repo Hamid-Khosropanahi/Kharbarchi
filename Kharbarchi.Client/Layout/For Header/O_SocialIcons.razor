@@ -1,0 +1,14 @@
+﻿@using Kharbarchi.Client.Model
+<div class="wd-social-icons wd-style-default wd-size-large social-follow wd-shape-circle whb-07sq4324oc66g2g47rnw color-scheme-dark text-center">
+    @foreach (var icon in socialIcons)
+    {
+        <a rel="noopener noreferrer nofollow" href="@icon.Url" target="_blank" class="wd-social-icon @icon.Class" aria-label="@icon.AriaLabel">
+            <span class="wd-icon"></span>
+        </a>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public List<O_SocialIcon> socialIcons { get; set; }
+}

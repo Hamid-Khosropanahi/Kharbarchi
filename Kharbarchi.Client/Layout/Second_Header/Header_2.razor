@@ -1,0 +1,26 @@
+﻿@inject HeaderState State
+@implements IDisposable
+@inject IJSRuntime JS
+
+
+<header class="site-header @(State.IsSticky ? "sticky" : "")">
+    <DesktopHeader_2 />
+    <MobileHeader_2 />
+</header>
+
+@code {
+    protected override void OnInitialized()
+    {
+        State.OnChange += StateHasChanged;
+    }
+
+    public void Dispose()
+    {
+        State.OnChange -= StateHasChanged;
+    }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+            await JS.InvokeVoidAsync("registerScroll");
+    }
+}

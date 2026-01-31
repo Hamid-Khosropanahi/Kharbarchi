@@ -1,0 +1,45 @@
+﻿@using Kharbarchi.Client.Model
+<nav class="@NavClass" role="navigation" aria-label="@AriaLabel">
+    <ul id="@MenuId" class="menu wd-nav wd-nav-header wd-nav-secondary @MenuClass">
+        @foreach (var item in MenuItems)
+        {
+            <li id="menu-item-@item.Id" class="menu-item @item.Class item-level-0 menu-simple-dropdown wd-event-hover">
+                <a href="@item.Url" class="Header_Base-nav-link">
+                    <span class="nav-link-text">@item.Title</span>
+                </a>
+                @if (item.Children.Any())
+                {
+                    <div class="color-scheme-dark wd-design-default wd-dropdown-menu wd-dropdown">
+                        <div class="container wd-entry-content">
+                            <ul class="wd-sub-menu color-scheme-dark">
+                                @foreach (var child in item.Children)
+                                {
+                                    <li id="menu-item-@child.Id" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-@child.Id item-level-1 wd-event-hover">
+                                        <a href="@child.Url" class="Header_Base-nav-link">@child.Title</a>
+                                    </li>
+                                }
+                            </ul>
+                        </div>
+                    </div>
+                }
+            </li>
+        }
+    </ul>
+</nav>
+
+@code {
+    [Parameter]
+    public string NavClass { get; set; }
+
+    [Parameter]
+    public string AriaLabel { get; set; }
+
+    [Parameter]
+    public string MenuId { get; set; }
+
+    [Parameter]
+    public string MenuClass { get; set; }
+
+    [Parameter]
+    public List<O_MenuItem> MenuItems { get; set; }
+}

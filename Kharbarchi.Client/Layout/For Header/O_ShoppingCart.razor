@@ -1,0 +1,27 @@
+﻿@* ShoppingCart.razor *@
+<div class="wd-header-cart wd-tools-element wd-design-2 cart-widget-opener whb-909xiifk7ve155p9rk10">
+    <a href="./cart/" title="سبد خرید">
+        <span class="wd-tools-icon">
+            <span class="wd-cart-number wd-tools-count">
+                @CartItemCount <span>محصول</span>
+            </span>
+        </span>
+        <span class="wd-tools-text">
+            <span class="wd-cart-subtotal">
+                <span class="Hd-Price-amount amount">
+                    <bdi>@FormattedTotalPrice<span class="Hd-Price-currencySymbol">تومان</span></bdi>
+                </span>
+            </span>
+        </span>
+    </a>
+</div>
+
+@code {
+    [Parameter]
+    public int CartItemCount { get; set; } = 1;
+
+    [Parameter]
+    public decimal TotalPrice { get; set; } = 2900000m;
+
+    private string FormattedTotalPrice => TotalPrice.ToString("N0");
+}
