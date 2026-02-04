@@ -8,16 +8,16 @@
 
         <!-- Top Bar -->
         <div class="whb-row whb-top-bar whb-not-sticky-row whb-with-bg whb-without-border whb-color-dark whb-hidden-mobile whb-flex-equal-sides">
-            <div class="container">
+            <div class="container"style="padding:0px !important">
                 <div class="whb-flex-row whb-top-bar-inner">
                     <div class="whb-column whb-col-left whb-column5 whb-visible-lg">
                         <SocialIcons SocialIcons="@socialIcons" />
                     </div>
                     <div class="whb-column whb-col-center whb-column6 whb-visible-lg whb-empty-column"></div>
                     <div class="whb-column whb-col-right whb-column7 whb-visible-lg">
-                        <NavigationMenu MenuItems="@topMenuItems"
+                        <Top_Bar_Menu MenuItems="@topMenuItems"
                                       NavClass="wd-header-nav wd-header-secondary-nav whb-rbolg44gjrvghdho9924 text-left"
-                                      MenuClass="menu wd-nav wd-nav-header wd-nav-secondary wd-style-separated wd-gap-m"
+                                      MenuClass="menu wd-nav wd-nav-header wd-nav-secondary wd-style-separated wd-gap-s"
                                       MenuId="menu-top-bar"
                                       AriaLabel="نوار بالای سربرگ" />
                     </div>
@@ -28,7 +28,7 @@
 
         <!-- General Header -->
         <div class="whb-row whb-general-header whb-sticky-row whb-with-bg whb-without-border whb-color-dark whb-with-shadow whb-flex-equal-sides">
-            <div class="container">
+            <div class="container"style="padding:0px !important">
                 <div class="whb-flex-row whb-general-header-inner">
                     <div class="whb-column whb-col-left whb-column8 whb-visible-lg">
                         <UserAccount Username="@currentUser"
@@ -89,12 +89,12 @@
 
         <!-- Header Bottom -->
         <div class="whb-row whb-header-bottom whb-sticky-row whb-with-bg whb-without-border whb-color-light whb-hidden-mobile whb-flex-equal-sides">
-            <div class="container">
+            <div class="container"style="padding:0px !important">
                 <div class="whb-flex-row whb-header-bottom-inner">
                     <div class="whb-column whb-col-left whb-column11 whb-visible-lg">
                         <NavigationMenu MenuItems="@mainMenuItemsRight"
                                       NavClass="wd-header-nav wd-header-secondary-nav whb-12h0h9459wa7mu5h8ran text-right"
-                                      MenuClass="menu wd-nav wd-nav-header wd-nav-secondary wd-style-default wd-gap-s wd-offsets-calculated"
+                                      MenuClass="menu wd-nav wd-nav-header wd-nav-secondary wd-style-default wd-gap-l wd-offsets-calculated"
                                       MenuId="menu-main-right"
                                       AriaLabel="منوی اصلی راست" />
                     </div>
@@ -174,7 +174,7 @@
     private List<MenuItem> mainMenuItemsLeft = new()
     {
         new() { Id = 282, Title = "بلاگ", Url = "./mag/", CssClass= "" },
-        new() { Id = 283, Title = "حساب کاربری", Url = "./my-account/", CssClass= "bi bi-person-bounding-box" }
+        new() { Id = 283, Title = "حساب کاربری", Url = "./my-account/", CssClass= "" }
     };
 
     protected override async Task OnAfterRenderAsync(bool firstRender)

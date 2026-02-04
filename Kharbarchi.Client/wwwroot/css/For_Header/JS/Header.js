@@ -31,8 +31,12 @@
         const stickyOffset = 150;
         let ticking = false;
 
-        const updateHeader = () => {
-            const currentScroll = window.pageYOffset || document.documentElement.scrollTop;
+        
+            const updateHeader = () => {
+                const currentScroll = window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
+
+                // Rest of your header update logic here...
+            
 
             if (currentScroll > stickyOffset && !this.isSticky) {
                 // Scrolled Down - Make Sticky

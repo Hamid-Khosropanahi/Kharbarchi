@@ -87,7 +87,7 @@ img {
 }
 
 a {
-    color: inherit !important;
+    color: #222222 !important;
     transition: all .25s ease;
     text-decoration: none;
 }
@@ -182,12 +182,12 @@ button {
 
 .whb-col-left, .whb-mobile-left {
     justify-content: flex-start;
-    margin-right: -10px;
+    margin-right: 20px;
 }
 
 .whb-col-right, .whb-mobile-right {
     justify-content: flex-end;
-    margin-left: -10px;
+    margin-left: 20px;
 }
 
 .whb-col-center {
@@ -265,7 +265,7 @@ button {
 
 /* Header Bottom */
 .whb-header-bottom {
-    background-color: rgba(46, 172, 102, 1);
+    background-color: rgba(44, 171, 103, 1);
     border-bottom-right-radius: 41px;
     border-bottom-left-radius: 41px;
     padding: 0 43px;
@@ -558,7 +558,21 @@ button {
     --color-gray-900: #242424;
     color: var(--wd-text-color);
 }
+.nav-link-text {
+    color: #fff;
+    font-family: 'Yekanbakh';
+    font-weight: 600;
+    font-size:13px;
+    padding: 5px;
+}
 
+.nav-link-Toptext {
+    color: #222222;
+    font-family: 'Yekanbakh';
+    font-weight: 600;
+    font-size: 13px;
+    padding: 5px 15px;
+}
 /* Container */
 .container {
     width: 100%;
@@ -579,7 +593,7 @@ button {
 
 .text-left {
     text-align: left;
-    margin: 0 auto 0 0 !important;
+    margin: 0 auto 0px 20px !important;
 }
 
 /* Responsive Classes */
@@ -606,9 +620,10 @@ button {
         display: none;
     }
     .container{
-        /*padding :0px !important;*/
+        padding :0px !important;
     }
  
+
     .whb-general-header .wd-logo:before {
         content: '';
         width: 239px;
@@ -1115,26 +1130,26 @@ button {
 .wd-header-divider.wd-full-height:before {
     height: 100%;
     width: 5px;
-    margin-right:5px;
+    margin-right:0 5px;
 }
 .wd-header-divider:before {
     content: "";
     display: block;
     height: 18px;
     border-right: 1px solid;
-    margin-right: 5px;
+    margin-right: 0 10px;
 }
 
 .whb-color-dark .wd-header-divider:before {
     border-color: var(--wd-divider-color, rgba(0, 0, 0, 0.105));
     width: 5px;
-    margin-right: 5px;
+    margin-right: 0 10px;
 }
 
 .whb-color-light .wd-header-divider:before {
     border-color: var(--wd-divider-color, rgba(255, 255, 255, 0.25));
-    width: 5px;
-    margin-right: 5px;
+    width: 10px;
+    margin-right: 10px;
 }
 
 .whb-col-right .wd-header-divider:last-child,
@@ -1208,3 +1223,11 @@ button {
     padding-right: 10px;
 }
     /*For Divider*/
+
+.wd-header-divider:before {
+    content: "";
+    display: block;
+    height: 18px;
+    padding:0 10px !important;
+    border-right: 1px solid
+}

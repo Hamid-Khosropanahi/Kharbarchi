@@ -1,0 +1,81 @@
+﻿@namespace Kharbarchi.Client.Components.Header
+@using Kharbarchi.Client.Model.Header
+
+<nav class="@NavClass" role="navigation" aria-label="@AriaLabel">
+    <ul id="@MenuId" class="@MenuClass">
+        @foreach (var item in MenuItems)
+        {
+            <li id="menu-item-@item.Id"
+                class="@GetMenuItemClass(item)">
+                <a href="@item.Url" class="Header_Base-nav-link">
+                    <span class="nav-link-Toptext">@item.Title</span>
+                </a>
+
+                @if (item.Children?.Any() == true)
+                {
+                    <div class="color-scheme-dark wd-design-default wd-dropdown-menu wd-dropdown wd-gap-s">
+                        <div class="container wd-entry-content">
+                            <ul class="wd-sub-menu color-scheme-dark">
+                                @foreach (var child in item.Children)
+                                {
+                                    <li id="menu-item-@child.Id"
+                                        class="@GetMenuItemClass(child)">
+                                        <a href="@child.Url" class="Header_Base-nav-link">
+                                            @child.Title
+                                        </a>
+                                    </li>
+                                }
+                            </ul>
+                        </div>
+                    </div>
+                }
+            </li>
+        }
+    </ul>
+</nav>
+
+@code {
+    [Parameter]
+    public List<MenuItem> MenuItems { get; set; } = new();
+
+    [Parameter]
+    public string NavClass { get; set; } = string.Empty;
+
+    [Parameter]
+    public string MenuClass { get; set; } = string.Empty;
+
+    [Parameter]
+    public string MenuId { get; set; } = string.Empty;
+
+    [Parameter]
+    public string AriaLabel { get; set; } = string.Empty;
+
+    private string GetMenuItemClass(MenuItem item)
+    {
+        var classes = new List<string>
+    {
+            "menu-item",
+            $"menu-item-{item.Id}",
+            "item-level-0",
+            "menu-simple-dropdown",
+            "wd-event-hover"
+        };
+
+        if (item.Children?.Any() == true)
+        {
+            classes.Add("menu-item-has-children");
+        }
+
+        if (item.IsActive)
+        {
+            classes.Add("current-menu-item");
+        }
+
+        if (!string.IsNullOrEmpty(item.CssClass))
+        {
+            classes.Add(item.CssClass);
+        }
+
+        return string.Join(" ", classes);
+    }
+}
