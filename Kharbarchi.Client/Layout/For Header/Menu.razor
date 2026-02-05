@@ -1,11 +1,17 @@
-﻿@using Kharbarchi.Client.Model
+﻿@using Kharbarchi.Client.Model.Header
+@using Microsoft.AspNetCore.Components
+
 <nav class="@NavClass" role="navigation" aria-label="@AriaLabel">
     <ul id="@MenuId" class="menu wd-nav wd-nav-header wd-nav-secondary @MenuClass">
         @foreach (var item in MenuItems)
         {
-            <li id="menu-item-@item.Id" class="menu-item @item.Class item-level-0 menu-simple-dropdown wd-event-hover">
+            <li id="menu-item-@item.Id" class="menu-item @item.CssClass item-level-0 menu-simple-dropdown wd-event-hover">
                 <a href="@item.Url" class="Header_Base-nav-link">
-                    <span class="nav-link-text">@item.Title</span>
+                    @if (!string.IsNullOrEmpty(item.IconClass))
+                    {
+                        <span class="@item.IconClass"></span>
+                    }
+                    <span class="@Base_Classes">@item.Title</span>
                 </a>
                 @if (item.Children.Any())
                 {
@@ -41,5 +47,9 @@
     public string MenuClass { get; set; }
 
     [Parameter]
-    public List<O_MenuItem> MenuItems { get; set; }
+    public List<MenuItem> MenuItems { get; set; }
+
+    [Parameter]
+    public string Base_Classes { get; set; } = "nav-link-text";
+
 }

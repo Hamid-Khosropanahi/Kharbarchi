@@ -2,41 +2,48 @@
 <div class="whb-row whb-general-header whb-sticky-row whb-with-bg whb-without-border whb-color-dark whb-with-shadow whb-flex-equal-sides">
     <div class="container">
         <div class="whb-flex-row whb-general-header-inner">
-            
+
             @* Left column - User account and info *@
             <div class="whb-column whb-col-left whb-column8 whb-visible-lg">
                 <UserAccountDropdown />
                 <div class="wd-header-divider whb-divider-default whb-jdzuarb1mey0nszun3jt"></div>
                 <DeliveryInfo />
             </div>
-            
+
             @* Center column - Logo *@
             <div class="whb-column whb-col-center whb-column9 whb-visible-lg">
-                <div class="site-logo whb-qti1igqvj1kghkll7nnw">
-                    <a href="/" class="wd-logo wd-main-logo" rel="home" aria-label="Website logo">
-                        <img src="/css/For_Header/Asset-2@184.png" 
-                             alt="Kharbarchi" 
-                             style="max-width: 339px;" 
-                             loading="lazy">
-                    </a>
-                </div>
+                <Logo LogoUrl="./css/For_Header/Asset-2@184.png"
+                      AltText="خواربارچی"
+                      MaxWidth="339px"
+                      CssClass="whb-qti1igqvj1kghkll7nnw" />
             </div>
-            
+            @*<div class="whb-column whb-col-center whb-column9 whb-visible-lg">
+            <div class="site-logo whb-qti1igqvj1kghkll7nnw">
+                <a href="/" class="wd-logo wd-main-logo" rel="home" aria-label="Website logo">
+                    <img src="/css/For_Header/Asset-2@184.png"
+                         alt="Kharbarchi"
+                         style="max-width: 339px;"
+                         loading="lazy">
+                </a>
+            </div>
+        </div>*@
+
             @* Right column - Search, wishlist, cart *@
-            <div class="whb-column whb-col-right whb-column10 whb-visible-lg">
-                <SearchButton />
-                <div class="wd-header-divider whb-divider-default whb-albm5uxuxxedb5jx8bqe"></div>
-                
-                <WishlistButton />
-                <div class="wd-header-divider whb-divider-default whb-8ijvbgnt2ft9e1z9jshj"></div>
-                <div class="wd-header-divider whb-divider-default whb-r4fzfqsna41dpbb48o2q"></div>
-                
-                <ShoppingCart />
-            </div>
-            
+        <div class="whb-column whb-col-right whb-column10 whb-visible-lg">
+            <SearchButton />
+            @*<div class="wd-header-divider whb-divider-default whb-8ijvbgnt2ft9e1z9jshj"></div>*@
+            <div class="wd-header-divider whb-divider-default whb-r4fzfqsna41dpbb48o2q"></div>
+
+            <Wishlist />
+            <div class="wd-header-divider whb-divider-default whb-8ijvbgnt2ft9e1z9jshj"></div>
+            <div class="wd-header-divider whb-divider-default whb-r4fzfqsna41dpbb48o2q"></div>
+            <O_ShoppingCart />
+
+        </div>
+
             @* Mobile version *@
             <MobileHeader />
-            
+
         </div>
     </div>
 </div>

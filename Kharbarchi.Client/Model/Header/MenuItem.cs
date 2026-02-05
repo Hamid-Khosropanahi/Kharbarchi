@@ -7,7 +7,8 @@
 		public string Url { get; set; } = string.Empty;
 		public List<MenuItem> Children { get; set; } = new();
 		public string CssClass { get; set; } = string.Empty;
+        public string IconClass { get; set; } // Add this
 		public bool IsActive { get; set; }
 		public string AriaLabel { get; set; } = string.Empty;
-	}
+    }
 }

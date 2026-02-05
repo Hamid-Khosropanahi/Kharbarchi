@@ -1,9 +1,10 @@
-﻿@using Kharbarchi.Client.Model
+﻿@using Kharbarchi.Client.Model.Header
+
 <div class="whb-row whb-top-bar whb-not-sticky-row whb-with-bg whb-without-border whb-color-dark whb-hidden-mobile whb-flex-equal-sides">
     <div class="container">
         <div class="whb-flex-row whb-top-bar-inner">
             <div class="whb-column whb-col-left whb-column5 whb-visible-lg">
-                <O_SocialIcon O_SocialIcon="socialIcons" />
+                <SocialIcons SocialIcons="@socialIcons" />
             </div>
             <div class="whb-column whb-col-center whb-column6 whb-visible-lg whb-empty-column">
             </div>
@@ -11,8 +12,9 @@
                 <Menu NavClass="wd-header-nav wd-header-secondary-nav whb-rbolg44gjrvghdho9924 text-left"
                       AriaLabel="نوار بالای سربرگ"
                       MenuId="menu-top-bar"
-                      MenuClass="wd-style-separated wd-gap-m"
-                      MenuItems="topBarMenuItems" />
+                      MenuClass="wd-style-separated wd-gap-s nav-link-Toptext"
+                      MenuItems="topBarMenuItems" 
+                      Base_Classes="nav-link-Toptext"/>
             </div>
             <div class="whb-column whb-col-mobile whb-column_mobile1 whb-hidden-lg whb-empty-column">
             </div>
@@ -21,20 +23,20 @@
 </div>
 
 @code {
-    private List<O_SocialIcon> socialIcons = new List<O_SocialIcon>
+    private List<SocialIcon> socialIcons = new()
     {
-        new O_SocialIcon { Name = "Facebook", Url = "./#", AriaLabel = "Facebook link", Class = "social-facebook" },
-        new O_SocialIcon { Name = "Twitter", Url = "./#", AriaLabel = "لینک شبکه X", Class = "social-twitter" },
-        new O_SocialIcon { Name = "Instagram", Url = "./#", AriaLabel = "لینک اینستاگرام", Class = "social-instagram" },
-        new O_SocialIcon { Name = "Youtube", Url = "./#", AriaLabel = "Youtube link", Class = "social-youtube" },
-        new O_SocialIcon { Name = "Pinterest", Url = "./#", AriaLabel = "لینک Pinterest", Class = "social-pinterest" }
+        new() { Name = "Facebook", Url = "./#", AriaLabel = "Facebook link", CssClass = "bi bi-facebook" },
+        new() { Name = "Twitter", Url = "./#", AriaLabel = "لینک شبکه X", CssClass = "bi bi-twitter-x" },
+        new() { Name = "Instagram", Url = "./#", AriaLabel = "لینک اینستاگرام", CssClass = "bi bi-instagram" },
+        new() { Name = "Youtube", Url = "./#", AriaLabel = "Youtube link", CssClass = "bi bi-youtube" },
+        new() { Name = "Pinterest", Url = "./#", AriaLabel = "لینک Pinterest", CssClass = "bi bi-pinterest" }
     };
 
-    private List<O_MenuItem> topBarMenuItems = new List<O_MenuItem>
+    private List<MenuItem> topBarMenuItems = new List<MenuItem>
     {
-        new O_MenuItem { Id = 18, Title = "فروشگاه", Url = "./shop/" },
-        new O_MenuItem { Id = 17, Title = "بلاگ", Url = "./mag/" },
-        new O_MenuItem { Id = 16, Title = "برند ها", Url = "./#" },
-        new O_MenuItem { Id = 15, Title = "مطالب کاربران", Url = "./#" }
+        new MenuItem { Id = 18, Title = "فروشگاه", Url = "./shop/" },
+        new MenuItem { Id = 17, Title = "بلاگ", Url = "./mag/" },
+        new MenuItem { Id = 16, Title = "برند ها", Url = "./#" },
+        new MenuItem { Id = 15, Title = "مطالب کاربران", Url = "./#" }
     };
 }

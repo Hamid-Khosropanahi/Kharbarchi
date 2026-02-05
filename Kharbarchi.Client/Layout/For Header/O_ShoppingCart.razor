@@ -1,15 +1,16 @@
-﻿@* ShoppingCart.razor *@
+﻿@using Kharbarchi.Client.Model.Header
+@* O_ShoppingCart.razor *@
 <div class="wd-header-cart wd-tools-element wd-design-2 cart-widget-opener whb-909xiifk7ve155p9rk10">
     <a href="./cart/" title="سبد خرید">
-        <span class="wd-tools-icon">
-            <span class="wd-cart-number wd-tools-count">
-                @CartItemCount <span>محصول</span>
+        <span class="bi bi-cart fs-4">
+            <span class="top-0 start-100 translate-middle badge rounded-pill text-bg-success" style="font-size : 10px">
+                @CartData.ItemCount <span></span>
             </span>
         </span>
         <span class="wd-tools-text">
             <span class="wd-cart-subtotal">
                 <span class="Hd-Price-amount amount">
-                    <bdi>@FormattedTotalPrice<span class="Hd-Price-currencySymbol">تومان</span></bdi>
+                    <bdi>@CartData.Total.ToString("N0")&nbsp;<span class="Hd-Price-currencySymbol">@CartData.Currency</span></bdi>
                 </span>
             </span>
         </span>
@@ -17,11 +18,22 @@
 </div>
 
 @code {
-    [Parameter]
-    public int CartItemCount { get; set; } = 1;
 
     [Parameter]
-    public decimal TotalPrice { get; set; } = 2900000m;
+    public CartInfo CartData { get; set; } = new CartInfo() { 
+   ItemCount=2,
+   Currency="تومان",
+   Total=3000
+        
+    
+    };
 
-    private string FormattedTotalPrice => TotalPrice.ToString("N0");
+    [Parameter]
+    public string CartUrl { get; set; } = "./cart/";
+
+    [Parameter]
+    public string DesignClass { get; set; } = string.Empty;
+
+    [Parameter]
+    public string CssClass { get; set; } = string.Empty;
 }

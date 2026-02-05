@@ -1,9 +1,10 @@
 ﻿@* MobileHeader.razor *@
 @inject IJSRuntime JS
+@using Kharbarchi.Client.Model.Header
 
 <div class="whb-column whb-mobile-left whb-column_mobile2 whb-hidden-lg">
     <div class="wd-tools-element wd-header-mobile-nav wd-style-text wd-design-1 whb-aon6pij7oan3rmwur4yl">
-        <a href="javascript:void(0)" rel="nofollow" aria-label="باز کردن منوی موبایل" >
+        <a href="javascript:void(0)" rel="nofollow" aria-label="باز کردن منوی موبایل">
             <span class="wd-tools-icon"></span>
             <span class="wd-tools-text">منو</span>
         </a>
@@ -12,7 +13,7 @@
 
 <div class="whb-column whb-mobile-center whb-column_mobile3 whb-hidden-lg">
     <div class="site-logo whb-u3r4psb6w1c2nlkk82rj wd-switch-logo">
-        <a href="./" class="wd-logo wd-main-logo" rel="home" aria-label="لوگوی وب سایت">
+        <a href="./" class="wd-logo wd-main-logo" rel="home" aria-label="Kharbarchi">
             <img width="184" height="65"
                  src="./css/For_Header/TypoGraphy@184.png"
                  class="attachment-full size-full"
@@ -22,24 +23,34 @@
                  loading="lazy"
                  sizes="(max-width: 184px) 100vw, 184px" />
         </a>
+        <a href="./" class="wd-logo wd-sticky-logo" rel="home"><img src="./css/For_Header/TypoGraphy@184.png" alt="Kharbarchi" style="max-width: 150px;" loading="lazy"></a>
     </div>
 </div>
 
 <div class="whb-column whb-mobile-right whb-column_mobile4 whb-hidden-lg">
-    <ShoppingCart CartItemCount="1" TotalPrice="2900000" />
+    <O_ShoppingCart CartData="CartData" />
 </div>
 
 @* Mobile Menu Overlay *@
 @* @if (IsMobileMenuOpen)
-{
-    <div class="mobile-menu-overlay" @onclick="CloseMobileMenu"></div>
-}
+    {
+        <div class="mobile-menu-overlay" @onclick="CloseMobileMenu"></div>
+    }
 
-@* Mobile Menu Sidebar *@
+    @* Mobile Menu Sidebar *@
 
 @code {
-    // [Inject]
-    // private NavigationManager Navigation { get; set; }
+
+    [Parameter]
+    public CartInfo CartData { get; set; } = new CartInfo()
+    {
+        ItemCount = 2,
+        Currency = "تومان",
+        Total = 3000
+
+
+    };    // [Inject]
+          // private NavigationManager Navigation { get; set; }
 
     // private bool IsMobileMenuOpen { get; set; }
     // private bool _jsInitialized = false;
