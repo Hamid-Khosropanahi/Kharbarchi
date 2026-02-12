@@ -667,3 +667,9 @@ button {
         z-index:1;
             
     }
+    /*For Fix Header*/
+@media (min-width: 1025px) {
+    body.header-sticky-active .whb-general-header .whb-flex-row.whb-general-header-inner {
+        margin: 0px calc((100% - 1320px)/2);
+    }
+}

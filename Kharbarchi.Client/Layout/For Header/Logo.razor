@@ -1,20 +1,29 @@
 ﻿@namespace Kharbarchi.Client.Components.Header
+@using Microsoft.JSInterop
+@* 👇 1. THIS LINE IS CRITICAL FOR DISPOSAL *@
+@implements IAsyncDisposable
+@inject IJSRuntime JSRuntime
 
 <div class="site-logo @CssClass @(HasStickyLogo ? "wd-switch-logo" : "")">
-    <a href="@HomeUrl" class="wd-logo wd-main-logo" rel="home" aria-label="@AltText">
-        <img src="@LogoUrl" 
-             alt="@AltText" 
-             style="max-width: @MaxWidth;" 
-             loading="lazy"
-             @attributes="AdditionalAttributes">
+
+    <!-- MAIN LOGO (3D Container) -->
+    <a href="@HomeUrl" class="wd-logo wd-main-logo" rel="home" aria-label="@AltText" style="max-width: @MaxWidth;">
+        <div id="canvas-container">
+            <svg id="canvas" viewBox="-250 -250 500 500">
+                <g id="spinning-group">
+                    <!-- Javascript will inject layers here -->
+                </g>
+            </svg>
+        </div>
     </a>
-    
+
+    <!-- STICKY LOGO -->
     @if (HasStickyLogo)
     {
         <a href="@HomeUrl" class="wd-logo wd-sticky-logo" rel="home">
-            <img src="@StickyLogoUrl" 
-                 alt="@AltText" 
-                 style="max-width: @MaxWidth;" 
+            <img src="@StickyLogoUrl"
+                 alt="@AltText"
+                 style="max-width: @MaxWidth;"
                  loading="lazy"
                  @attributes="AdditionalAttributes">
         </a>
@@ -35,7 +44,7 @@
     public string HomeUrl { get; set; } = "./";
 
     [Parameter]
-    public string MaxWidth { get; set; } = "339px";
+    public string MaxWidth { get; set; } = "180px";
 
     [Parameter]
     public string CssClass { get; set; } = string.Empty;
@@ -44,4 +53,42 @@
     public Dictionary<string, object>? AdditionalAttributes { get; set; }
 
     private bool HasStickyLogo => !string.IsNullOrEmpty(StickyLogoUrl);
+
+    // Variable to hold the reference to the JavaScript file
+    private IJSObjectReference? _jsModule;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                // Import the JS file as a module
+                _jsModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./JS/Rotate.js");
+
+                // Call the exported 'init3DLogo' function
+                await _jsModule.InvokeVoidAsync("init3DLogo");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"JS Load Error: {ex.Message}");
+            }
+        }
+    }
+
+    // 👇 2. CORRECTED DISPOSAL METHOD
+    async ValueTask IAsyncDisposable.DisposeAsync()
+    {
+        if (_jsModule is not null)
+        {
+            try
+            {
+                await _jsModule.DisposeAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Disposal Error: {ex.Message}");
+            }
+        }
+    }
 }

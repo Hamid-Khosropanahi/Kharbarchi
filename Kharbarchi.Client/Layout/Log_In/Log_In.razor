@@ -1,0 +1,87 @@
+﻿@page "/auth/log_in"
+
+<!-- Main Container -->
+<div class="auth-container">
+
+    <!-- Card Wrapper -->
+    <div class="wrapper @(_isRegisterMode ? "active" : "")">
+
+        <!-- Decorative Backgrounds (Visible on Desktop) -->
+        <span class="rotate-bg"></span>
+        <span class="rotate-bg2"></span>
+
+        <!-- LOGIN FORM -->
+        <div class="form-box login">
+            <h2 class="animation" style="--i:0; --j:21">ورود</h2>
+            <form>
+                <div class="input-box animation" style="--i:1; --j:22">
+                    <input type="text" required>
+                    <label>نام کاربری</label>
+                    <i class="bi bi-person-fill"></i>
+                </div>
+                <div class="input-box animation" style="--i:2; --j:23">
+                    <input type="password" required>
+                    <label>رمز عبور</label>
+                    <i class="bi bi-lock-fill"></i>
+                </div>
+                <button type="submit" class="animation" style="--i:3; --j:24">ورود</button>
+                <div class="linkTxt animation" style="--i:4; --j:25">
+                    <p>آیا اکانت ندارید؟ <a href="#" class="register-link" @onclick="ShowRegister" @onclick:preventDefault>ثبت نام</a></p>
+                </div>
+            </form>
+        </div>
+
+        <!-- INFO TEXT (Login Side - Desktop Only) -->
+        <div class="info-text login">
+            <h2 class="animation" style="--i:0; --j:20">خوش آمدید</h2>
+            <p class="animation" style="--i:1; --j:21">از اینکه در سایت ما عضو هستید ممنونیم.</p>
+        </div>
+
+        <!-- REGISTRATION FORM -->
+        <div class="form-box register">
+            <h2 class="animation" style="--i:17; --j:0">عضویت</h2>
+            <form>
+                <div class="input-box animation" style="--i:18; --j:1">
+                    <input type="text" required>
+                    <label>نام کاربری</label>
+                    <i class="bi bi-person-fill"></i>
+                </div>
+                <div class="input-box animation" style="--i:19; --j:2">
+                    <input type="email" required>
+                    <label>ایمیل</label>
+                    <i class="bi bi-envelope-fill"></i>
+                </div>
+                <div class="input-box animation" style="--i:20; --j:3">
+                    <input type="password" required>
+                    <label>رمز عبور</label>
+                    <i class="bi bi-lock-fill"></i>
+                </div>
+                <button type="submit" class="animation" style="--i:21; --j:4">عضویت</button>
+                <div class="linkTxt animation" style="--i:22; --j:5">
+                    <p>آیا اکانت دارید؟ <a href="#" class="login-link" @onclick="ShowLogin" @onclick:preventDefault>ورود</a></p>
+                </div>
+            </form>
+        </div>
+
+        <!-- INFO TEXT (Register Side - Desktop Only) -->
+        <div class="info-text register">
+            <h2 class="animation" style="--i:17; --j:0">خوش آمدید</h2>
+            <p class="animation" style="--i:18; --j:1">خوش حالیم که شما را در سایت خود به عنوان عضو داشته باشیم.</p>
+        </div>
+    </div>
+</div>
+
+@code
+{
+    private bool _isRegisterMode = false;
+
+    private void ShowRegister()
+    {
+        _isRegisterMode = true;
+    }
+
+    private void ShowLogin()
+    {
+        _isRegisterMode = false;
+    }
+}

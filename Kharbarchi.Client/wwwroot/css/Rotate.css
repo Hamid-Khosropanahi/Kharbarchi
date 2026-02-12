@@ -1,22 +1,31 @@
-/* Container for the 3D Logo */
+/* wwwroot/css/Rotate.css */
+
 #canvas-container {
-    width: 100%;
-    height: auto;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    /* Ensure it respects the parent's max-width */
-    max-width: inherit;
+    /* 1. DEFAULT SIZE (Top) */
+    width: 180px;
+    height: 180px;
+    /* REMOVED "transition" here to make it instant */
+
+    position: relative;
+    z-index: 10;
+    margin: 0 auto;
 }
 
-/* The SVG itself */
+/* 2. STICKY STATE (Scrolled Down) */
+/* Because there is no transition, this will snap instantly to 110px */
+.whb-header.whb-sticked #canvas-container,
+.whb-header.whb-sticky-on #canvas-container {
+    width: 110px;
+    height: 110px;
+}
+
 #canvas {
     width: 100%;
     height: 100%;
+    display: block;
     overflow: visible;
 }
 
-/* Override existing theme styles that might hide the svg */
 .wd-logo svg {
-    pointer-events: none; /* Let clicks pass through to the <a> tag */
+    pointer-events: none;
 }

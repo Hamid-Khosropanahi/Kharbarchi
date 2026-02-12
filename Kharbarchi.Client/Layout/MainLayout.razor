@@ -1,17 +1,19 @@
 ﻿@inherits LayoutComponentBase
+@using Kharbarchi.Client.Layout.For_Header
+@using Kharbarchi.Client.Layout.Footer
 @inject IJSRuntime JS
 
-<div >
+<div>
     <header>
-        <Kharbarchi.Client.Layout.For_Header.MainHeader/>
+        <MainHeader />
     </header>
 
-    <main class="layout" >
+    <main class="layout">
         @Body
     </main>
 
     <footer class="app-footer">
-        © Design By Rosa Khosropanahi
+        <Footer/>
     </footer>
 </div>
 

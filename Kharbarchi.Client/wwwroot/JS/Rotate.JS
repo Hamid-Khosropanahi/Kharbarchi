@@ -1,163 +1,139 @@
-// main.js
+﻿/* wwwroot/JS/Rotate.js */
 
-// 1. CONFIGURATION
+// Settings
 const ROTATION_SPEED = 0.0005;
-const THICKNESS = 16;
-const TOTAL_LAYERS = 20;
-// Increased minimum scale to prevent "Gap" flashing
-const MIN_SCALE = 0.01;
+const LAYER_SPACING = 0.5;
+const LAYER_COUNT = 15;
+const MIN_SCALE = 0.005;
 
-// 2. STATE
-let currentAngle = 0;
-let spinningGroup = document.getElementById("spinning-group");
+// Variables
+let animationId;
+let frontViewContainer;
+let backViewContainer;
+let layers = [];
 
-// Create containers
-const frontViewContainer = document.createElementNS(
-  "http://www.w3.org/2000/svg",
-  "g",
-);
-const backViewContainer = document.createElementNS(
-  "http://www.w3.org/2000/svg",
-  "g",
-);
+export function init3DLogo() {
 
-let frontLayers = [];
-let backLayers = [];
+    const spinningGroup = document.getElementById('spinning-group');
+    const canvas = document.getElementById('canvas');
 
-// 3. INITIALIZATION
-fetch("./Logo/logo.svg")
-  .then((response) => response.text())
-  .then((svgText) => {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(svgText, "image/svg+xml");
+    if (!spinningGroup || spinningGroup.hasChildNodes()) return;
 
-    const baseShape = doc.getElementById("base-shape");
-    const whiteContent = doc.getElementById("white-content");
+    fetch('Logo/logo.svg')
+        .then(response => {
+            if (!response.ok) throw new Error("HTTP error " + response.status);
+            return response.text();
+        })
+        .then(svgText => {
+            const parser = new DOMParser();
+            const svgDoc = parser.parseFromString(svgText, "image/svg+xml");
+            const svgEl = svgDoc.documentElement;
 
-    if (!baseShape || !whiteContent) {
-      console.error("Missing elements in SVG");
-      return;
-    }
+            // 1. GET VIEWBOX & CALCULATE CENTER
+            let vbString = svgEl.getAttribute('viewBox');
+            let viewBox = [0, 0, 100, 100]; // Default
 
-    build3DObject(baseShape, whiteContent);
+            if (vbString) {
+                // Parse numbers from string "0 0 500 500"
+                viewBox = vbString.split(/[\s,]+/).map(parseFloat);
+                canvas.setAttribute('viewBox', vbString);
+            } else {
+                // Fallback to width/height if viewbox missing
+                const w = parseFloat(svgEl.getAttribute('width')) || 100;
+                const h = parseFloat(svgEl.getAttribute('height')) || 100;
+                viewBox = [0, 0, w, h];
+                canvas.setAttribute('viewBox', `0 0 ${w} ${h}`);
+            }
 
-    spinningGroup.innerHTML = "";
-    spinningGroup.appendChild(frontViewContainer);
-    spinningGroup.appendChild(backViewContainer);
+            // Calculate exact center coordinates (X + Width/2, Y + Height/2)
+            const centerX = viewBox[0] + (viewBox[2] / 2);
+            const centerY = viewBox[1] + (viewBox[3] / 2);
 
-    // Initial State: Hide one, Show one using VISIBILITY (faster than display)
-    backViewContainer.style.visibility = "hidden";
+            // Format CSS string for center rotation
+            const centerOriginCss = `${centerX}px ${centerY}px`;
 
-    requestAnimationFrame(animate);
-  })
-  .catch((err) => console.error("Error loading SVG", err));
+            // 2. COPY STYLES & DEFS (Keep colors)
+            const defs = svgEl.querySelectorAll('defs');
+            const styles = svgEl.querySelectorAll('style');
+            defs.forEach(def => canvas.prepend(def.cloneNode(true)));
+            styles.forEach(style => canvas.prepend(style.cloneNode(true)));
 
-function build3DObject(baseNode, contentNode) {
-  // Measure Center
-  spinningGroup.appendChild(baseNode);
-  const box = baseNode.getBBox();
-  spinningGroup.removeChild(baseNode);
+            // 3. CREATE CONTAINERS
+            frontViewContainer = document.createElementNS("http://www.w3.org/2000/svg", "g");
+            backViewContainer = document.createElementNS("http://www.w3.org/2000/svg", "g");
+            spinningGroup.appendChild(backViewContainer);
+            spinningGroup.appendChild(frontViewContainer);
 
-  const cx = box.x + box.width / 2;
-  const cy = box.y + box.height / 2;
-  const centerTransform = `translate(${-cx}, ${-cy})`;
+            // 4. GET VISUAL ELEMENTS
+            const elementsToClone = Array.from(svgEl.children).filter(node =>
+                node.nodeType === 1 &&
+                !['defs', 'style', 'metadata'].includes(node.tagName.toLowerCase())
+            );
 
-  let tempLayersData = [];
+            // 5. BUILD LAYERS
+            elementsToClone.forEach((originalNode) => {
+                for (let i = 0; i < LAYER_COUNT; i++) {
+                    const clone = originalNode.cloneNode(true);
 
-  for (let i = 0; i < TOTAL_LAYERS; i++) {
-    const layerGroup = document.createElementNS(
-      "http://www.w3.org/2000/svg",
-      "g",
-    );
+                    // FIX: Force Rotation from Center
+                    clone.style.transformOrigin = centerOriginCss;
+                    // Ensure transform box uses the viewbox coordinates
+                    clone.style.transformBox = "view-box";
 
-    const baseClone = baseNode.cloneNode(true);
-    baseClone.removeAttribute("id");
-    baseClone.setAttribute("transform", centerTransform);
+                    const zOffset = (i - LAYER_COUNT / 2) * LAYER_SPACING;
 
-    // --- COLOR & STROKE FIX ---
-    if (i > 0 && i < TOTAL_LAYERS - 1) {
-      // Middle Layers (The Sides)
-      baseClone.style.fill = "#009e4d";
-      // Add stroke to fill gaps between layers during rotation
-      baseClone.style.stroke = "#009e4d";
-      baseClone.style.strokeWidth = "1px";
+                    // Apply Depth Shading
+                    if (i > 0 && i < LAYER_COUNT - 1) {
+                        clone.style.filter = "brightness(0.85)";
+                    }
+
+                    const layerObj = {
+                        element: clone,
+                        z: zOffset,
+                    };
+
+                    layers.push(layerObj);
+                    backViewContainer.appendChild(clone);
+                }
+            });
+
+            requestAnimationFrame(animate);
+        })
+        .catch(err => console.error("Error loading SVG:", err));
+}
+
+function animate(time) {
+    const angle = time * ROTATION_SPEED;
+    const cosAngle = Math.cos(angle);
+    const sinAngle = Math.sin(angle);
+
+    const isFrontView = cosAngle > 0;
+
+    if (isFrontView) {
+        frontViewContainer.style.visibility = "visible";
+        backViewContainer.style.visibility = "hidden";
     } else {
-      // Front and Back Faces
-      baseClone.style.fill = "#00C35A";
+        frontViewContainer.style.visibility = "hidden";
+        backViewContainer.style.visibility = "visible";
     }
 
-    layerGroup.appendChild(baseClone);
+    layers.forEach(layer => {
+        const x = layer.z * sinAngle;
+        let scaleX = Math.max(Math.abs(cosAngle), MIN_SCALE);
+        const direction = isFrontView ? 1 : -1;
 
-    // Add White Content (First and Last layer only)
-    if (i === 0 || i === TOTAL_LAYERS - 1) {
-      const contentClone = contentNode.cloneNode(true);
-      contentClone.removeAttribute("id");
-      contentClone.style.fill = "#FFFFFF";
-      contentClone.setAttribute("transform", centerTransform);
-      layerGroup.appendChild(contentClone);
-    }
+        // The transform-origin set in init3DLogo handles the center point.
+        // We just apply the translation (depth) and scale (rotation).
+        layer.element.setAttribute('transform',
+            `translate(${x}, 0) scale(${scaleX * direction}, 1)`
+        );
 
-    const zPos = (i / (TOTAL_LAYERS - 1)) * THICKNESS - THICKNESS / 2;
+        if (isFrontView && layer.element.parentElement !== frontViewContainer) {
+            frontViewContainer.appendChild(layer.element);
+        } else if (!isFrontView && layer.element.parentElement !== backViewContainer) {
+            backViewContainer.appendChild(layer.element);
+        }
+    });
 
-    tempLayersData.push({ node: layerGroup, z: zPos });
-  }
-
-  // Front Container (Back-to-Front Order)
-  tempLayersData.forEach((item) => {
-    const clone = item.node.cloneNode(true);
-    frontViewContainer.appendChild(clone);
-    frontLayers.push({ element: clone, z: item.z });
-  });
-
-  // Back Container (Front-to-Back Order)
-  for (let i = tempLayersData.length - 1; i >= 0; i--) {
-    const item = tempLayersData[i];
-    const clone = item.node.cloneNode(true);
-    backViewContainer.appendChild(clone);
-    backLayers.push({ element: clone, z: item.z });
-  }
-}
-
-// 4. ANIMATION LOOP
-function animate() {
-  currentAngle += ROTATION_SPEED;
-
-  const rawCos = Math.cos(currentAngle);
-  const sinAngle = Math.sin(currentAngle);
-
-  // --- CLAMP SCALE FIX ---
-  let scaleVal = rawCos;
-  if (Math.abs(scaleVal) < MIN_SCALE) {
-    scaleVal = scaleVal >= 0 ? MIN_SCALE : -MIN_SCALE;
-  }
-
-  // --- VISIBILITY TOGGLE FIX ---
-  // Use 'visibility' instead of 'display' to stop layout thrashing
-  if (rawCos > 0) {
-    if (frontViewContainer.style.visibility !== "visible") {
-      frontViewContainer.style.visibility = "visible";
-      backViewContainer.style.visibility = "hidden";
-    }
-    updateLayers(frontLayers, scaleVal, sinAngle);
-  } else {
-    if (backViewContainer.style.visibility !== "visible") {
-      backViewContainer.style.visibility = "visible";
-      frontViewContainer.style.visibility = "hidden";
-    }
-    updateLayers(backLayers, scaleVal, sinAngle);
-  }
-
-  requestAnimationFrame(animate);
-}
-
-function updateLayers(layersArray, scaleVal, sinAngle) {
-  for (let i = 0; i < layersArray.length; i++) {
-    const layer = layersArray[i];
-    const xShift = layer.z * sinAngle;
-    // Apply Transform
-    layer.element.setAttribute(
-      "transform",
-      `translate(${xShift}, 0) scale(${scaleVal}, 1)`,
-    );
-  }
+    animationId = requestAnimationFrame(animate);
 }
