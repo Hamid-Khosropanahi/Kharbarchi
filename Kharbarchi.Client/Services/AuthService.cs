@@ -20,21 +20,29 @@ public class AuthService
         _authStateProvider = authStateProvider;
     }
 
-    public async Task<bool> LoginAsync(string username, string password)
+    public async Task<LoginResponse> LoginAsync(string username, string password)
     {
-        var response = await _http.PostAsJsonAsync("api/auth/login",
-            new LoginRequest { UserName = username, Password = password });
+        var request = new LoginRequest { UserName = username, Password = password };
+        var response = await _http.PostAsJsonAsync("api/auth/login", request);
 
+        // If API is down or returns 500
         if (!response.IsSuccessStatusCode)
-            return false;
+        {
+            return new LoginResponse { IsSuccess = false, Message = "خطا در ارتباط با سرور." };
+        }
 
+        // Read result
         var result = await response.Content.ReadFromJsonAsync<LoginResponse>();
-        if (result is not { IsSuccess: true, Token: not null })
-            return false;
 
-        await _js.InvokeVoidAsync("localStorage.setItem", TokenKey, result.Token);
-        (_authStateProvider as JwtAuthStateProvider)?.NotifyUserAuthentication(result.Token);
-        return true;
+        if (result != null && result.IsSuccess && result.Token != null)
+        {
+            await _js.InvokeVoidAsync("localStorage.setItem", "authToken", result.Token);
+            (_authStateProvider as JwtAuthStateProvider)?.NotifyUserAuthentication(result.Token);
+            return result;
+        }
+
+        // Return the failure result with the message from the API
+        return result ?? new LoginResponse { IsSuccess = false, Message = "خطای نامشخص." };
     }
 
     public async Task LogoutAsync()

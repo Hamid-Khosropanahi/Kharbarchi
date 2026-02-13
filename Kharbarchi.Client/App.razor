@@ -1,14 +1,29 @@
-﻿<CascadingAuthenticationState>
-<Router AppAssembly="@typeof(App).Assembly">
-    <Found Context="routeData">
-        <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
-        <FocusOnNavigate RouteData="@routeData" Selector="h1" />
-    </Found>
-    <NotFound>
-        <PageTitle>Not found</PageTitle>
-        <LayoutView Layout="@typeof(MainLayout)">
-            <p role="alert">Sorry, there's nothing at this address.</p>
+﻿@using Kharbarchi.Client.Pages
+<CascadingAuthenticationState>
+    <Router AppAssembly="@typeof(App).Assembly">
+        <Found Context="routeData">
+            <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
+                <NotAuthorized>
+                    @if (context.User.Identity?.IsAuthenticated != true)
+                    {
+                        @* If user is not logged in, run our redirect logic *@
+                        <RedirectToLogin />
+                    }
+                    else
+                    {
+                        <p role="alert">شما اجازه دسترسی به این قسمت را ندارید ! ! ! </p>
+                    }
+                </NotAuthorized>
+            </AuthorizeRouteView>
+        </Found>
+        <NotFound>
+            <PageTitle>صفحه مورد نظر موجود نیست</PageTitle>
+         <LayoutView Layout="@typeof(MainLayout)">
+            <!-- If you want the nav bar, keep LayoutView. 
+                 If you want a pure full screen experience, 
+                 remove LayoutView and just use the component below -->
+            <NotFound />
         </LayoutView>
-    </NotFound>
-</Router>
+        </NotFound>
+    </Router>
 </CascadingAuthenticationState>

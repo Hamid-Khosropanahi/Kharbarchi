@@ -1,51 +1,54 @@
-﻿/* --- MAIN CONTAINER & VARIABLES --- */
-.auth-container {
-    /* Color Variables */
-    --white: #ffffff;
+﻿/* Container to center the wrapper independently */
+.body-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh; /* Changed to 100vh to ensure full centering */
+    width: 100%;
+    direction: rtl;
+    background-color: #f0f0f0; /* Optional: adds contrast to see the form better */
+}
+
+/* --- Validation Message Styling --- */
+::deep .validation-message {
+    font-size: 11px;
+    color: #e74c3c;
+    position: absolute;
+    bottom: -22px; /* Positioned just below the underline */
+    right: 0;
+    width: 100%;
+    text-align: right;
+    white-space: nowrap; /* Tries to keep error on one line */
+    overflow: visible;
+    z-index: 10;
+}
+
+.alert-msg {
+    color: #e74c3c;
+    font-size: 12px;
+    margin-top: 10px;
+    text-align: center;
+    font-weight: bold;
+}
+
+/* --- Wrapper (Main Form) --- */
+.wrapper {
+    position: relative;
+    /* CHANGED: Increased width by 20px (750 -> 770) */
+    width: 770px;
+    /* CHANGED: Increased height significantly (450 -> 550) to fit errors and 4 inputs */
+    height: 550px;
+    background: var(--white, #fff);
+    border: 2px solid var(--black, #2f2f2f);
+    border-radius: 10px;
+    box-shadow: 0 0 20px var(--black, #2f2f2f);
+    overflow: hidden;
+    --white: #fff;
     --black: #2f2f2f;
     --Green: #2fac66;
     --Orange: #ff9800;
-    --Beown: #d1b842;
-    --lightBulue: #17a;
-    /* Full Screen Fixed Background */
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background-color: #f5f5f5;
-    z-index: 2000;
-    /* CENTER ALIGNMENT */
-    display: flex;
-    justify-content: center; /* Horizontally Center */
-    align-items: center; /* Vertically Center */
-
-    direction: ltr; /* Keeps container structure correct */
-    font-family: 'Yekanbakh', sans-serif !important;
 }
 
-    /* GLOBAL RESET FOR CHILDREN */
-    .auth-container * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-        font-family: 'Yekanbakh', sans-serif;
-    }
-
-/* --- WRAPPER (THE CARD) --- */
-.wrapper {
-    position: relative;
-    width: 750px;
-    height: 450px;
-    background: var(--white);
-    border: 2px solid var(--black);
-    border-radius: 10px;
-    box-shadow: 0 0 20px var(--black);
-    overflow: hidden;
-    direction: rtl; /* Internal content direction */
-}
-
-    /* --- FORM BOX LAYOUT (Desktop) --- */
     .wrapper .form-box {
         position: absolute;
         top: 0;
@@ -61,27 +64,12 @@
             padding: 0 60px 0 40px;
         }
 
-        .wrapper .form-box.register {
-            padding: 0 40px 0 60px;
-            right: 0;
-        }
-
-/* --- TEXT & INPUTS --- */
 .form-box h2 {
     margin-bottom: 10px;
     position: relative;
     font-size: 32px;
-    font-family:'Dana';
-    font-weight:900;
-    font-style:normal;
-
-    color: var(--Green);
+    color: var(--Orange);
     text-align: center;
-}
-h2 {
-    font-family: 'Dana';
-    font-weight: 900;
-    font-style: normal;
 }
 
     .form-box h2::after {
@@ -99,10 +87,12 @@ h2 {
     position: relative;
     width: 100%;
     height: 50px;
-    margin: 25px 0;
+    /* CHANGED: Increased vertical margin (25px -> 35px) to give space for errors */
+    margin: 35px 0;
 }
 
-.input-box input {
+/* Fix Input styles for Blazor components */
+::deep .input-box input {
     width: 100%;
     height: 100%;
     background: transparent;
@@ -113,13 +103,13 @@ h2 {
     outline: none;
     border-bottom: 2px solid var(--black);
     transition: 0.5s;
-    padding-left: 25px;
+    padding-left: 23px;
     text-align: right;
 }
 
-    .input-box input:focus,
-    .input-box input:valid {
-        border-bottom-color: var(--lightBulue);
+    ::deep .input-box input:focus,
+    ::deep .input-box input:valid {
+        border-bottom-color: #17a;
     }
 
 .input-box label {
@@ -133,13 +123,13 @@ h2 {
     transition: 0.5s;
 }
 
-.input-box input:focus ~ label,
-.input-box input:valid ~ label {
+::deep .input-box input:focus ~ label,
+::deep .input-box input.modified.valid ~ label,
+::deep .input-box input.modified.invalid ~ label {
     top: -5px;
     color: var(--Orange);
 }
 
-/* ICONS */
 .input-box i {
     position: absolute;
     top: 50%;
@@ -149,16 +139,15 @@ h2 {
     transition: 0.5s;
 }
 
-.input-box input:focus ~ i,
-.input-box input:valid ~ i {
+::deep .input-box input:focus ~ i,
+::deep .input-box input:valid ~ i {
     color: var(--Orange);
 }
 
-/* BUTTONS */
 button {
     width: 100%;
     height: 45px;
-    background-color: var(--Green);
+    background-color: var(--Orange);
     color: var(--white);
     border: none;
     outline: none;
@@ -167,7 +156,6 @@ button {
     font-size: 16px;
     font-weight: 600;
     transition: 0.3s;
-    margin-top: 10px;
 }
 
     button:hover {
@@ -185,10 +173,9 @@ button {
         color: var(--Orange);
         text-decoration: none;
         font-weight: 600;
-        cursor: pointer;
     }
 
-/* --- ANIMATIONS (Desktop) --- */
+/* --- Animations --- */
 .wrapper .form-box.login .animation {
     transform: translateX(0);
     transition: 0.7s ease;
@@ -252,8 +239,9 @@ button {
     position: absolute;
     top: -4px;
     right: 0;
-    width: 850px;
-    height: 600px;
+    /* CHANGED: Increased size slightly to cover the larger wrapper */
+    width: 900px;
+    height: 700px;
     background: var(--Green);
     transform: rotate(10deg) skewY(40deg);
     transform-origin: bottom right;
@@ -264,6 +252,12 @@ button {
 .wrapper.active .rotate-bg {
     transform: rotate(0) skewY(0);
     transition-delay: 0.5s;
+}
+
+.wrapper .form-box.register {
+    padding: 0 40px 0 60px;
+    right: 0;
+    pointer-events: none;
 }
 
 .wrapper.active .form-box.register {
@@ -315,8 +309,9 @@ button {
     position: absolute;
     top: 100%;
     left: 250px;
-    width: 850px;
-    height: 700px;
+    /* CHANGED: Increased size slightly */
+    width: 900px;
+    height: 750px;
     background: var(--white);
     transform: rotate(0) skewY(0);
     transform-origin: bottom left;
@@ -329,80 +324,21 @@ button {
     transition-delay: 1.2s;
 }
 
-/* =========================================
-   MEDIA QUERIES (RESPONSIVE DESIGN)
-   ========================================= */
-
+/* --- Responsive Adjustments (Mobile) --- */
 @media (max-width: 768px) {
-    /* Shrink wrapper to fit screen and allow auto height if needed */
     .wrapper {
         width: 100%;
-        max-width: 400px; /* Limit width on phones */
-        height: 520px; /* Slightly taller for stacked content */
-        box-shadow: 0 0 10px rgba(0,0,0,0.2);
+        height: 100vh; /* Full height on mobile */
+        border-radius: 0;
+        border: none;
     }
 
-        /* Hide the complex rotating backgrounds and info text on mobile */
-        .wrapper .rotate-bg,
-        .wrapper .rotate-bg2,
-        .wrapper .info-text {
-            display: none;
-        }
-
-        /* Make forms full width */
         .wrapper .form-box {
             width: 100%;
-            padding: 0 30px;
-            position: absolute;
-            top: 0;
-            left: 0;
-            background: var(--white);
+            padding: 0 20px;
         }
 
-            /* Override Desktop Animations for simple Fade In/Out */
-
-            /* Login Default State */
-            .wrapper .form-box.login {
-                opacity: 1;
-                visibility: visible;
-                transform: none;
-                z-index: 5;
-                transition: opacity 0.4s ease;
-            }
-
-                .wrapper .form-box.login .animation {
-                    transform: none;
-                    filter: none;
-                    opacity: 1;
-                }
-
-            /* Register Default State */
-            .wrapper .form-box.register {
-                opacity: 0;
-                visibility: hidden;
-                transform: none;
-                right: 0;
-                z-index: 1;
-                transition: opacity 0.4s ease;
-            }
-
-        /* ACTIVE STATE (Switch to Register) */
-        .wrapper.active .form-box.login {
-            opacity: 0;
-            visibility: hidden;
-            transform: none;
+        .wrapper .info-text, .rotate-bg, .rotate-bg2 {
+            display: none; /* Hide animations/info on small screens to focus on inputs */
         }
-
-        .wrapper.active .form-box.register {
-            opacity: 1;
-            visibility: visible;
-            transform: none;
-            z-index: 5;
-        }
-
-            .wrapper.active .form-box.register .animation {
-                transform: none;
-                filter: none;
-                opacity: 1;
-            }
 }
