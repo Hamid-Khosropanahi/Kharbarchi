@@ -28,7 +28,7 @@
 </div>
 
 <div class="whb-column whb-mobile-right whb-column_mobile4 whb-hidden-lg">
-    <O_ShoppingCart CartData="CartData" />
+    <O_ShoppingCart  />
 </div>
 
 @* Mobile Menu Overlay *@
@@ -41,15 +41,15 @@
 
 @code {
 
-    [Parameter]
-    public CartInfo CartData { get; set; } = new CartInfo()
-    {
-        ItemCount = 2,
-        Currency = "تومان",
-        Total = 3000
+    // [Parameter]
+    // public CartInfo CartData { get; set; } = new CartInfo()
+    // {
+    //     ItemCount = 2,
+    //     Currency = "تومان",
+    //     Total = 3000
 
 
-    };    // [Inject]
+    // };    // [Inject]
           // private NavigationManager Navigation { get; set; }
 
     // private bool IsMobileMenuOpen { get; set; }

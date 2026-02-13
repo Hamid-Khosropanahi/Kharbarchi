@@ -1,13 +1,93 @@
 ﻿@using Kharbarchi.Shared.Models
-@using Microsoft.AspNetCore.Components
-@inject NavigationManager Nav
+@using Kharbarchi.Client.Services
+@inject CartService CartService
 
-<NavLink href="@($"/products/{Product.Slug}")" class="product-card">
-    <img src="@Product.ImageUrl" alt="@Product.Name" />
-    <h4>@Product.Name</h4>
-    <p>@Product.Price.ToString("N0") تومان</p>
-</NavLink>
+<div class="product-card">
 
-@code {
+    <!-- ناحیه تصویر و تعامل -->
+    <div class="image-container">
+        <!-- تصویر محصول -->
+        <img src="@(string.IsNullOrEmpty(Product.ImageUrl) ? "/images/placeholder.png" : Product.ImageUrl)"
+             alt="@Product.Name"
+             class="product-img" />
+
+        <!-- بج حراج (اختیاری) -->
+        @if (Product.OldPrice > Product.Price)
+        {
+            <span class="sale-badge">حراج</span>
+        }
+
+        <!-- لایه تعاملی روی تصویر -->
+        <div class="interaction-layer">
+
+            <!-- ناحیه چپ: حذف (۲۰٪ عرض) - فقط اگر در سبد باشد -->
+            @if (IsInCart)
+            {
+                <div class="zone zone-left" @onclick="RemoveFromBasket">
+                    <i class="bi bi-cart-dash zone-icon"></i>
+                </div>
+            }
+
+            <!-- فضای خالی وسط (۶۰٪) - کلیک روی این ناحیه می‌تواند به جزئیات برود یا کاری نکند -->
+            <!-- چون درخواست حذف دکمه چشم بود، این ناحیه خالی می‌ماند تا تصویر دیده شود -->
+            <div class="zone-spacer"></div>
+
+            <!-- ناحیه راست: افزودن (۲۰٪ عرض) -->
+            <div class="zone zone-right" @onclick="AddToBasket">
+                <i class="bi bi-cart-plus zone-icon"></i>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- اطلاعات محصول (زیر تصویر) -->
+    <div class="card-info">
+        <a href="@($"/products/{Product.Slug}")" class="title-link">
+            <h4 class="product-title">@Product.Name</h4>
+        </a>
+
+        <div class="price-wrapper">
+            @if (Product.OldPrice > Product.Price)
+            {
+                <span class="old-price">@Product.OldPrice?.ToString("N0")</span>
+            }
+            <span class="current-price">@Product.Price.ToString("N0") <small>تومان</small></span>
+        </div>
+    </div>
+
+</div>
+
+@code
+{
     [Parameter] public ProductDto Product { get; set; } = default!;
+
+    // بررسی اینکه آیا محصول در سبد هست یا خیر
+    private bool IsInCart => CartService.Items.Any(i => i.ProductId == Product.Id);
+
+    private void AddToBasket()
+    {
+        if (Product == null) return;
+
+        CartService.AddItem(new CartItemDto
+        {
+            ProductId = Product.Id,
+            ProductName = Product.Name,
+            UnitPrice = Product.Price,
+            Quantity = 1,
+            ImageUrl = Product.ImageUrl
+        });
+
+        // رفرش کردن وضعیت برای نمایش احتمالی دکمه چپ
+        StateHasChanged();
+    }
+
+    private void RemoveFromBasket()
+    {
+        if (Product == null) return;
+
+        CartService.RemoveItem(Product.Id);
+
+        // رفرش کردن وضعیت
+        StateHasChanged();
+    }
 }

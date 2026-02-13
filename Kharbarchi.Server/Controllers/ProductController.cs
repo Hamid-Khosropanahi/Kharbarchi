@@ -33,7 +33,8 @@ public class ProductController : ControllerBase
                 IsAvailable = p.IsAvailable,
                 CategoryName = p.Category!.Name,
                 ImageUrl = p.ImageUrl,
-                StockQuantity = p.StockQuantity
+                StockQuantity = p.StockQuantity,
+                OldPrice = p.OldPrice
             })
             .ToListAsync();
 
@@ -59,7 +60,8 @@ public class ProductController : ControllerBase
             IsAvailable = p.IsAvailable,
             CategoryName = p.Category!.Name,
             ImageUrl = p.ImageUrl,
-            StockQuantity = p.StockQuantity
+            StockQuantity = p.StockQuantity,
+            OldPrice = p.OldPrice
         };
 
         return Ok(dto);
@@ -81,7 +83,8 @@ public class ProductController : ControllerBase
                 IsAvailable = p.IsAvailable,
                 CategoryName = p.Category!.Name,
                 ImageUrl = p.ImageUrl,
-                StockQuantity = p.StockQuantity
+                StockQuantity = p.StockQuantity,
+                OldPrice = p.OldPrice
             })
             .ToListAsync();
 
