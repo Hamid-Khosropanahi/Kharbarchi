@@ -18,27 +18,18 @@ public class ProductController : ControllerBase
         _context = context;
     }
 
+    // ... imports
+
     [HttpGet]
     public async Task<ActionResult<IEnumerable<ProductDto>>> GetAll()
     {
         var products = await _context.Products
             .Include(p => p.Category)
-            .Select(p => new ProductDto
-            {
-                Id = p.Id,
-                Name = p.Name,
-                Slug = p.Slug,
-                Description = p.Description,
-                Price = p.Price,
-                IsAvailable = p.IsAvailable,
-                CategoryName = p.Category!.Name,
-                ImageUrl = p.ImageUrl,
-                StockQuantity = p.StockQuantity,
-                OldPrice = p.OldPrice
-            })
+            .Include(p => p.Variants) // حتما باید اینکلود شود
             .ToListAsync();
 
-        return Ok(products);
+        var result = products.Select(p => MapToDto(p)).ToList();
+        return Ok(result);
     }
 
     [HttpGet("{id:int}")]
@@ -46,48 +37,46 @@ public class ProductController : ControllerBase
     {
         var p = await _context.Products
             .Include(x => x.Category)
+            .Include(x => x.Variants)
             .FirstOrDefaultAsync(x => x.Id == id);
 
         if (p == null) return NotFound();
 
-        var dto = new ProductDto
+        return Ok(MapToDto(p));
+    }
+
+    // یک متد کمکی برای تبدیل به DTO که کد تکراری نشود
+    private static ProductDto MapToDto(Product p)
+    {
+        // پیدا کردن قیمت پیش‌فرض یا کمترین قیمت
+        var defaultVariant = p.Variants.FirstOrDefault(v => v.IsDefault)
+                             ?? p.Variants.OrderBy(v => v.Price).FirstOrDefault();
+
+        return new ProductDto
         {
             Id = p.Id,
             Name = p.Name,
             Slug = p.Slug,
             Description = p.Description,
-            Price = p.Price,
             IsAvailable = p.IsAvailable,
-            CategoryName = p.Category!.Name,
+            CategoryName = p.Category?.Name ?? "",
             ImageUrl = p.ImageUrl,
-            StockQuantity = p.StockQuantity,
-            OldPrice = p.OldPrice
-        };
 
-        return Ok(dto);
-    }
+            // محاسبه مقادیر از روی Variantها
+            Price = defaultVariant?.Price ?? 0,
+            OldPrice = defaultVariant?.OldPrice,
+            StockQuantity = p.Variants.Sum(v => v.StockQuantity),
 
-    [HttpGet("by-category/{slug}")]
-    public async Task<ActionResult<IEnumerable<ProductDto>>> GetByCategory(string slug)
-    {
-        var products = await _context.Products
-            .Include(p => p.Category)
-            .Where(p => p.Category!.Slug == slug)
-            .Select(p => new ProductDto
+            Variants = p.Variants.Select(v => new ProductVariantDto
             {
-                Id = p.Id,
-                Name = p.Name,
-                Slug = p.Slug,
-                Description = p.Description,
-                Price = p.Price,
-                IsAvailable = p.IsAvailable,
-                CategoryName = p.Category!.Name,
-                ImageUrl = p.ImageUrl,
-                StockQuantity = p.StockQuantity,
-                OldPrice = p.OldPrice
-            })
-            .ToListAsync();
-
-        return Ok(products);
+                Id = v.Id,
+                Name = v.Name,
+                Price = v.Price,
+                OldPrice = v.OldPrice,
+                StockQuantity = v.StockQuantity,
+                IsDefault = v.IsDefault
+            }).ToList()
+        };
     }
+
 }

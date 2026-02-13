@@ -13,56 +13,54 @@ namespace Kharbarchi.Client.Services
 
         public void AddItem(CartItemDto item)
         {
-            var existing = Items.FirstOrDefault(i => i.ProductId == item.ProductId);
+            // شرط بررسی: هم محصول و هم وزن باید یکی باشند
+            var existing = Items.FirstOrDefault(i => i.ProductId == item.ProductId && i.VariantId == item.VariantId);
+
             if (existing != null)
             {
-                existing.Quantity += item.Quantity; // معمولا item.Quantity اینجا 1 است
+                existing.Quantity += item.Quantity;
             }
             else
             {
                 Items.Add(item);
             }
-
             NotifyStateChanged();
         }
 
-        // --- اصلاح شده: متد کاهش تعداد ---
-        public void RemoveItem(int productId)
+        public void RemoveItem(int productId, int variantId) // ورودی تغییر کرد
         {
-            var existing = Items.FirstOrDefault(i => i.ProductId == productId);
+            // شرط بررسی: هم محصول و هم وزن
+            var existing = Items.FirstOrDefault(i => i.ProductId == productId && i.VariantId == variantId);
+
             if (existing != null)
             {
                 if (existing.Quantity > 1)
                 {
-                    // اگر بیشتر از یکی بود، فقط تعداد را کم کن
                     existing.Quantity--;
                 }
                 else
                 {
-                    // اگر آخرین عدد بود، آیتم را از لیست حذف کن
                     Items.Remove(existing);
                 }
-
                 NotifyStateChanged();
             }
         }
-        // --------------------------------
 
-        public void Clear()
+        // متد کمکی برای گرفتن تعداد یک وزن خاص از یک محصول
+        public int GetQuantity(int productId, int variantId)
         {
-            Items.Clear();
-            NotifyStateChanged();
-        }
-
-        // متد کمکی برای دریافت تعداد یک محصول خاص (برای نمایش در کارت محصول)
-        public int GetQuantity(int productId)
-        {
-            var item = Items.FirstOrDefault(i => i.ProductId == productId);
+            var item = Items.FirstOrDefault(i => i.ProductId == productId && i.VariantId == variantId);
             return item == null ? 0 : item.Quantity;
         }
 
         public decimal GetTotal() => Items.Sum(i => i.UnitPrice * i.Quantity);
 
         private void NotifyStateChanged() => OnChange?.Invoke();
+
+        public void Clear()
+        {
+            Items.Clear();
+            NotifyStateChanged();
+        }
     }
 }

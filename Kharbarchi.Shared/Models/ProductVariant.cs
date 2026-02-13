@@ -1,15 +1,26 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
-namespace Kharbarchi.Shared.Models
+namespace Kharbarchi.Shared.Models;
+
+public class ProductVariant
 {
-    public class ProductVariant
-    {
-        public int Id { get; set; }
-        public string Name { get; set; } // مثلا: "10 کیلوگرم"
-        public decimal Price { get; set; } // مثلا: 200
-        public bool IsDefault { get; set; } // برای مشخص کردن پیش‌فرض (25 کیلو)
-    }
+    public int Id { get; set; }
 
+    [Required]
+    public string Name { get; set; } = string.Empty; // مثال: "10 کیلوگرم"
+
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal Price { get; set; }
+
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal? OldPrice { get; set; } // قیمت خط خورده برای این وزن خاص
+
+    public int StockQuantity { get; set; }
+
+    public bool IsDefault { get; set; } // برای نمایش قیمت اولیه
+
+    // Foreign Key
+    public int ProductId { get; set; }
+    public Product? Product { get; set; }
 }

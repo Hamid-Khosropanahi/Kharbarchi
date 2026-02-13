@@ -17,11 +17,23 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole, str
 	public DbSet<OrderItem> OrderItems { get; set; }
 	public DbSet<Customer> Customers { get; set; }
 
-	protected override void OnModelCreating(ModelBuilder modelBuilder)
+    // در فایل AppDbContext.cs
+    public DbSet<ProductVariant> ProductVariants { get; set; }
+
+   
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
 	{
 		base.OnModelCreating(modelBuilder); // important: keeps Identity tables
 
-		modelBuilder.Entity<Category>().HasData(
+        modelBuilder.Entity<Product>()
+          .HasMany(p => p.Variants)
+          .WithOne(v => v.Product)
+          .HasForeignKey(v => v.ProductId)
+          .OnDelete(DeleteBehavior.Cascade); // اگر محصول پاک شد، وزن‌ها هم پاک شوند
+
+
+        modelBuilder.Entity<Category>().HasData(
 			new Category { Id = 1, Name = "لوبیا", Slug = "beans" },
 			new Category { Id = 2, Name = "عدس", Slug = "lentils" },
 			new Category { Id = 3, Name = "نخود", Slug = "chickpeas" }
@@ -34,11 +46,9 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole, str
 				Name = "لوبیا چیتی ممتاز",
 				Slug = "premium-pinto-beans",
 				Description = "لوبیا چیتی تازه و باکیفیت صادراتی.",
-				Price = 150000,
 				IsAvailable = true,
 				CategoryId = 1,
-				ImageUrl = "images/products/pinto-beans.jpg",
-				StockQuantity = 100
+				ImageUrl = "images/products/pinto-beans.jpg"
 			}
 		);
 	}

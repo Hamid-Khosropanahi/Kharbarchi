@@ -9,10 +9,14 @@ namespace Kharbarchi.Shared.Models;
 public class CartItemDto
 {
     public int ProductId { get; set; }
-    public string ProductName { get; set; } = default!;
-    public string? ImageUrl { get; set; }
+    public int VariantId { get; set; } // **جدید: شناسه تنوع**
+    public string ProductName { get; set; }
+    public string VariantName { get; set; } // **جدید: نام تنوع (مثلا 10 کیلو)**
     public decimal UnitPrice { get; set; }
     public int Quantity { get; set; }
+
+    public string? ImageUrl { get; set; }
+
 
     public decimal LineTotal => UnitPrice * Quantity;
 }

@@ -1,154 +1,49 @@
-﻿/* --- کانتینر اصلی کارت --- */
-.product-card {
-    background-color: #fff;
-    border-radius: 12px;
-    overflow: hidden;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-    height: 100%;
+﻿.variant-selector {
     display: flex;
-    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-top: -15px; /* کمی رفتن روی عکس یا چسبیدن به آن */
+    margin-bottom: 10px;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 5px;
+    border-radius: 20px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    width: fit-content;
+    margin-left: auto;
+    margin-right: auto;
+    z-index: 5;
+    position: relative;
 }
 
-    .product-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    .variant-selector.single {
+        border: 1px solid #eee;
+        background: #f9f9f9;
     }
 
-/* --- نگهدارنده تصویر --- */
-.image-container {
-    position: relative;
-    width: 100%;
-    height: 250px; /* ارتفاع ثابت برای یکدستی */
-    overflow: hidden; /* مخفی کردن بیرون زدگی تصویر هنگام زوم */
-    background-color: #f9f9f9;
-}
-
-/* 1. انیمیشن تصویر (Grow Up) */
-.product-img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    transition: transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-}
-
-/* وقتی روی کل کانتینر ایمیج هاور شد، عکس زوم شود */
-.image-container:hover .product-img {
-    transform: scale(1.15); /* زوم ۱۵ درصدی */
-}
-
-/* --- لایه تعاملی (Zones) --- */
-.interaction-layer {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    display: flex;
-    z-index: 10;
-}
-
-/* استایل عمومی نواحی */
-.zone {
-    width: 20%; /* دقیقاً ۲۰ درصد عرض */
-    height: 100%; /* تمام ارتفاع تصویر */
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    opacity: 0; /* در حالت عادی مخفی */
-    transition: all 0.3s ease;
-}
-
-/* فضای خالی وسط */
-.zone-spacer {
-    flex-grow: 1; /* فضای باقیمانده (حدود ۶۰٪) را پر می‌کند */
-    cursor: default;
-}
-
-/* --- 2. ناحیه راست (افزودن) --- */
-.zone-right {
-    background-color: rgba(47, 172, 102, 0.5); /* سبز با شفافیت ۵۰٪ */
-}
-
-/* --- 3. ناحیه چپ (حذف) --- */
-.zone-left {
-    background-color: rgba(253, 126, 20, 0.5); /* نارنجی با شفافیت ۵۰٪ */
-}
-
-/* --- منطق نمایش (Hover Logic) --- */
-
-/* وقتی ماوس وارد ناحیه راست شود */
-.zone-right:hover {
-    opacity: 1; /* نمایش پس‌زمینه و آیکون */
-}
-
-/* وقتی ماوس وارد ناحیه چپ شود */
-.zone-left:hover {
-    opacity: 1; /* نمایش پس‌زمینه و آیکون */
-}
-
-/* --- استایل آیکون‌ها --- */
-.zone-icon {
-    font-size: 1.8rem;
-    color: #fff;
-    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); /* سایه برای خوانایی بهتر */
-    transform: scale(0.8);
-    transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-/* انیمیشن کوچک پاپ شدن آیکون هنگام هاور روی ناحیه */
-.zone:hover .zone-icon {
-    transform: scale(1.2);
-}
-
-/* --- سایر اجزا --- */
-.sale-badge {
-    position: absolute;
-    top: 10px;
-    right: 10px; /* انتقال به راست چون چپ برای ناحیه حذف است */
-    background: #ff4757;
-    color: white;
-    padding: 4px 10px;
-    border-radius: 20px;
-    font-size: 0.8rem;
-    font-weight: bold;
-    z-index: 5;
-    pointer-events: none; /* تا مزاحم کلیک نشود */
-}
-
-.product-info {
-    padding: 15px;
-    text-align: center;
-    background: #fff;
-    z-index: 11;
-    position: relative;
-}
-
-.product-title {
-    font-size: 1rem;
-    margin: 0 0 8px;
-    color: #333;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.price-box {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 10px;
-}
-
-.new-price {
-    color: #2fac66;
-    font-weight: 800;
-    font-size: 1.1rem;
-}
-
-.old-price {
-    text-decoration: line-through;
-    color: #999;
+.variant-name {
     font-size: 0.9rem;
+    font-weight: bold;
+    color: #555;
+    min-width: 60px;
+    text-align: center;
 }
+
+.btn-arrow {
+    background: none;
+    border: none;
+    color: #333;
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 0 5px;
+    transition: color 0.2s;
+}
+
+    .btn-arrow:hover {
+        color: #007bff;
+    }
+
+    .btn-arrow:disabled {
+        color: #ccc;
+        cursor: default;
+    }

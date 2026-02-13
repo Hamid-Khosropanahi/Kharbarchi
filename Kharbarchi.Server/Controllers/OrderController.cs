@@ -38,22 +38,34 @@ public class OrderController : ControllerBase
             Customer = customer,
             Status = "New",
             PaymentMethod = request.PaymentMethod,
-            PaymentStatus = "Pending"
+            PaymentStatus = "Pending",
+            Items = new List<OrderItem>()
         };
 
         decimal total = 0;
 
         foreach (var item in request.Items)
         {
-            var product = await _context.Products.FirstOrDefaultAsync(p => p.Id == item.ProductId);
-            if (product == null)
-                return BadRequest($"محصول با شناسه {item.ProductId} یافت نشد.");
+            // 1. دریافت محصول و وزن انتخاب شده
+            var product = await _context.Products.FindAsync(item.ProductId);
+            var variant = await _context.ProductVariants.FindAsync(item.VariantId);
 
+            if (product == null || variant == null)
+                return BadRequest($"محصول یا وزن انتخاب شده نامعتبر است (ID: {item.ProductId})");
+
+            // بررسی اینکه آیا وزن متعلق به همان محصول است
+            if (variant.ProductId != product.Id)
+                return BadRequest("ناهماهنگی در اطلاعات محصول و وزن.");
+
+            // 2. ساخت آیتم سفارش با اطلاعات وزن
             var orderItem = new OrderItem
             {
                 ProductId = product.Id,
+                ProductVariantId = variant.Id,
+                VariantName = variant.Name, // ذخیره نام وزن برای تاریخچه
                 Quantity = item.Quantity,
-                UnitPrice = product.Price
+                UnitPrice = variant.Price // قیمت از Variant خوانده می‌شود
+
             };
 
             total += orderItem.UnitPrice * orderItem.Quantity;
@@ -67,14 +79,13 @@ public class OrderController : ControllerBase
 
         return Ok(order.Id);
     }
-
     [HttpGet("{id:int}")]
     public async Task<ActionResult<OrderDetailDto>> GetOrder(int id)
     {
         var order = await _context.Orders
             .Include(o => o.Customer)
             .Include(o => o.Items)
-            .ThenInclude(i => i.Product)
+            .ThenInclude(i => i.Product) // برای گرفتن نام اصلی و تصویر محصول
             .FirstOrDefaultAsync(o => o.Id == id);
 
         if (order == null) return NotFound();
@@ -85,8 +96,8 @@ public class OrderController : ControllerBase
             Status = order.Status,
             CreatedAt = order.CreatedAt,
             TotalAmount = order.TotalAmount,
-            PaymentMethod = order.PaymentMethod, // map from domain entity
-			Customer = new CustomerDto
+            PaymentMethod = order.PaymentMethod,
+            Customer = new CustomerDto
             {
                 FullName = order.Customer!.FullName,
                 PhoneNumber = order.Customer.PhoneNumber,
@@ -98,13 +109,22 @@ public class OrderController : ControllerBase
             Items = order.Items.Select(i => new OrderItemDto
             {
                 ProductId = i.ProductId,
+
+                // --- تغییرات جدید ---
+                ProductVariantId = i.ProductVariantId,
+                VariantName = i.VariantName, // نام وزن (مثلاً "10 کیلوگرم") که در دیتابیس ذخیره شده
+                                             // -------------------
+
                 ProductName = i.Product!.Name,
                 Quantity = i.Quantity,
                 UnitPrice = i.UnitPrice,
-                LineTotal = i.LineTotal
+
+                // اگر در OrderItem پراپرتی LineTotal ندارید، اینجا محاسبه کنید:
+                LineTotal = i.UnitPrice * i.Quantity
             }).ToList()
         };
 
         return Ok(dto);
     }
+
 }

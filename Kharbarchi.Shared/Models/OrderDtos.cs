@@ -9,7 +9,9 @@ namespace Kharbarchi.Shared.Models;
 public class OrderItemDto
 {
     public int ProductId { get; set; }
+    public int? ProductVariantId { get; set; } // اضافه شده
     public string ProductName { get; set; } = default!;
+    public string? VariantName { get; set; } // اضافه شده (مثلا 10 کیلویی)
     public int Quantity { get; set; }
     public decimal UnitPrice { get; set; }
     public decimal LineTotal { get; set; }
