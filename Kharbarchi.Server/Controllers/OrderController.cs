@@ -32,23 +32,31 @@ public sealed class OrderController : ControllerBase
             return BadRequest("تعداد کالا باید بزرگ‌تر از صفر باشد.");
         }
 
+        if (string.IsNullOrWhiteSpace(request.FullName) ||
+            string.IsNullOrWhiteSpace(request.PhoneNumber) ||
+            string.IsNullOrWhiteSpace(request.AddressLine) ||
+            string.IsNullOrWhiteSpace(request.City))
+        {
+            return BadRequest("نام، شماره تماس، آدرس و شهر الزامی هستند.");
+        }
+
         await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
 
         var customer = new Customer
         {
-            FullName = request.FullName.Trim(),
-            PhoneNumber = request.PhoneNumber.Trim(),
+            FullName = (request.FullName ?? string.Empty).Trim(),
+            PhoneNumber = (request.PhoneNumber ?? string.Empty).Trim(),
             Email = request.Email?.Trim(),
-            AddressLine = request.AddressLine.Trim(),
-            City = request.City.Trim(),
-            PostalCode = request.PostalCode?.Trim()
+            AddressLine = (request.AddressLine ?? string.Empty).Trim(),
+            City = (request.City ?? string.Empty).Trim(),
+            PostalCode = string.IsNullOrWhiteSpace(request.PostalCode) ? string.Empty : request.PostalCode.Trim()
         };
 
         var order = new Order
         {
             Customer = customer,
             Status = "New",
-            PaymentMethod = request.PaymentMethod,
+            PaymentMethod = string.IsNullOrWhiteSpace(request.PaymentMethod) ? "Offline" : request.PaymentMethod.Trim(),
             PaymentStatus = "Pending",
             Items = new List<OrderItem>()
         };
