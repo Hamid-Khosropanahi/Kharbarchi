@@ -1,14 +1,16 @@
-﻿using System.IdentityModel.Tokens.Jwt;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.JSInterop;
 
 namespace Kharbarchi.Client.Auth;
 
-public class JwtAuthStateProvider : AuthenticationStateProvider
+public sealed class JwtAuthStateProvider : AuthenticationStateProvider
 {
+    public const string TokenKey = "kharbarchi_auth_token";
+
+    private static readonly ClaimsPrincipal AnonymousUser = new(new ClaimsIdentity());
     private readonly IJSRuntime _js;
-    private const string TokenKey = "kharbarchi_auth_token";
 
     public JwtAuthStateProvider(IJSRuntime js)
     {
@@ -18,26 +20,40 @@ public class JwtAuthStateProvider : AuthenticationStateProvider
     public override async Task<AuthenticationState> GetAuthenticationStateAsync()
     {
         var token = await _js.InvokeAsync<string?>("localStorage.getItem", TokenKey);
-
-        if (string.IsNullOrWhiteSpace(token))
-            return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
-
-        var claims = new JwtSecurityTokenHandler().ReadJwtToken(token).Claims;
-        var identity = new ClaimsIdentity(claims, "jwt");
-        return new AuthenticationState(new ClaimsPrincipal(identity));
+        return BuildAuthenticationState(token);
     }
 
     public void NotifyUserAuthentication(string token)
     {
-        var claims = new JwtSecurityTokenHandler().ReadJwtToken(token).Claims;
-        var identity = new ClaimsIdentity(claims, "jwt");
-        NotifyAuthenticationStateChanged(
-            Task.FromResult(new AuthenticationState(new ClaimsPrincipal(identity))));
+        NotifyAuthenticationStateChanged(Task.FromResult(BuildAuthenticationState(token)));
     }
 
     public void NotifyUserLogout()
     {
-        NotifyAuthenticationStateChanged(
-            Task.FromResult(new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()))));
+        NotifyAuthenticationStateChanged(Task.FromResult(new AuthenticationState(AnonymousUser)));
+    }
+
+    private static AuthenticationState BuildAuthenticationState(string? token)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            return new AuthenticationState(AnonymousUser);
+        }
+
+        try
+        {
+            var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
+            if (jwt.ValidTo <= DateTime.UtcNow)
+            {
+                return new AuthenticationState(AnonymousUser);
+            }
+
+            var identity = new ClaimsIdentity(jwt.Claims, authenticationType: "jwt");
+            return new AuthenticationState(new ClaimsPrincipal(identity));
+        }
+        catch
+        {
+            return new AuthenticationState(AnonymousUser);
+        }
     }
 }

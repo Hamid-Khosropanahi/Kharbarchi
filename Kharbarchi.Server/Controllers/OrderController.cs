@@ -1,6 +1,6 @@
-﻿using Kharbarchi.Server.Data;
-using Kharbarchi.Server.Models;
+using Kharbarchi.Server.Data;
 using Kharbarchi.Shared.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -8,7 +8,8 @@ namespace Kharbarchi.Server.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class OrderController : ControllerBase
+[Produces("application/json")]
+public sealed class OrderController : ControllerBase
 {
     private readonly AppDbContext _context;
 
@@ -18,19 +19,29 @@ public class OrderController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<ActionResult<int>> CreateOrder([FromBody] CreateOrderRequest request)
+    [AllowAnonymous]
+    public async Task<ActionResult<int>> CreateOrder([FromBody] CreateOrderRequest request, CancellationToken cancellationToken = default)
     {
-        if (request.Items == null || !request.Items.Any())
+        if (request.Items is null || request.Items.Count == 0)
+        {
             return BadRequest("سبد خرید خالی است.");
+        }
+
+        if (request.Items.Any(i => i.Quantity <= 0))
+        {
+            return BadRequest("تعداد کالا باید بزرگ‌تر از صفر باشد.");
+        }
+
+        await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
 
         var customer = new Customer
         {
-            FullName = request.FullName,
-            PhoneNumber = request.PhoneNumber,
-            Email = request.Email,
-            AddressLine = request.AddressLine,
-            City = request.City,
-            PostalCode = request.PostalCode
+            FullName = request.FullName.Trim(),
+            PhoneNumber = request.PhoneNumber.Trim(),
+            Email = request.Email?.Trim(),
+            AddressLine = request.AddressLine.Trim(),
+            City = request.City.Trim(),
+            PostalCode = request.PostalCode?.Trim()
         };
 
         var order = new Order
@@ -46,49 +57,95 @@ public class OrderController : ControllerBase
 
         foreach (var item in request.Items)
         {
-            // 1. دریافت محصول و وزن انتخاب شده
-            var product = await _context.Products.FindAsync(item.ProductId);
-            var variant = await _context.ProductVariants.FindAsync(item.VariantId);
-
-            if (product == null || variant == null)
-                return BadRequest($"محصول یا وزن انتخاب شده نامعتبر است (ID: {item.ProductId})");
-
-            // بررسی اینکه آیا وزن متعلق به همان محصول است
-            if (variant.ProductId != product.Id)
-                return BadRequest("ناهماهنگی در اطلاعات محصول و وزن.");
-
-            // 2. ساخت آیتم سفارش با اطلاعات وزن
-            var orderItem = new OrderItem
+            if (item.VariantId > 0)
             {
-                ProductId = product.Id,
-                ProductVariantId = variant.Id,
-                VariantName = variant.Name, // ذخیره نام وزن برای تاریخچه
-                Quantity = item.Quantity,
-                UnitPrice = variant.Price // قیمت از Variant خوانده می‌شود
+                var variant = await _context.ProductVariants
+                    .Include(v => v.Product)
+                    .FirstOrDefaultAsync(v => v.Id == item.VariantId && v.ProductId == item.ProductId, cancellationToken);
 
-            };
+                if (variant is null || variant.Product is null || !variant.Product.IsAvailable)
+                {
+                    return BadRequest($"محصول یا حالت انتخاب‌شده نامعتبر است. ProductId={item.ProductId}, VariantId={item.VariantId}");
+                }
 
-            total += orderItem.UnitPrice * orderItem.Quantity;
-            order.Items.Add(orderItem);
+                if (variant.StockQuantity < item.Quantity)
+                {
+                    return BadRequest($"موجودی «{variant.Product.Name} - {variant.Name}» کافی نیست.");
+                }
+
+                variant.StockQuantity -= item.Quantity;
+
+                var orderItem = new OrderItem
+                {
+                    ProductId = variant.ProductId,
+                    ProductVariantId = variant.Id,
+                    VariantName = variant.Name,
+                    Sku = variant.Sku ?? variant.Product.Sku,
+                    WooCommerceProductId = variant.WooCommerceProductId ?? variant.Product.WooCommerceProductId,
+                    WooCommerceVariationId = variant.WooCommerceVariationId,
+                    Quantity = item.Quantity,
+                    UnitPrice = variant.Price
+                };
+
+                total += orderItem.UnitPrice * orderItem.Quantity;
+                order.Items.Add(orderItem);
+            }
+            else
+            {
+                var product = await _context.Products.FirstOrDefaultAsync(p => p.Id == item.ProductId, cancellationToken);
+                if (product is null || !product.IsAvailable)
+                {
+                    return BadRequest($"محصول انتخاب‌شده نامعتبر است. ProductId={item.ProductId}");
+                }
+
+                if (product.StockQuantity < item.Quantity)
+                {
+                    return BadRequest($"موجودی «{product.Name}» کافی نیست.");
+                }
+
+                product.StockQuantity -= item.Quantity;
+
+                var orderItem = new OrderItem
+                {
+                    ProductId = product.Id,
+                    ProductVariantId = null,
+                    VariantName = null,
+                    Sku = product.Sku,
+                    WooCommerceProductId = product.WooCommerceProductId,
+                    WooCommerceVariationId = null,
+                    Quantity = item.Quantity,
+                    UnitPrice = product.Price
+                };
+
+                total += orderItem.UnitPrice * orderItem.Quantity;
+                order.Items.Add(orderItem);
+            }
         }
 
         order.TotalAmount = total;
 
         _context.Orders.Add(order);
-        await _context.SaveChangesAsync();
+        await _context.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
         return Ok(order.Id);
     }
+
     [HttpGet("{id:int}")]
-    public async Task<ActionResult<OrderDetailDto>> GetOrder(int id)
+    [Authorize]
+    public async Task<ActionResult<OrderDetailDto>> GetOrder(int id, CancellationToken cancellationToken = default)
     {
         var order = await _context.Orders
+            .AsNoTracking()
             .Include(o => o.Customer)
             .Include(o => o.Items)
-            .ThenInclude(i => i.Product) // برای گرفتن نام اصلی و تصویر محصول
-            .FirstOrDefaultAsync(o => o.Id == id);
+            .ThenInclude(i => i.Product)
+            .FirstOrDefaultAsync(o => o.Id == id, cancellationToken);
 
-        if (order == null) return NotFound();
+        if (order is null)
+        {
+            return NotFound();
+        }
 
         var dto = new OrderDetailDto
         {
@@ -109,22 +166,15 @@ public class OrderController : ControllerBase
             Items = order.Items.Select(i => new OrderItemDto
             {
                 ProductId = i.ProductId,
-
-                // --- تغییرات جدید ---
                 ProductVariantId = i.ProductVariantId,
-                VariantName = i.VariantName, // نام وزن (مثلاً "10 کیلوگرم") که در دیتابیس ذخیره شده
-                                             // -------------------
-
+                VariantName = i.VariantName,
                 ProductName = i.Product!.Name,
                 Quantity = i.Quantity,
                 UnitPrice = i.UnitPrice,
-
-                // اگر در OrderItem پراپرتی LineTotal ندارید، اینجا محاسبه کنید:
                 LineTotal = i.UnitPrice * i.Quantity
             }).ToList()
         };
 
         return Ok(dto);
     }
-
 }

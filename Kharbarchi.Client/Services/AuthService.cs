@@ -1,4 +1,4 @@
-﻿using System.Net.Http.Json;
+using System.Net.Http.Json;
 using Kharbarchi.Client.Auth;
 using Kharbarchi.Shared.Auth;
 using Microsoft.AspNetCore.Components.Authorization;
@@ -6,61 +6,106 @@ using Microsoft.JSInterop;
 
 namespace Kharbarchi.Client.Services;
 
-public class AuthService
+public sealed class AuthService
 {
     private readonly HttpClient _http;
     private readonly IJSRuntime _js;
-    private readonly AuthenticationStateProvider _authStateProvider;
-    private const string TokenKey = "kharbarchi_auth_token";
+    private readonly JwtAuthStateProvider _authStateProvider;
 
     public AuthService(HttpClient http, IJSRuntime js, AuthenticationStateProvider authStateProvider)
     {
         _http = http;
         _js = js;
-        _authStateProvider = authStateProvider;
+        _authStateProvider = (JwtAuthStateProvider)authStateProvider;
     }
 
     public async Task<LoginResponse> LoginAsync(string username, string password)
     {
-        var request = new LoginRequest { UserName = username, Password = password };
-        var response = await _http.PostAsJsonAsync("api/auth/login", request);
+        try
+        {
+            var request = new LoginRequest
+            {
+                UserName = username.Trim(),
+                Password = password
+            };
 
-        // If API is down or returns 500
-        if (!response.IsSuccessStatusCode)
+            var response = await _http.PostAsJsonAsync("api/auth/login", request);
+            var result = await response.Content.ReadFromJsonAsync<LoginResponse>();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return result ?? new LoginResponse { IsSuccess = false, Message = "نام کاربری یا رمز عبور اشتباه است." };
+            }
+
+            if (result?.IsSuccess == true && !string.IsNullOrWhiteSpace(result.Token))
+            {
+                await StoreTokenAsync(result.Token);
+                return result;
+            }
+
+            return result ?? new LoginResponse { IsSuccess = false, Message = "خطای نامشخص در ورود." };
+        }
+        catch (HttpRequestException)
         {
             return new LoginResponse { IsSuccess = false, Message = "خطا در ارتباط با سرور." };
         }
-
-        // Read result
-        var result = await response.Content.ReadFromJsonAsync<LoginResponse>();
-
-        if (result != null && result.IsSuccess && result.Token != null)
+        catch (TaskCanceledException)
         {
-            await _js.InvokeVoidAsync("localStorage.setItem", "authToken", result.Token);
-            (_authStateProvider as JwtAuthStateProvider)?.NotifyUserAuthentication(result.Token);
-            return result;
+            return new LoginResponse { IsSuccess = false, Message = "زمان پاسخ‌گویی سرور تمام شد." };
         }
-
-        // Return the failure result with the message from the API
-        return result ?? new LoginResponse { IsSuccess = false, Message = "خطای نامشخص." };
     }
 
     public async Task LogoutAsync()
     {
-        await _js.InvokeVoidAsync("localStorage.removeItem", TokenKey);
-        (_authStateProvider as JwtAuthStateProvider)?.NotifyUserLogout();
+        await _js.InvokeVoidAsync("localStorage.removeItem", JwtAuthStateProvider.TokenKey);
+        _authStateProvider.NotifyUserLogout();
     }
 
+    // این امضا برای سازگاری با صفحات فعلی پروژه حفظ شده است.
     public async Task<bool> RegisterAsync(string username, string password, string? email, string? fullName)
     {
-        var response = await _http.PostAsJsonAsync("api/auth/register", new RegisterRequest
-        {
-            UserName = username,
-            Password = password,
-            Email = email,
-            FullName = fullName
-        });
+        var result = await RegisterWithResponseAsync(username, password, email, fullName);
+        return result.IsSuccess;
+    }
 
-        return response.IsSuccessStatusCode;
+    public async Task<LoginResponse> RegisterWithResponseAsync(string username, string password, string? email, string? fullName)
+    {
+        try
+        {
+            var response = await _http.PostAsJsonAsync("api/auth/register", new RegisterRequest
+            {
+                UserName = username.Trim(),
+                Password = password,
+                Email = email?.Trim(),
+                FullName = fullName?.Trim()
+            });
+
+            var result = await response.Content.ReadFromJsonAsync<LoginResponse>();
+            if (!response.IsSuccessStatusCode)
+            {
+                return result ?? new LoginResponse { IsSuccess = false, Message = "ثبت‌نام ناموفق بود." };
+            }
+
+            if (result?.IsSuccess == true && !string.IsNullOrWhiteSpace(result.Token))
+            {
+                await StoreTokenAsync(result.Token);
+            }
+
+            return result ?? new LoginResponse { IsSuccess = false, Message = "خطای نامشخص در ثبت‌نام." };
+        }
+        catch (HttpRequestException)
+        {
+            return new LoginResponse { IsSuccess = false, Message = "خطا در ارتباط با سرور." };
+        }
+        catch (TaskCanceledException)
+        {
+            return new LoginResponse { IsSuccess = false, Message = "زمان پاسخ‌گویی سرور تمام شد." };
+        }
+    }
+
+    private async Task StoreTokenAsync(string token)
+    {
+        await _js.InvokeVoidAsync("localStorage.setItem", JwtAuthStateProvider.TokenKey, token);
+        _authStateProvider.NotifyUserAuthentication(token);
     }
 }

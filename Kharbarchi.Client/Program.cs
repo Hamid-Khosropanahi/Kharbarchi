@@ -10,26 +10,26 @@ var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
-// آدرس API – برای توسعه:
-var apiBase = "https://localhost:7100/";
+var apiBaseUrl = builder.Configuration["Api:BaseUrl"];
+if (string.IsNullOrWhiteSpace(apiBaseUrl))
+{
+    throw new InvalidOperationException("Client configuration Api:BaseUrl is missing. Add it to wwwroot/appsettings.json.");
+}
 
-// HttpClient با Token Handler
 builder.Services.AddTransient<AuthTokenHandler>();
-
 builder.Services.AddHttpClient("KharbarchiAPI", client =>
 {
-    client.BaseAddress = new Uri(apiBase);
+    client.BaseAddress = new Uri(apiBaseUrl, UriKind.Absolute);
+    client.Timeout = TimeSpan.FromSeconds(30);
 })
 .AddHttpMessageHandler<AuthTokenHandler>();
 
-builder.Services.AddScoped(sp =>
-    sp.GetRequiredService<IHttpClientFactory>().CreateClient("KharbarchiAPI"));
+builder.Services.AddScoped(sp => sp.GetRequiredService<IHttpClientFactory>().CreateClient("KharbarchiAPI"));
 
-// Auth
 builder.Services.AddAuthorizationCore();
-builder.Services.AddScoped<AuthenticationStateProvider, JwtAuthStateProvider>();
+builder.Services.AddScoped<JwtAuthStateProvider>();
+builder.Services.AddScoped<AuthenticationStateProvider>(sp => sp.GetRequiredService<JwtAuthStateProvider>());
 
-// Services
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<ProductService>();
 builder.Services.AddScoped<CartService>();
@@ -38,7 +38,10 @@ builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<ProductAdminService>();
 builder.Services.AddScoped<OrderAdminService>();
 builder.Services.AddScoped<UserAdminService>();
-
-
+builder.Services.AddScoped<CatalogAdminClient>();
+builder.Services.AddScoped<PriceWorkflowClient>();
+builder.Services.AddScoped<InventoryWorkflowClient>();
+builder.Services.AddScoped<SyncOutboxClient>();
+builder.Services.AddScoped<OrderWorkflowClient>();
 
 await builder.Build().RunAsync();
