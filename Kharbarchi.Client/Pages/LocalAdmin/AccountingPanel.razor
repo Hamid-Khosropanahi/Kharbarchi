@@ -1,0 +1,70 @@
+@page "/local-admin/accounting"
+@using Kharbarchi.Shared.Contracts
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "SuperAdmin,Admin,Accountant")]
+@inject Kharbarchi.Client.Services.OrderWorkflowClient Workflow
+
+<PageTitle>حسابداری سفارش‌ها</PageTitle>
+
+<section class="khb-shell" dir="rtl">
+    <div class="khb-card">
+        <h1>ثبت دستی دریافتی برای سفارش</h1>
+        <p>حسابداری می‌تواند سفارش و اقلامش را ببیند و در صورت دریافت وجه خارج از درگاه، رسید دستی ثبت کند.</p>
+        <div class="khb-grid">
+            <label>Order Id یا Woo Order Id<input type="number" @bind="orderId" /></label>
+            <label>مبلغ<input type="number" @bind="amount" /></label>
+            <label>ارز<input @bind="currency" /></label>
+            <label>شماره رسید<input @bind="receiptNumber" /></label>
+            <label>منبع پرداخت<input @bind="paymentSource" /></label>
+            <label class="check"><input type="checkbox" @bind="sendToWoo" /> ثبت پرداخت در WooCommerce</label>
+        </div>
+        <textarea @bind="note" placeholder="توضیحات حسابداری"></textarea>
+        <button class="khb-primary" @onclick="CreateReceiptAsync" disabled="@busy">ثبت دریافتی</button>
+    </div>
+
+    @if (receipt is not null)
+    {
+        <div class="khb-alert ok">رسید @receipt.ReceiptNumber با مبلغ @receipt.Amount.ToString("N0") ثبت شد.</div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(message))
+    {
+        <div class="khb-alert warn">@message</div>
+    }
+</section>
+
+<style>
+.khb-shell{padding:24px;background:#f7f4ef;min-height:100vh}.khb-card{background:#fff;border-radius:24px;padding:22px;margin-bottom:18px;box-shadow:0 12px 30px #0001}.khb-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}.khb-grid label{display:flex;flex-direction:column;gap:8px;font-weight:700}.khb-card input,.khb-card textarea{border:1px solid #ddd;border-radius:12px;padding:10px}.khb-card textarea{width:100%;min-height:90px;margin-top:14px}.check{flex-direction:row!important;align-items:center}.khb-primary{border:0;border-radius:14px;padding:12px 16px;background:#2d6a4f;color:white;font-weight:700;margin-top:16px}.khb-alert{border-radius:16px;padding:14px;margin-top:12px}.khb-alert.ok{background:#e9f5ec;border:1px solid #b7dfc4}.khb-alert.warn{background:#fff3cd;border:1px solid #ffe69c}
+</style>
+
+@code {
+    private bool busy;
+    private long orderId;
+    private decimal amount;
+    private string currency = "IRR";
+    private string receiptNumber = string.Empty;
+    private string paymentSource = "BankTransfer";
+    private string? note;
+    private bool sendToWoo = true;
+    private string? message;
+    private ManualPaymentReceiptDto? receipt;
+
+    private async Task CreateReceiptAsync()
+    {
+        busy = true; message = null; receipt = null;
+        try
+        {
+            receipt = await Workflow.CreateManualReceiptAsync(orderId, new CreateManualPaymentReceiptRequest
+            {
+                Amount = amount,
+                Currency = currency,
+                ReceiptNumber = receiptNumber,
+                PaymentSource = paymentSource,
+                Note = note,
+                SendToWooCommerce = sendToWoo
+            });
+        }
+        catch (Exception ex) { message = ex.Message; }
+        finally { busy = false; }
+    }
+}

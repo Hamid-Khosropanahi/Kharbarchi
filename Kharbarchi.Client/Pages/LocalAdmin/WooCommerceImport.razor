@@ -1,0 +1,85 @@
+@page "/local-admin/woocommerce-import"
+@using Kharbarchi.Shared.Contracts
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "SuperAdmin,Admin,PricingManager,SalesManager,ShippingOrderManager")]
+@inject Kharbarchi.Client.Services.OrderWorkflowClient Workflow
+
+<PageTitle>دریافت اطلاعات از ووکامرس</PageTitle>
+
+<section class="khb-shell" dir="rtl">
+    <div class="khb-header">
+        <div>
+            <h1>دریافت محصولات و سفارش‌ها از WooCommerce</h1>
+            <p>اطلاعات سایت اصلی را در دیتابیس لوکال ذخیره کن تا مدیر، مدیر قیمت‌گذاری، مدیر فروش، ارسال و حسابداری با سطح دسترسی خودشان کار کنند.</p>
+        </div>
+    </div>
+
+    <div class="khb-grid">
+        <div class="khb-card">
+            <h3>محصولات</h3>
+            <label>PageSize</label>
+            <input type="number" @bind="productPageSize" min="1" max="100" />
+            <label>MaxPages</label>
+            <input type="number" @bind="productMaxPages" min="1" max="1000" />
+            <label class="khb-check"><input type="checkbox" @bind="productDryRun" /> تست بدون ذخیره</label>
+            <button class="khb-primary" @onclick="ImportProductsAsync" disabled="@isBusy">دریافت همه کالاها</button>
+        </div>
+
+        <div class="khb-card">
+            <h3>سفارش‌ها</h3>
+            <label>وضعیت WooCommerce</label>
+            <input @bind="orderStatus" placeholder="any / pending / processing / completed" />
+            <label>PageSize</label>
+            <input type="number" @bind="orderPageSize" min="1" max="100" />
+            <label>MaxPages</label>
+            <input type="number" @bind="orderMaxPages" min="1" max="1000" />
+            <label class="khb-check"><input type="checkbox" @bind="orderDryRun" /> تست بدون ذخیره</label>
+            <button class="khb-primary" @onclick="ImportOrdersAsync" disabled="@isBusy">دریافت سفارش‌ها و اقلام</button>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(message))
+    {
+        <div class="khb-alert">@message</div>
+    }
+</section>
+
+<style>
+.khb-shell{padding:24px;background:#f7f4ef;min-height:100vh}.khb-header{background:#fff;border-radius:24px;padding:22px;margin-bottom:18px;box-shadow:0 12px 30px #0001}.khb-header h1{margin:0 0 8px;font-size:26px}.khb-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px}.khb-card{background:#fff;border-radius:22px;padding:20px;box-shadow:0 12px 30px #0001;display:flex;flex-direction:column;gap:10px}.khb-card input{border:1px solid #ddd;border-radius:12px;padding:10px}.khb-check{display:flex;gap:8px;align-items:center}.khb-primary{border:0;border-radius:14px;padding:12px 16px;background:#2d6a4f;color:white;font-weight:700;cursor:pointer}.khb-primary:disabled{opacity:.55}.khb-alert{margin-top:18px;background:#e9f5ec;border:1px solid #b7dfc4;border-radius:16px;padding:14px}
+</style>
+
+@code {
+    private bool isBusy;
+    private string? message;
+    private int productPageSize = 100;
+    private int productMaxPages = 20;
+    private bool productDryRun;
+    private string orderStatus = "any";
+    private int orderPageSize = 100;
+    private int orderMaxPages = 20;
+    private bool orderDryRun;
+
+    private async Task ImportProductsAsync()
+    {
+        isBusy = true; message = null;
+        try
+        {
+            var result = await Workflow.ImportProductsAsync(new ImportWooCommerceProductsRequest { PageSize = productPageSize, MaxPages = productMaxPages, DryRun = productDryRun });
+            message = $"محصولات: خوانده‌شده {result?.Scanned}، جدید {result?.Created}، به‌روزرسانی {result?.Updated}، ردشده {result?.Skipped}";
+        }
+        catch (Exception ex) { message = ex.Message; }
+        finally { isBusy = false; }
+    }
+
+    private async Task ImportOrdersAsync()
+    {
+        isBusy = true; message = null;
+        try
+        {
+            var result = await Workflow.ImportOrdersAsync(new ImportWooCommerceOrdersRequest { Status = orderStatus, PageSize = orderPageSize, MaxPages = orderMaxPages, DryRun = orderDryRun });
+            message = $"سفارش‌ها: خوانده‌شده {result?.Scanned}، جدید {result?.Created}، به‌روزرسانی {result?.Updated}، ردشده {result?.Skipped}";
+        }
+        catch (Exception ex) { message = ex.Message; }
+        finally { isBusy = false; }
+    }
+}
