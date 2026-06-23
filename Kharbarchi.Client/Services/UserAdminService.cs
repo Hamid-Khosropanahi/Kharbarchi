@@ -1,8 +1,9 @@
-﻿using System.Net.Http.Json;
+using System.Net.Http.Json;
+using Kharbarchi.Shared.Contracts;
 
 namespace Kharbarchi.Client.Services;
 
-public class UserAdminService
+public sealed class UserAdminService
 {
     private readonly HttpClient _http;
 
@@ -11,36 +12,91 @@ public class UserAdminService
         _http = http;
     }
 
-    public async Task<List<UserListDto>?> GetUsersAsync()
+    public async Task<IReadOnlyList<LocalRoleDto>> GetRolesAsync()
     {
-        return await _http.GetFromJsonAsync<List<UserListDto>>("api/admin/useradmin");
+        return await _http.GetFromJsonAsync<List<LocalRoleDto>>("api/admin/local-users/roles") ?? [];
     }
 
-    public async Task<UserDetailDto?> GetUserAsync(string id)
+    public async Task<IReadOnlyList<LocalUserDto>> GetUsersAsync()
     {
-        return await _http.GetFromJsonAsync<UserDetailDto>($"api/admin/useradmin/{id}");
+        return await _http.GetFromJsonAsync<List<LocalUserDto>>("api/admin/local-users") ?? [];
     }
 
-    public async Task<bool> UpdateRolesAsync(string id, List<string> roles)
+    public async Task<(bool IsSuccess, string Message, LocalUserDto? User)> CreateUserAsync(CreateLocalUserRequest request)
     {
-        var response = await _http.PostAsJsonAsync($"api/admin/useradmin/{id}/roles", roles);
-        return response.IsSuccessStatusCode;
+        var response = await _http.PostAsJsonAsync("api/admin/local-users", request);
+        if (response.IsSuccessStatusCode)
+        {
+            return (true, "کاربر با موفقیت ساخته شد.", await response.Content.ReadFromJsonAsync<LocalUserDto>());
+        }
+
+        return (false, await ReadErrorAsync(response), null);
     }
-}
 
-public class UserListDto
-{
-    public string Id { get; set; } = default!;
-    public string UserName { get; set; } = default!;
-    public string? Email { get; set; }
-    public string? FullName { get; set; }
-}
+    public async Task<(bool IsSuccess, string Message)> UpdateRolesAsync(string userId, IReadOnlyList<string> roles)
+    {
+        var response = await _http.PutAsJsonAsync($"api/admin/local-users/{Uri.EscapeDataString(userId)}/roles", new UpdateLocalUserRolesRequest
+        {
+            Roles = roles
+        });
 
-public class UserDetailDto
-{
-    public string Id { get; set; } = default!;
-    public string UserName { get; set; } = default!;
-    public string? Email { get; set; }
-    public string? FullName { get; set; }
-    public List<string> Roles { get; set; } = new();
+        if (response.IsSuccessStatusCode)
+        {
+            return (true, "نقش‌ها با موفقیت ذخیره شد.");
+        }
+
+        return (false, await ReadErrorAsync(response));
+    }
+
+    public async Task<(bool IsSuccess, string Message)> ResetPasswordAsync(string userId, string password)
+    {
+        var response = await _http.PostAsJsonAsync($"api/admin/local-users/{Uri.EscapeDataString(userId)}/password", new ResetLocalUserPasswordRequest
+        {
+            NewPassword = password,
+            ConfirmNewPassword = password
+        });
+
+        if (response.IsSuccessStatusCode)
+        {
+            return (true, "رمز عبور با موفقیت تغییر کرد.");
+        }
+
+        return (false, await ReadErrorAsync(response));
+    }
+
+    public async Task<(bool IsSuccess, string Message)> SetLockStateAsync(string userId, bool isLockedOut)
+    {
+        var response = await _http.PostAsJsonAsync($"api/admin/local-users/{Uri.EscapeDataString(userId)}/lock-state", new SetLocalUserLockStateRequest
+        {
+            IsLockedOut = isLockedOut
+        });
+
+        if (response.IsSuccessStatusCode)
+        {
+            return (true, isLockedOut ? "حساب کاربر قفل شد." : "حساب کاربر فعال شد.");
+        }
+
+        return (false, await ReadErrorAsync(response));
+    }
+
+    private static async Task<string> ReadErrorAsync(HttpResponseMessage response)
+    {
+        try
+        {
+            var result = await response.Content.ReadFromJsonAsync<UserAdminOperationResult>();
+            if (!string.IsNullOrWhiteSpace(result?.Message))
+            {
+                return result.Message;
+            }
+        }
+        catch
+        {
+            // Fall back to plain text below.
+        }
+
+        var text = await response.Content.ReadAsStringAsync();
+        return string.IsNullOrWhiteSpace(text)
+            ? $"خطای سرور: {(int)response.StatusCode}"
+            : text;
+    }
 }

@@ -1,46 +1,62 @@
-﻿@using Kharbarchi.Client.Model.Header
+@using Kharbarchi.Client.Services
+@using Kharbarchi.Shared.Security
+@using Microsoft.AspNetCore.Components.Authorization
+@inject AuthService AuthService
+@inject NavigationManager Navigation
 
-@* UserAccountDropdown.razor *@
-<div class="wd-header-my-account wd-tools-element wd-event-hover wd-with-username wd-design-1 wd-account-style-icon whb-y44vgu0l4o7ai2qgq2hp">
-
-    <div class="whb-column whb-col-right whb-column13 whb-visible-lg">
-        <Menu NavClass="wd-header-nav wd-header-secondary-nav whb-7owsphvfa2xjclaxkj3r text-left"
-              AriaLabel="منوی چپ"
-              MenuId="menu-left"
-              MenuClass="wd-style-default wd-gap-l"
-              MenuItems="User_Menu" 
-              Base_Classes="nav-link-Toptext"/>
-    </div>
-
-</div>
+<AuthorizeView Context="authContext">
+    <Authorized>
+        <div class="khb-user-dropdown" dir="rtl">
+            <button class="khb-user-trigger" type="button">
+                <span class="khb-user-avatar">@GetAvatar(authContext.User)</span>
+                <span>
+                    <b>سلام، @GetDisplayName(authContext.User)</b>
+                    <small>@GetPrimaryRole(authContext.User)</small>
+                </span>
+            </button>
+            <div class="khb-user-menu">
+                <a href="/local-admin">داشبورد مدیریت</a>
+                <AuthorizeView Roles="@KharbarchiRoles.SuperAdmins" Context="adminContext">
+                    <Authorized>
+                        <a href="/local-admin/users">کاربران و نقش‌ها</a>
+                    </Authorized>
+                </AuthorizeView>
+                <button type="button" @onclick="LogoutAsync">خروج</button>
+            </div>
+        </div>
+    </Authorized>
+    <NotAuthorized>
+        <a class="khb-login-link" href="/login" dir="rtl">ورود به مدیریت</a>
+    </NotAuthorized>
+</AuthorizeView>
 
 @code {
-    [Parameter]
-    public string UserName { get; set; } = "admin";
-
-    private bool IsDropdownOpen { get; set; }
-    private List<MenuItem> User_Menu; // Don't initialize here
-
-    protected override void OnInitialized()
+    private async Task LogoutAsync()
     {
-        // Initialize here where you can access instance properties
-        User_Menu = new List<MenuItem>
-    {
+        await AuthService.LogoutAsync();
+        Navigation.NavigateTo("/login", replace: true);
+    }
 
-            new MenuItem {
-                Id = 283,
-                Title = $"سلام، {UserName}",
-                IconClass = "bi bi-person fs-4",
-                Url = "./my-account/",
-                Children = new List<MenuItem>
-            {
-                    new MenuItem { Id = 23, Title = "پیشخوان", Url = "./cart/" },
-                    new MenuItem { Id = 22, Title = "سفارش‌ها", Url = "./my-account/" },
-                    new MenuItem { Id = 21, Title = "نشانی", Url = "./checkout/" },
-                    new MenuItem { Id = 24, Title = "جزئیات حساب", Url = "./checkout/" },
-                    new MenuItem { Id = 25, Title = "خروج", Url = "/auth/logout" }
-                }
-            }
-        };
+    private static string GetDisplayName(System.Security.Claims.ClaimsPrincipal user)
+    {
+        return user.FindFirst("full_name")?.Value
+            ?? user.Identity?.Name
+            ?? "کاربر";
+    }
+
+    private static string GetAvatar(System.Security.Claims.ClaimsPrincipal user)
+    {
+        var displayName = GetDisplayName(user).Trim();
+        return string.IsNullOrEmpty(displayName) ? "خ" : displayName[..1];
+    }
+
+    private static string GetPrimaryRole(System.Security.Claims.ClaimsPrincipal user)
+    {
+        var role = user.Claims
+            .Where(x => x.Type == System.Security.Claims.ClaimTypes.Role || x.Type.EndsWith("/role", StringComparison.OrdinalIgnoreCase))
+            .Select(x => x.Value)
+            .FirstOrDefault();
+
+        return string.IsNullOrWhiteSpace(role) ? "بدون نقش" : KharbarchiRoles.GetDisplayName(role);
     }
 }

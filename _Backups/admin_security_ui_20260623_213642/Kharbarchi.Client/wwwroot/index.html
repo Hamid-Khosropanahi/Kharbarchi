@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <!--Carousel Should Added-->
 <!--<ul class="dropdown-menu">
@@ -20,7 +20,7 @@
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ط®ظˆط§ط±ط¨ط§ط±ع†غŒ</title>
+    <title>خواربارچی</title>
     <base href="/" />
     <link href="css/lib/bootstrap/css/bootstrap.rtl.min.css" rel="stylesheet" />
     <link href="css/lib/bootstrap/css/bootstrap-grid.rtl.css" rel="stylesheet" />
@@ -33,7 +33,6 @@
     <link href="css/site.css" rel="stylesheet" />
     <link href="css/admin.css" rel="stylesheet" />
 
-    <link href="css/kharbarchi-admin.css" rel="stylesheet" />
 </head>
 
 <body>
@@ -53,7 +52,7 @@
             </div>
             <div style="display:flex; gap:10px; justify-content:center; align-items:center">
                <!-- <div class="spinner-border" role="status"></div>-->
-                <p style="font-size:1.5rem;font-family:'Dana'";>ط¯ط± ط­ط§ظ„ ط¨ط§ط±ع¯ط°ط§ط±غŒ...</p>
+                <p style="font-size:1.5rem;font-family:'Dana'";>در حال بارگذاری...</p>
             </div>
         </div>
     </div>
@@ -114,29 +113,29 @@
 
     <!--<div id="app">
         <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);">
-            <p style="font-size:1.5rem;">ط¯ط± ط­ط§ظ„ ط¨ط§ط±ع¯ط°ط§ط±غŒ...</p>
+            <p style="font-size:1.5rem;">در حال بارگذاری...</p>
         </div>
     </div>-->
 
     <div id="blazor-error-ui">
-        ط®ط·ط§غŒغŒ ط؛غŒط±ظ…ظ†طھط¸ط±ظ‡ ط±ط® ط¯ط§ط¯.
-        <a href="" class="reload">ط¨ط§ط±ع¯غŒط±غŒ ظ…ط¬ط¯ط¯</a>
-        <a class="dismiss">ًں—™</a>
+        خطایی غیرمنتظره رخ داد.
+        <a href="" class="reload">بارگیری مجدد</a>
+        <a class="dismiss">🗙</a>
     </div>
 
-    <!-- ط§ط¶ط§ظپظ‡ ع©ط±ط¯ظ† ط§ط³ع©ط±غŒظ¾طھ header -->
+    <!-- اضافه کردن اسکریپت header -->
     <script src="css/For_Header/JS/Header.js"></script>
     <!--<script src="JS/Rotate.js"></script>-->
 
     <script src="site.js"></script>
     <script src="service-worker.js"></script>
 
-    <!-- ظپظ‚ط· غŒع© ط¨ط§ط± Blazor ط±ط§ ظ„ظˆط¯ ع©ظ†غŒط¯ -->
+    <!-- فقط یک بار Blazor را لود کنید -->
     <script src="_framework/blazor.webassembly.js" autostart="false"></script>
 
     <script>
         Blazor.start().then(function () {
-            // طھط§ط®غŒط± ع©ظˆطھط§ظ‡ ط¨ط±ط§غŒ ط§ط·ظ…غŒظ†ط§ظ† ط§ط² ط±ظ†ط¯ط± ط´ط¯ظ† DOM
+            // تاخیر کوتاه برای اطمینان از رندر شدن DOM
             setTimeout(function () {
                 if (window.headerSticky) {
                     window.headerSticky.init();

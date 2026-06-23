@@ -1,0 +1,251 @@
+﻿@page "/auth"
+@page "/auth/login"
+@page "/auth/register"
+@layout EmptyLayout
+@inject NavigationManager Navigation
+@inject AuthService AuthService
+@using System.ComponentModel.DataAnnotations
+@using System.Text.RegularExpressions
+@using Kharbarchi.Client.Services
+@using Microsoft.AspNetCore.WebUtilities
+
+<div class="body-container">
+    <div class="wrapper @(isRegisterMode ? "active" : "")">
+        <span class="rotate-bg"></span>
+        <span class="rotate-bg2"></span>
+
+        <!-- ================= LOGIN FORM ================= -->
+        <div class="form-box login">
+            <h2 class="animation" style="--i:0; --j:21">ورود</h2>
+
+            <EditForm Model="@loginModel" OnValidSubmit="HandleLogin">
+                <DataAnnotationsValidator />
+
+                <div class="input-box animation" style="--i:1; --j:22">
+                    <InputText @bind-Value="loginModel.Username" />
+                    <label>نام کاربری</label>
+                    <i class="bi bi-person-fill"></i>
+                    <ValidationMessage For="@(() => loginModel.Username)" />
+                </div>
+
+                <div class="input-box animation" style="--i:2; --j:23">
+                    <InputText type="password" @bind-Value="loginModel.Password" />
+                    <label>رمز عبور</label>
+                    <i class="bi bi-lock-fill"></i>
+                    <ValidationMessage For="@(() => loginModel.Password)" />
+                </div>
+
+                <button type="submit" class="btn animation" style="--i:3; --j:24">ورود</button>
+
+                <div class="linkTxt animation" style="--i:5; --j:25">
+                    @* Changed click handler to NavigateTo *@
+                    <p>آیا اکانت ندارید؟ <a href="/auth/register" @onclick="GoToRegister" @onclick:preventDefault>ثبت نام</a></p>
+                </div>
+
+                @if (!string.IsNullOrEmpty(loginError))
+                {
+                    <div class="alert-msg animation" style="--i:6; --j:26">@loginError</div>
+                }
+            </EditForm>
+        </div>
+
+        <div class="info-text login">
+            <h2 class="animation" style="--i:0; --j:20">خوش آمدید</h2>
+            <p class="animation" style="--i:1; --j:21">از اینکه در سایت ما عضو هستید ممنونیم.</p>
+        </div>
+
+        <!-- ================= REGISTER FORM ================= -->
+        <div class="form-box register">
+            <h2 class="animation" style="--i:17; --j:0">عضویت</h2>
+
+            <EditForm Model="@regModel" OnValidSubmit="HandleRegister">
+                <DataAnnotationsValidator />
+
+                <div class="input-box animation" style="--i:18; --j:1">
+                    <InputText @bind-Value="regModel.Username" />
+                    <label>نام کاربری</label>
+                    <i class="bi bi-person-fill"></i>
+                    <ValidationMessage For="@(() => regModel.Username)" />
+                </div>
+
+                <div class="input-box animation" style="--i:19; --j:2">
+                    <InputText @bind-Value="regModel.Email" />
+                    <label>ایمیل</label>
+                    <i class="bi bi-envelope-fill"></i>
+                    <ValidationMessage For="@(() => regModel.Email)" />
+                </div>
+
+                <div class="input-box animation" style="--i:20; --j:3">
+                    <InputText @bind-Value="regModel.FullName" />
+                    <label>نام و نام خانوادگی</label>
+                    <i class="bi bi-person-vcard-fill"></i>
+                    <ValidationMessage For="@(() => regModel.FullName)" />
+                </div>
+
+                <div class="input-box animation" style="--i:21; --j:4">
+                    <InputText type="password" @bind-Value="regModel.Password" />
+                    <label>رمز عبور</label>
+                    <i class="bi bi-lock-fill"></i>
+                    <ValidationMessage For="@(() => regModel.Password)" />
+                </div>
+
+                <button type="submit" class="btn animation" style="--i:22; --j:5">عضویت</button>
+
+                <div class="linkTxt animation" style="--i:23; --j:6">
+                    @* Changed click handler to NavigateTo *@
+                    <p>آیا اکانت دارید؟ <a href="/auth/login" @onclick="GoToLogin" @onclick:preventDefault>ورود</a></p>
+                </div>
+
+                @if (!string.IsNullOrEmpty(regError))
+                {
+                    <div class="alert-msg animation" style="--i:24; --j:7">@regError</div>
+                }
+            </EditForm>
+        </div>
+
+        <div class="info-text register">
+            <h2 class="animation" style="--i:17; --j:0">خوش آمدید</h2>
+            <p class="animation" style="--i:18; --j:1">خوش حالیم که شما را در سایت خود به عنوان عضو داشته باشیم.</p>
+        </div>
+    </div>
+</div>
+
+@code
+{
+    private bool isRegisterMode = false;
+    private string loginError = "";
+    private string regError = "";
+    private string returnUrl = "/"; // Default to home if no return URL found
+
+    private LoginInputModel loginModel = new();
+    private RegisterInputModel regModel = new();
+
+    protected override void OnInitialized()
+    {
+        // 1. Check URL to determine if we show Register or Login form
+        CheckUrlMode();
+
+        // 2. Capture the 'returnUrl' query parameter if it exists
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        if (QueryHelpers.ParseQuery(uri.Query).TryGetValue("returnUrl", out var url))
+        {
+            returnUrl = url;
+        }
+    }
+
+    // Listen to location changes to update the form slide animation if user hits Back/Forward button
+    protected override void OnParametersSet()
+    {
+        CheckUrlMode();
+    }
+
+    private void CheckUrlMode()
+    {
+        if (Navigation.Uri.ToLower().Contains("register"))
+        {
+            isRegisterMode = true;
+        }
+        else
+        {
+            isRegisterMode = false;
+        }
+    }
+
+    // Instead of just setting bool, we navigate. This updates the URL.
+    private void GoToRegister()
+    {
+        Navigation.NavigateTo($"/auth/register?returnUrl={returnUrl}");
+    }
+
+    private void GoToLogin()
+    {
+        Navigation.NavigateTo($"/auth/login?returnUrl={returnUrl}");
+    }
+
+    private async Task HandleLogin()
+    {
+        loginError = "";
+        var result = await AuthService.LoginAsync(loginModel.Username, loginModel.Password);
+
+        if (result.IsSuccess)
+        {
+            // Redirect to the page they were trying to visit, or Home
+            Navigation.NavigateTo(returnUrl);
+        }
+        else
+        {
+            loginError = result.Message ?? "نام کاربری یا رمز عبور اشتباه است";
+        }
+    }
+
+    private async Task HandleRegister()
+    {
+        regError = "";
+        bool success = await AuthService.RegisterAsync(
+            regModel.Username,
+            regModel.Password,
+            regModel.Email,
+            regModel.FullName
+        );
+
+        if (success)
+        {
+            regModel = new();
+            // Go to login mode, keeping the return Url
+            GoToLogin();
+            loginError = "ثبت نام موفقیت‌آمیز بود. لطفاً وارد شوید.";
+        }
+        else
+        {
+            regError = "خطایی در ثبت نام رخ داد. لطفاً ورودی‌ها را بررسی کنید.";
+        }
+    }
+
+    // --- MODELS (Same as before) ---
+    public class LoginInputModel
+    {
+        [Required(ErrorMessage = "نام کاربری الزامی است")]
+        public string Username { get; set; }
+
+        [Required(ErrorMessage = "رمز عبور الزامی است")]
+        public string Password { get; set; }
+    }
+
+    public class RegisterInputModel
+    {
+        [Required(ErrorMessage = "نام کاربری الزامی است")]
+        public string Username { get; set; }
+
+        [Required(ErrorMessage = "ایمیل الزامی است")]
+        [EmailAddress(ErrorMessage = "فرمت ایمیل صحیح نیست")]
+        public string Email { get; set; }
+
+        [Required(ErrorMessage = "نام و نام خانوادگی الزامی است")]
+        public string FullName { get; set; }
+
+        [Required(ErrorMessage = "رمز عبور الزامی است")]
+        [MinLength(6, ErrorMessage = "رمز عبور باید حداقل ۶ کاراکتر باشد")]
+        [PasswordComplexity]
+        public string Password { get; set; }
+    }
+
+    public class PasswordComplexityAttribute : ValidationAttribute
+    {
+        protected override ValidationResult IsValid(object value, ValidationContext validationContext)
+        {
+            var password = value as string;
+            if (string.IsNullOrEmpty(password)) return ValidationResult.Success;
+
+            if (!Regex.IsMatch(password, @".*[a-z].*"))
+                return new ValidationResult("رمز باید شامل حرف کوچک باشد");
+
+            if (!Regex.IsMatch(password, @".*[A-Z].*"))
+                return new ValidationResult("رمز باید شامل حرف بزرگ باشد");
+
+            if (!Regex.IsMatch(password, @".*[\W_].*"))
+                return new ValidationResult("رمز باید شامل کاراکتر خاص باشد");
+
+            return ValidationResult.Success;
+        }
+    }
+}

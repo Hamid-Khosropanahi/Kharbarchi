@@ -1,32 +1,48 @@
-﻿@page "/"
-@using Kharbarchi.Client.Services
-@inject ProductService ProductService
+@page "/"
+@using Microsoft.AspNetCore.Components.Authorization
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Navigation
 
-<PageTitle>خانه | Kharbarchi</PageTitle>
+<PageTitle>خواربارچی</PageTitle>
 
-<h1>خوش آمدید به Kharbarchi</h1>
-
-<h3>محصولات جدید</h3>
-
-@if (products == null)
-{
-    <p>در حال بارگذاری...</p>
-}
-else
-{
-    <div class="product-grid">
-        @foreach (var p in products.Take(4))
-        {
-            <ProductCard Product=p />
-        }
-    </div>
-}
+<AuthorizeView Context="authContext">
+    <Authorized>
+        <div class="khb-home-gate" dir="rtl">
+            <section class="khb-home-card">
+                <div class="khb-auth-logo">خ</div>
+                <h1>در حال انتقال به پنل مدیریت...</h1>
+                <p>اگر انتقال انجام نشد، روی دکمه زیر بزنید.</p>
+                <button class="khb-primary-btn" @onclick="GoToAdmin">ورود به پنل مدیریت</button>
+            </section>
+        </div>
+    </Authorized>
+    <NotAuthorized>
+        <div class="khb-home-gate" dir="rtl">
+            <section class="khb-home-card">
+                <div class="khb-auth-logo">خ</div>
+                <h1>سامانه مدیریت خواربارچی</h1>
+                <p>برای مشاهده داشبورد، سفارش‌ها، قیمت‌گذاری، انبار و پرداخت‌ها باید وارد حساب داخلی خود شوید.</p>
+                <button class="khb-primary-btn" @onclick="GoToLogin">ورود به سامانه</button>
+            </section>
+        </div>
+    </NotAuthorized>
+</AuthorizeView>
 
 @code {
-    private List<Kharbarchi.Shared.Models.ProductDto>? products;
-
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        products = await ProductService.GetAllAsync();
+        if (!firstRender)
+        {
+            return;
+        }
+
+        var state = await AuthStateProvider.GetAuthenticationStateAsync();
+        if (state.User.Identity?.IsAuthenticated == true)
+        {
+            Navigation.NavigateTo("/local-admin", replace: true);
+        }
     }
+
+    private void GoToLogin() => Navigation.NavigateTo("/login");
+    private void GoToAdmin() => Navigation.NavigateTo("/local-admin");
 }

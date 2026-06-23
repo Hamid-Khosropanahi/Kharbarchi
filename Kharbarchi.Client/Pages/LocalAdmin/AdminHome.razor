@@ -1,0 +1,91 @@
+@page "/local-admin"
+@attribute [Authorize]
+@using Kharbarchi.Shared.Security
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+
+<PageTitle>داشبورد مدیریت خواربارچی</PageTitle>
+
+<div class="khb-admin-shell" dir="rtl">
+    <section class="khb-admin-hero">
+        <div>
+            <span class="khb-eyebrow">پنل داخلی خواربارچی</span>
+            <h1>داشبورد نقش‌محور مدیریت</h1>
+            <AuthorizeView Context="authContext">
+                <Authorized>
+                    <p>سلام @GetUserDisplayName(authContext.User). این صفحه فقط ماژول‌هایی را نشان می‌دهد که نقش شما اجازه دسترسی به آن را دارد.</p>
+                    <div class="khb-role-pills">
+                        @foreach (var role in GetRoles(authContext.User))
+                        {
+                            <span>@KharbarchiRoles.GetDisplayName(role)</span>
+                        }
+                    </div>
+                </Authorized>
+            </AuthorizeView>
+        </div>
+    </section>
+
+    <section class="khb-admin-grid">
+        <AuthorizeView Roles="@KharbarchiRoles.SuperAdmins" Context="superAdminContext">
+            <Authorized>
+                <AdminTile Title="کاربران و نقش‌ها" Text="ساخت اکانت داخلی، تغییر نقش، قفل/فعال‌سازی حساب و ریست رمز عبور." Href="/local-admin/users" Badge="مدیر کل" />
+                <AdminTile Title="صف همگام‌سازی" Text="بررسی پیام‌های آماده ارسال به ووکامرس توسط عامل مرکزی." Href="/local-admin/sync-outbox" Badge="Sync" />
+            </Authorized>
+        </AuthorizeView>
+
+        <AuthorizeView Roles="@KharbarchiRoles.CatalogWriters" Context="catalogContext">
+            <Authorized>
+                <AdminTile Title="کاتالوگ کالا" Text="ایجاد و اصلاح محصولات داخلی و آماده‌سازی برای فروش." Href="/local-admin/catalog" Badge="کالا" />
+                <AdminTile Title="ورود از ووکامرس" Text="دریافت محصولات، تصاویر، سفارش‌ها و وضعیت‌های ووکامرس در دیتابیس محلی." Href="/local-admin/woocommerce-import" Badge="Import" />
+            </Authorized>
+        </AuthorizeView>
+
+        <AuthorizeView Roles="@KharbarchiRoles.PriceProposers" Context="priceContext">
+            <Authorized>
+                <AdminTile Title="فرآیند قیمت‌گذاری" Text="ثبت پیشنهاد قیمت، تایید مدیر قیمت‌گذاری و کنترل دسترسی قیمت خرید." Href="/local-admin/pricing" Badge="قیمت" />
+            </Authorized>
+        </AuthorizeView>
+
+        <AuthorizeView Roles="@KharbarchiRoles.InventoryProposers" Context="inventoryContext">
+            <Authorized>
+                <AdminTile Title="فرآیند انبار" Text="ثبت پیشنهاد موجودی، اصلاح کسری، کنترل موجودی و تایید مرحله‌ای." Href="/local-admin/inventory" Badge="انبار" />
+            </Authorized>
+        </AuthorizeView>
+
+        <AuthorizeView Roles="@KharbarchiRoles.OrderViewersCsv" Context="orderContext">
+            <Authorized>
+                <AdminTile Title="سفارش‌ها" Text="مشاهده سفارش‌های محلی و ووکامرس، وضعیت داخلی و جزئیات مشتری." Href="/local-admin/orders" Badge="Orders" />
+            </Authorized>
+        </AuthorizeView>
+
+        <AuthorizeView Roles="@KharbarchiRoles.BarookPaymentOperatorsCsv" Context="barookContext">
+            <Authorized>
+                <AdminTile Title="پرداخت باروک" Text="شروع پرداخت، ارسال لینک پرداخت، استعلام و تایید پرداخت." Href="/local-admin/barook-payment" Badge="Barook" />
+            </Authorized>
+        </AuthorizeView>
+
+        <AuthorizeView Roles="@KharbarchiRoles.PaymentOperatorsCsv" Context="accountingContext">
+            <Authorized>
+                <AdminTile Title="حسابداری" Text="مشاهده وضعیت پرداخت، ثبت دریافت دستی و کنترل رسیدها." Href="/local-admin/accounting" Badge="مالی" />
+            </Authorized>
+        </AuthorizeView>
+    </section>
+</div>
+
+@code {
+    private static string GetUserDisplayName(System.Security.Claims.ClaimsPrincipal user)
+    {
+        return user.FindFirst("full_name")?.Value
+            ?? user.Identity?.Name
+            ?? "کاربر";
+    }
+
+    private static IReadOnlyList<string> GetRoles(System.Security.Claims.ClaimsPrincipal user)
+    {
+        return user.Claims
+            .Where(x => x.Type == System.Security.Claims.ClaimTypes.Role || x.Type.EndsWith("/role", StringComparison.OrdinalIgnoreCase))
+            .Select(x => x.Value)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+}

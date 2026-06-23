@@ -1,55 +1,74 @@
-﻿@using Kharbarchi.Client.Model.Header
-@using Microsoft.AspNetCore.Components
+@using Kharbarchi.Shared.Security
+@using Microsoft.AspNetCore.Components.Authorization
 
-<nav class="@NavClass" role="navigation" aria-label="@AriaLabel">
-    <ul id="@MenuId" class="menu wd-nav wd-nav-header wd-nav-secondary @MenuClass">
-        @foreach (var item in MenuItems)
-        {
-            <li id="menu-item-@item.Id" class="menu-item @item.CssClass item-level-0 menu-simple-dropdown wd-event-hover">
-                <a href="@item.Url" class="Header_Base-nav-link">
-                    @if (!string.IsNullOrEmpty(item.IconClass))
-                    {
-                        <span class="@item.IconClass"></span>
-                    }
-                    <span class="@Base_Classes">@item.Title</span>
-                </a>
-                @if (item.Children.Any())
-                {
-                    <div class="color-scheme-dark wd-design-default wd-dropdown-menu wd-dropdown">
-                        <div class="container wd-entry-content">
-                            <ul class="wd-sub-menu color-scheme-dark">
-                                @foreach (var child in item.Children)
-                                {
-                                    <li id="menu-item-@child.Id" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-@child.Id item-level-1 wd-event-hover">
-                                        <a href="@child.Url" class="Header_Base-nav-link">@child.Title</a>
-                                    </li>
-                                }
-                            </ul>
-                        </div>
-                    </div>
-                }
-            </li>
-        }
+<nav class="@Safe(NavClass, "khb-main-nav")" aria-label="@Safe(AriaLabel, "منوی اصلی مدیریت")" id="@Safe(MenuId, "khb-main-menu")" dir="rtl">
+    <ul class="@Safe(MenuClass, "khb-main-menu")">
+        <AuthorizeView Context="authContext">
+            <Authorized>
+                <li><NavLink href="/local-admin" Match="NavLinkMatch.All">داشبورد</NavLink></li>
+
+                <AuthorizeView Roles="@KharbarchiRoles.SuperAdmins" Context="superAdminContext">
+                    <Authorized>
+                        <li><NavLink href="/local-admin/users">کاربران و نقش‌ها</NavLink></li>
+                        <li><NavLink href="/local-admin/sync-outbox">صف همگام‌سازی</NavLink></li>
+                    </Authorized>
+                </AuthorizeView>
+
+                <AuthorizeView Roles="@KharbarchiRoles.CatalogWriters" Context="catalogContext">
+                    <Authorized>
+                        <li><NavLink href="/local-admin/catalog">کاتالوگ</NavLink></li>
+                        <li><NavLink href="/local-admin/woocommerce-import">ورود از ووکامرس</NavLink></li>
+                    </Authorized>
+                </AuthorizeView>
+
+                <AuthorizeView Roles="@KharbarchiRoles.PriceProposers" Context="priceContext">
+                    <Authorized>
+                        <li><NavLink href="/local-admin/pricing">قیمت‌گذاری</NavLink></li>
+                    </Authorized>
+                </AuthorizeView>
+
+                <AuthorizeView Roles="@KharbarchiRoles.InventoryProposers" Context="inventoryContext">
+                    <Authorized>
+                        <li><NavLink href="/local-admin/inventory">انبار</NavLink></li>
+                    </Authorized>
+                </AuthorizeView>
+
+                <AuthorizeView Roles="@KharbarchiRoles.OrderViewersCsv" Context="orderContext">
+                    <Authorized>
+                        <li><NavLink href="/local-admin/orders">سفارش‌ها</NavLink></li>
+                    </Authorized>
+                </AuthorizeView>
+
+                <AuthorizeView Roles="@KharbarchiRoles.BarookPaymentOperatorsCsv" Context="barookContext">
+                    <Authorized>
+                        <li><NavLink href="/local-admin/barook-payment">پرداخت باروک</NavLink></li>
+                    </Authorized>
+                </AuthorizeView>
+
+                <AuthorizeView Roles="@KharbarchiRoles.PaymentOperatorsCsv" Context="accountingContext">
+                    <Authorized>
+                        <li><NavLink href="/local-admin/accounting">حسابداری</NavLink></li>
+                    </Authorized>
+                </AuthorizeView>
+            </Authorized>
+            <NotAuthorized>
+                <li><NavLink href="/login">ورود</NavLink></li>
+            </NotAuthorized>
+        </AuthorizeView>
     </ul>
 </nav>
 
 @code {
-    [Parameter]
-    public string NavClass { get; set; }
+    [Parameter] public string? NavClass { get; set; }
+    [Parameter] public string? AriaLabel { get; set; }
+    [Parameter] public string? MenuId { get; set; }
+    [Parameter] public string? MenuClass { get; set; }
 
-    [Parameter]
-    public string AriaLabel { get; set; }
+    // Kept only for compatibility with the old header. The old shop menu values are intentionally ignored.
+    [Parameter] public object? MenuItems { get; set; }
 
-    [Parameter]
-    public string MenuId { get; set; }
-
-    [Parameter]
-    public string MenuClass { get; set; }
-
-    [Parameter]
-    public List<MenuItem> MenuItems { get; set; }
-
-    [Parameter]
-    public string Base_Classes { get; set; } = "nav-link-text";
-
+    private static string Safe(string? value, string fallback)
+    {
+        return string.IsNullOrWhiteSpace(value) ? fallback : value;
+    }
 }

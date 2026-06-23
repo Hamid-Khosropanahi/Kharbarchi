@@ -56,10 +56,10 @@ builder.Services.AddOptions<BarookOptions>()
     .Validate(o => o.AmountMultiplierToRial > 0, "Barook:AmountMultiplierToRial must be greater than zero.")
     .ValidateOnStart();
 
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+var connectionString = builder.Configuration.GetConnectionString("MySqlConnection");
 if (string.IsNullOrWhiteSpace(connectionString))
 {
-    throw new InvalidOperationException("ConnectionStrings:DefaultConnection is not configured. Use User Secrets or Environment Variables.");
+    throw new InvalidOperationException("ConnectionStrings:MySqlConnection is not configured. Use User Secrets or Environment Variables.");
 }
 
 builder.Services.AddDbContext<AppDbContext>(options =>
