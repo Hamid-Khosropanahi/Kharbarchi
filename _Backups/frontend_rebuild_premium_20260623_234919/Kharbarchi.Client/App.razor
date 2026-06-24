@@ -1,0 +1,45 @@
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Routing
+
+<CascadingAuthenticationState>
+    <Router AppAssembly="@typeof(App).Assembly">
+        <Found Context="routeData">
+            <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(Layout.MainLayout)">
+                <NotAuthorized>
+                    <div class="khb-auth-page" dir="rtl">
+                        <section class="khb-auth-card khb-auth-card-wide">
+                            <div class="khb-auth-logo">خ</div>
+                            <span class="khb-eyebrow">دسترسی محافظت‌شده</span>
+                            <h1>برای ادامه باید وارد شوید</h1>
+                            <p>این بخش فقط برای کاربران داخلی خواربارچی فعال است.</p>
+                            <a class="khb-primary-btn" href="/login">ورود به سامانه</a>
+                        </section>
+                    </div>
+                </NotAuthorized>
+                <Authorizing>
+                    <div class="khb-auth-page" dir="rtl">
+                        <section class="khb-auth-card khb-auth-card-wide">
+                            <div class="khb-auth-logo">خ</div>
+                            <h1>در حال بررسی دسترسی</h1>
+                            <p>لطفاً چند لحظه صبر کنید.</p>
+                        </section>
+                    </div>
+                </Authorizing>
+            </AuthorizeRouteView>
+            <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+        </Found>
+        <NotFound>
+            <LayoutView Layout="@typeof(Layout.MainLayout)">
+                <div class="khb-auth-page" dir="rtl">
+                    <section class="khb-auth-card khb-auth-card-wide">
+                        <div class="khb-auth-logo">خ</div>
+                        <span class="khb-eyebrow">404</span>
+                        <h1>صفحه پیدا نشد</h1>
+                        <p>آدرس وارد شده در پنل داخلی خواربارچی وجود ندارد.</p>
+                        <a class="khb-primary-btn" href="/local-admin">بازگشت به داشبورد</a>
+                    </section>
+                </div>
+            </LayoutView>
+        </NotFound>
+    </Router>
+</CascadingAuthenticationState>

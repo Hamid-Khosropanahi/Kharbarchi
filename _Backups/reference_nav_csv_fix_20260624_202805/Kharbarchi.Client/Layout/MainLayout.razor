@@ -1,0 +1,118 @@
+@inherits LayoutComponentBase
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Routing
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<div class="khb-shell">
+    <div class="khb-admin-frame">
+        <aside class="khb-sidebar" aria-label="منوی مدیریت خواربارچی">
+            <div class="khb-brand">
+                <div class="khb-brand-logo">
+                    <img src="Logo/LOGO.svg" alt="خواربارچی" />
+                </div>
+                <div>
+                    <strong>خواربارچی</strong>
+                    <small>پنل مدیریت داخلی</small>
+                </div>
+            </div>
+
+            <nav class="khb-nav" aria-label="منوی مدیریت">
+            <div class="khb-nav-section">اصلی</div>
+            <NavLink class="khb-nav-item" href="/local-admin" Match="NavLinkMatch.All"><span>⌘</span><b>داشبورد</b></NavLink>
+
+            <div class="khb-nav-section">محصولات و ووکامرس</div>
+            <NavLink class="khb-nav-item" href="/local-admin/product-csv-import"><span>CSV</span><b>ورود CSV محصولات</b></NavLink>
+            <NavLink class="khb-nav-item" href="/local-admin/products"><span>PRD</span><b>مدیریت محصولات</b></NavLink>
+            <NavLink class="khb-nav-item" href="/local-admin/catalog"><span>CAT</span><b>کاتالوگ کالا</b></NavLink>
+            <NavLink class="khb-nav-item" href="/local-admin/woocommerce-settings"><span>WOO</span><b>تنظیمات ووکامرس</b></NavLink>
+            <NavLink class="khb-nav-item" href="/local-admin/woocommerce-import"><span>IMP</span><b>ورود از ووکامرس</b></NavLink>
+
+            <div class="khb-nav-section">عملیات</div>
+            <NavLink class="khb-nav-item" href="/local-admin/pricing"><span>٪</span><b>قیمت‌گذاری</b></NavLink>
+            <NavLink class="khb-nav-item" href="/local-admin/inventory"><span>INV</span><b>انبار</b></NavLink>
+            <NavLink class="khb-nav-item" href="/local-admin/orders"><span>ORD</span><b>سفارش‌ها</b></NavLink>
+
+            <div class="khb-nav-section">مالی و تنظیمات</div>
+            <NavLink class="khb-nav-item" href="/local-admin/barook-payment"><span>PAY</span><b>پرداخت باروک</b></NavLink>
+            <NavLink class="khb-nav-item" href="/local-admin/accounting"><span>ACC</span><b>حسابداری</b></NavLink>
+            <NavLink class="khb-nav-item" href="/local-admin/sync-outbox"><span>SYN</span><b>صف خروجی</b></NavLink>
+            <NavLink class="khb-nav-item" href="/local-admin/users"><span>USR</span><b>کاربران و نقش‌ها</b></NavLink>
+            <NavLink class="khb-nav-item" href="/local-admin/settings"><span>SET</span><b>تنظیمات سامانه</b></NavLink>
+        </nav>
+
+            <div class="khb-sidebar-footer">
+                <a class="khb-store-button" href="https://localhost:7030" target="_blank" rel="noopener">مشاهده فروشگاه قدیمی</a>
+                <button class="khb-pill khb-theme-toggle" type="button" data-khb-theme-toggle>تغییر تم روشن/تاریک</button>
+            </div>
+        </aside>
+
+        <main class="khb-main">
+            <header class="khb-topbar">
+                <button class="khb-pill khb-mobile-menu" type="button" data-khb-sidebar-toggle>☰ منو</button>
+                <div class="khb-breadcrumb">
+                    <strong>@PageTitle</strong>
+                    <span>مدیریت امن، سریع و نقش‌محور خواربارچی</span>
+                </div>
+                <div class="khb-top-actions">
+                    <a class="khb-pill" href="https://localhost:7030" target="_blank" rel="noopener">فروشگاه قدیمی</a>
+                    <a class="khb-pill" href="local-admin/woocommerce-settings">API ووکامرس</a>
+                    <AuthorizeView>
+                        <Authorized Context="auth">
+                            <span class="khb-pill">@GetUserName(auth.User.Identity?.Name)</span>
+                        </Authorized>
+                        <NotAuthorized>
+                            <a class="khb-pill" href="login">ورود</a>
+                        </NotAuthorized>
+                    </AuthorizeView>
+                    <button class="khb-pill khb-theme-toggle" type="button" data-khb-theme-toggle>☾</button>
+                </div>
+            </header>
+
+            <section class="khb-content">
+                @Body
+            </section>
+        </main>
+    </div>
+</div>
+
+@code {
+    private string PageTitle
+    {
+        get
+        {
+            var path = Navigation.ToBaseRelativePath(Navigation.Uri).Trim('/').ToLowerInvariant();
+            return path switch
+            {
+                "" => "خانه مدیریت",
+                "local-admin" => "داشبورد مدیریت",
+                "local-admin/users" => "کاربران و نقش‌ها",
+                "local-admin/settings" => "تنظیمات سامانه",
+                "local-admin/woocommerce-settings" => "آزمایشگاه اتصال ووکامرس",
+                "local-admin/woocommerce-import" => "ورود اطلاعات ووکامرس",
+                "local-admin/catalog" => "کاتالوگ کالا",
+                "local-admin/pricing" => "فرآیند قیمت‌گذاری",
+                "local-admin/inventory" => "فرآیند انبار",
+                "local-admin/orders" => "سفارش‌ها",
+                "local-admin/barook-payment" => "پرداخت باروک",
+                "local-admin/accounting" => "حسابداری",
+                "local-admin/sync-outbox" => "صف همگام‌سازی",
+                _ => "پنل مدیریت خواربارچی"
+            };
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JS.InvokeVoidAsync("kharbarchiLux.init");
+        }
+    }
+
+    private static string GetUserName(string? name)
+        => string.IsNullOrWhiteSpace(name) ? "کاربر سامانه" : name;
+}
+
+                    <NavLink class="khb-nav-item" href="/local-admin/products"><span>PM</span><b>Product Management</b></NavLink>
+

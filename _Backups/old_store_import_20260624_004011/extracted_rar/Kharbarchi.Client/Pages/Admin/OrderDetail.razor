@@ -1,0 +1,77 @@
+﻿@page "/admin/orders/{Id:int}"
+@using Kharbarchi.Shared.Models
+@using Microsoft.AspNetCore.Authorization
+@using Kharbarchi.Client.Services
+@attribute [Authorize(Roles = "Admin")]
+@inject OrderAdminService OrderService
+
+<h2>جزئیات سفارش @Id</h2>
+
+@if (order == null)
+{
+    <p>در حال بارگذاری...</p>
+}
+else
+{
+    <h3>اطلاعات مشتری</h3>
+    <p><b>نام:</b> @order.Customer.FullName</p>
+    <p><b>تلفن:</b> @order.Customer.PhoneNumber</p>
+    <p><b>ایمیل:</b> @order.Customer.Email</p>
+    <p><b>آدرس:</b> @order.Customer.AddressLine, @order.Customer.City</p>
+
+    <h3>آیتم‌ها</h3>
+    <table>
+        <thead>
+        <tr>
+            <th>محصول</th>
+            <th>تعداد</th>
+            <th>قیمت</th>
+            <th>جمع</th>
+        </tr>
+        </thead>
+        <tbody>
+        @foreach (var item in order.Items)
+        {
+            <tr>
+                <td>@item.ProductName</td>
+                <td>@item.Quantity</td>
+                <td>@item.UnitPrice.ToString("N0")</td>
+                <td>@item.LineTotal.ToString("N0")</td>
+            </tr>
+        }
+        </tbody>
+    </table>
+
+    <h3>وضعیت سفارش</h3>
+    <select @bind="newStatus">
+        <option>New</option>
+        <option>Processing</option>
+        <option>Shipped</option>
+        <option>Completed</option>
+    </select>
+
+    <button @onclick="UpdateStatus">ذخیره</button>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private OrderDetailDto? order;
+    private string newStatus = "New";
+
+    protected override async Task OnInitializedAsync()
+    {
+        order = await OrderService.GetOrderAsync(Id);
+        if (order != null)
+            newStatus = order.Status;
+    }
+
+    private async Task UpdateStatus()
+    {
+        var ok = await OrderService.UpdateStatusAsync(Id, newStatus);
+        if (ok)
+        {
+            await OnInitializedAsync();
+        }
+    }
+}

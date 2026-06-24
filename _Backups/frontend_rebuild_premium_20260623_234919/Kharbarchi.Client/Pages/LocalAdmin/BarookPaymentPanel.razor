@@ -1,0 +1,9 @@
+@page "/local-admin/barook-payment"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = KharbarchiRoles.BarookPaymentOperatorsCsv)]
+@using Kharbarchi.Shared.Security
+
+<PageTitle>پرداخت باروک</PageTitle>
+<section class="khb-page" dir="rtl">
+    <div class="khb-hero"><span class="khb-eyebrow">باروک</span><h1>مدیریت پرداخت باروک</h1><p>ایجاد نشست پرداخت، ارسال لینک، بررسی وضعیت پرداخت و آماده‌سازی سفارش برای ارسال.</p><div class="khb-actions"><button class="khb-primary-btn">ایجاد لینک پرداخت</button><button class="khb-secondary-btn">بررسی وضعیت</button></div></div>
+    <div class="khb-panel"><h2>امنیت پرداخت</h2><p>اطلاعات حساس درگاه باید فقط در User Secrets یا متغیر محیطی ذخیره شود و داخل Git قرار نگیرد.</p></div>
+</section>

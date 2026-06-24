@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#2fb36d" />
+    <title>پنل مدیریت خواربارچی</title>
+    <base href="/" />
+    <link rel="icon" type="image/svg+xml" href="Logo/LOGO.svg" />
+    <link rel="stylesheet" href="css/kharbarchi-premium.css" />
+    <style>
+        :root{--boot-green:#2fb36d;--boot-ink:#101915;--boot-cream:#f8f4e8;}
+        html,body,#app{height:100%;margin:0;}
+        body{font-family:Tahoma,Arial,sans-serif;background:#f7f2e8;color:var(--boot-ink);}
+        .khb-boot{min-height:100vh;display:grid;place-items:center;overflow:hidden;position:relative;background:
+            radial-gradient(circle at 22% 18%, rgba(47,179,109,.20), transparent 30%),
+            radial-gradient(circle at 80% 12%, rgba(255,218,95,.20), transparent 28%),
+            radial-gradient(circle at 50% 100%, rgba(47,179,109,.12), transparent 44%),
+            linear-gradient(135deg,#f8fff5 0%,#faf5e8 52%,#effbe7 100%);
+        }
+        .khb-boot::before,.khb-boot::after{content:"";position:absolute;inset:auto;border-radius:999px;filter:blur(3px);opacity:.8;animation:khbFloat 8s ease-in-out infinite;}
+        .khb-boot::before{width:320px;height:320px;right:12%;top:12%;background:radial-gradient(circle,rgba(47,179,109,.25),transparent 63%);}
+        .khb-boot::after{width:260px;height:260px;left:14%;bottom:10%;background:radial-gradient(circle,rgba(255,218,95,.22),transparent 66%);animation-delay:-2s;}
+        .khb-boot-card{position:relative;z-index:1;text-align:center;padding:42px 48px;border:1px solid rgba(255,255,255,.72);border-radius:36px;background:rgba(255,255,255,.50);box-shadow:0 28px 90px rgba(26,44,35,.16), inset 0 1px 0 rgba(255,255,255,.9);backdrop-filter:blur(24px);}
+        .khb-boot-orbit{width:168px;height:168px;margin:0 auto 26px;display:grid;place-items:center;position:relative;perspective:900px;}
+        .khb-boot-orbit::before{content:"";position:absolute;inset:-18px;border-radius:999px;background:conic-gradient(from 0deg, transparent, rgba(47,179,109,.60), transparent 38%, rgba(255,218,95,.55), transparent 70%);filter:blur(.4px);animation:khbSpin 2.8s linear infinite;}
+        .khb-boot-orbit::after{content:"";position:absolute;inset:8px;border-radius:999px;background:linear-gradient(145deg,rgba(255,255,255,.96),rgba(235,244,232,.78));box-shadow:inset 0 16px 32px rgba(255,255,255,.75), 0 18px 45px rgba(32,64,42,.18);}
+        .khb-boot-logo{position:relative;z-index:1;width:104px;height:104px;object-fit:contain;transform-style:preserve-3d;animation:khbLogo3d 4.2s ease-in-out infinite;filter:drop-shadow(0 22px 20px rgba(47,179,109,.28));}
+        .khb-boot-title{font-size:24px;font-weight:900;letter-spacing:-.04em;margin:0 0 10px;}
+        .khb-boot-text{font-size:14px;line-height:2;color:#5f6a61;margin:0;}
+        .khb-boot-bar{height:7px;width:210px;margin:26px auto 0;border-radius:999px;background:rgba(25,40,32,.08);overflow:hidden;}
+        .khb-boot-bar span{display:block;height:100%;width:46%;border-radius:inherit;background:linear-gradient(90deg,#2fb36d,#ffda5f,#2fb36d);animation:khbProgress 1.35s ease-in-out infinite;}
+        @keyframes khbSpin{to{transform:rotate(360deg)}}
+        @keyframes khbFloat{0%,100%{transform:translate3d(0,0,0)}50%{transform:translate3d(0,22px,0)}}
+        @keyframes khbLogo3d{0%,100%{transform:rotateY(-18deg) rotateX(8deg) translateY(0) scale(1)}50%{transform:rotateY(20deg) rotateX(-6deg) translateY(-7px) scale(1.035)}}
+        @keyframes khbProgress{0%{transform:translateX(135%)}100%{transform:translateX(-235%)}}
+    </style>
+</head>
+<body>
+    <div id="app">
+        <main class="khb-boot" aria-live="polite">
+            <section class="khb-boot-card">
+                <div class="khb-boot-orbit">
+                    <img class="khb-boot-logo" src="Logo/LOGO.svg" alt="خواربارچی" />
+                </div>
+                <h1 class="khb-boot-title">در حال آماده‌سازی پنل مدیریت خواربارچی</h1>
+                <p class="khb-boot-text">لطفاً چند لحظه صبر کنید؛ داشبورد، دسترسی‌ها و اتصال‌های مدیریتی در حال بارگذاری هستند.</p>
+                <div class="khb-boot-bar"><span></span></div>
+            </section>
+        </main>
+    </div>
+    <div id="blazor-error-ui">
+        <span>خطایی غیرمنتظره رخ داد.</span>
+        <a href="" class="reload">بارگیری مجدد</a>
+        <a class="dismiss">×</a>
+    </div>
+    <script src="js/kharbarchi-premium.js"></script>
+    <script src="_framework/blazor.webassembly.js"></script>
+</body>
+</html>

@@ -1,328 +1,126 @@
 @page "/local-admin/users"
-@attribute [Authorize(Roles = KharbarchiRoles.SuperAdmins)]
+@attribute [Authorize(Roles = "SuperAdmin,Admin")]
 @using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authorization
 @using Kharbarchi.Client.Services
 @using Kharbarchi.Shared.Contracts
-@using Kharbarchi.Shared.Security
-@using Microsoft.AspNetCore.Authorization
 @inject UserAdminService UserAdmin
 
-<PageTitle>مدیریت کاربران و نقش‌ها</PageTitle>
+<PageTitle>کاربران و نقش‌ها</PageTitle>
 
-<div class="khb-admin-shell" dir="rtl">
-    <section class="khb-admin-hero khb-admin-hero-compact">
-        <div>
-            <span class="khb-eyebrow">مدیر کل</span>
-            <h1>کاربران و دسترسی‌ها</h1>
-            <p>ساخت اکانت داخلی، تخصیص نقش، ریست رمز و قفل/فعال‌سازی کاربر فقط از این صفحه انجام می‌شود.</p>
-        </div>
-        <a class="khb-secondary-btn" href="/local-admin">بازگشت به داشبورد</a>
-    </section>
+<section class="khb-page-head">
+    <div><span class="khb-eyebrow">Identity Center</span><h1>کاربران و نقش‌ها</h1><p>ساخت حساب داخلی، تخصیص نقش، قفل/فعال‌سازی و ریست رمز از یک صفحه امن.</p></div>
+    <button class="khb-btn khb-btn-secondary" @onclick="LoadAsync" disabled="@busy">بارگیری مجدد</button>
+</section>
 
-    @if (!string.IsNullOrWhiteSpace(message))
-    {
-        <div class="khb-alert @(isError ? "khb-alert-danger" : "khb-alert-success")">@message</div>
-    }
+@if (!string.IsNullOrWhiteSpace(message)) { <div class="khb-alert @(isError ? "danger" : "success")">@message</div> }
 
-    <section class="khb-two-column">
-        <div class="khb-panel">
-            <h2>ساخت کاربر جدید</h2>
-            <EditForm Model="createModel" OnValidSubmit="CreateUserAsync" class="khb-form">
-                <DataAnnotationsValidator />
-                <ValidationSummary />
-
-                <label>
-                    نام کاربری انگلیسی
-                    <InputText class="khb-input" @bind-Value="createModel.UserName" />
-                </label>
-
-                <label>
-                    نام کامل
-                    <InputText class="khb-input" @bind-Value="createModel.FullName" />
-                </label>
-
-                <label>
-                    ایمیل
-                    <InputText class="khb-input" @bind-Value="createModel.Email" />
-                </label>
-
-                <label>
-                    رمز عبور
-                    <InputText type="password" class="khb-input" @bind-Value="createModel.Password" />
-                </label>
-
-                <label>
-                    تکرار رمز عبور
-                    <InputText type="password" class="khb-input" @bind-Value="createModel.ConfirmPassword" />
-                </label>
-
-                <div class="khb-role-selector">
-                    <strong>نقش‌ها</strong>
-                    @foreach (var role in roles)
-                    {
-                        <label class="khb-check-card">
-                            <input type="checkbox" checked="@createModel.SelectedRoles.Contains(role.Name)" @onchange="e => ToggleCreateRole(role.Name, e.Value)" />
-                            <span>
-                                <b>@role.PersianName</b>
-                                <small>@role.Description</small>
-                            </span>
-                        </label>
-                    }
-                </div>
-
-                <button class="khb-primary-btn" type="submit" disabled="@isBusy">ساخت کاربر</button>
-            </EditForm>
-        </div>
-
-        <div class="khb-panel">
-            <h2>یوزرهای تست آماده</h2>
-            <p>این یوزرها فقط در محیط Development توسط Seed ساخته می‌شوند. رمز همه:</p>
-            <code class="khb-code">Kharbarchi@Test123!</code>
-            <div class="khb-test-users-grid khb-test-users-grid-large">
-                <span>superadmin</span>
-                <span>pricing.manager</span>
-                <span>pricing.employee</span>
-                <span>warehouse</span>
-                <span>sales.manager</span>
-                <span>shipping.manager</span>
-                <span>accountant</span>
-                <span>sync.agent</span>
-                <span>gateway.admin</span>
-                <span>customer.test</span>
-            </div>
-        </div>
-    </section>
-
-    <section class="khb-panel khb-users-panel">
-        <div class="khb-panel-heading">
-            <h2>کاربران سیستم</h2>
-            <button class="khb-secondary-btn" @onclick="LoadAsync" disabled="@isBusy">بارگیری مجدد</button>
-        </div>
-
-        @if (isLoading)
-        {
-            <p>در حال بارگیری کاربران...</p>
-        }
-        else
-        {
-            <div class="khb-user-list">
-                @foreach (var user in users)
+<section class="khb-two-col khb-two-col-wide">
+    <article class="khb-panel khb-panel-elevated">
+        <div class="khb-panel-title"><span>01</span><div><h2>ساخت کاربر جدید</h2><p>نام کاربری انگلیسی و حداقل یک نقش الزامی است.</p></div></div>
+        <EditForm Model="createModel" OnValidSubmit="CreateUserAsync" class="khb-form-grid">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+            <label class="khb-field">نام کاربری <InputText class="khb-input ltr" @bind-Value="createModel.UserName" /></label>
+            <label class="khb-field">نام کامل <InputText class="khb-input" @bind-Value="createModel.FullName" /></label>
+            <label class="khb-field">ایمیل <InputText class="khb-input ltr" @bind-Value="createModel.Email" /></label>
+            <label class="khb-field">رمز عبور <InputText type="password" class="khb-input ltr" @bind-Value="createModel.Password" /></label>
+            <label class="khb-field">تکرار رمز <InputText type="password" class="khb-input ltr" @bind-Value="createModel.ConfirmPassword" /></label>
+            <div class="khb-role-grid khb-field-full">
+                @foreach (var role in roles)
                 {
-                    <article class="khb-user-card">
-                        <header>
-                            <div>
-                                <strong>@user.UserName</strong>
-                                <p>@(string.IsNullOrWhiteSpace(user.FullName) ? "بدون نام کامل" : user.FullName)</p>
-                                <small>@(string.IsNullOrWhiteSpace(user.Email) ? "بدون ایمیل" : user.Email)</small>
-                            </div>
-                            <span class="@(user.IsLockedOut ? "khb-status-danger" : "khb-status-ok")">
-                                @(user.IsLockedOut ? "قفل شده" : "فعال")
-                            </span>
-                        </header>
-
-                        <div class="khb-role-selector khb-role-selector-inline">
-                            @foreach (var role in roles)
-                            {
-                                <label class="khb-check-card">
-                                    <input type="checkbox" checked="@selectedRoles[user.Id].Contains(role.Name)" @onchange="e => ToggleUserRole(user.Id, role.Name, e.Value)" />
-                                    <span><b>@role.PersianName</b></span>
-                                </label>
-                            }
-                        </div>
-
-                        <footer>
-                            <button class="khb-primary-btn khb-small-btn" @onclick="() => SaveRolesAsync(user.Id)" disabled="@isBusy">ذخیره نقش‌ها</button>
-                            <button class="khb-secondary-btn khb-small-btn" @onclick="() => ResetPasswordAsync(user.Id)" disabled="@isBusy">ریست رمز تست</button>
-                            <button class="khb-danger-btn khb-small-btn" @onclick="() => ToggleLockAsync(user)" disabled="@isBusy">
-                                @(user.IsLockedOut ? "فعال‌سازی" : "قفل کردن")
-                            </button>
-                        </footer>
-                    </article>
+                    <label class="khb-role-card"><input type="checkbox" checked="@createModel.SelectedRoles.Contains(role.Name)" @onchange="e => ToggleCreateRole(role.Name, e.Value)" /><span><b>@role.PersianName</b><small>@role.Description</small></span></label>
                 }
             </div>
-        }
-    </section>
-</div>
+            <button class="khb-btn khb-btn-primary khb-field-full" type="submit" disabled="@busy">ساخت کاربر</button>
+        </EditForm>
+    </article>
+
+    <article class="khb-panel khb-panel-elevated">
+        <div class="khb-panel-title"><span>02</span><div><h2>یوزرهای تست</h2><p>رمز همه یوزرهای تست در Development:</p></div></div>
+        <code class="khb-code">Kharbarchi@Test123!</code>
+        <div class="khb-pill-grid">
+            @foreach (var u in testUsers) { <span>@u</span> }
+        </div>
+    </article>
+</section>
+
+<section class="khb-panel khb-panel-elevated">
+    <div class="khb-panel-heading"><div><h2>کاربران سیستم</h2><p>حداکثر ۵۰۰ کاربر داخلی برای مدیریت نمایش داده می‌شود.</p></div></div>
+    @if (loading) { <p class="khb-muted">در حال بارگیری...</p> }
+    else
+    {
+        <div class="khb-user-grid">
+            @foreach (var user in users)
+            {
+                <article class="khb-user-card">
+                    <header><div><b>@user.UserName</b><small>@user.FullName</small><small>@user.Email</small></div><span class="khb-status-badge @(user.IsLockedOut ? "bad" : "ok")">@(user.IsLockedOut ? "قفل" : "فعال")</span></header>
+                    <div class="khb-role-grid compact">
+                        @foreach (var role in roles)
+                        {
+                            <label class="khb-role-card"><input type="checkbox" checked="@selectedRoles[user.Id].Contains(role.Name)" @onchange="e => ToggleUserRole(user.Id, role.Name, e.Value)" /><span><b>@role.PersianName</b></span></label>
+                        }
+                    </div>
+                    <footer><button class="khb-btn khb-btn-primary" @onclick="() => SaveRolesAsync(user.Id)" disabled="@busy">ذخیره نقش‌ها</button><button class="khb-btn khb-btn-secondary" @onclick="() => ResetPasswordAsync(user.Id)" disabled="@busy">ریست رمز</button><button class="khb-btn khb-btn-danger" @onclick="() => ToggleLockAsync(user)" disabled="@busy">@(user.IsLockedOut ? "فعال‌سازی" : "قفل")</button></footer>
+                </article>
+            }
+        </div>
+    }
+</section>
 
 @code {
     private readonly CreateUserFormModel createModel = new();
     private readonly Dictionary<string, HashSet<string>> selectedRoles = new(StringComparer.OrdinalIgnoreCase);
     private IReadOnlyList<LocalRoleDto> roles = [];
     private IReadOnlyList<LocalUserDto> users = [];
-    private bool isLoading = true;
-    private bool isBusy;
+    private bool loading = true;
+    private bool busy;
     private bool isError;
     private string? message;
+    private readonly string[] testUsers = ["superadmin", "pricing.manager", "pricing.employee", "warehouse", "sales.manager", "shipping.manager", "accountant", "sync.agent", "gateway.admin", "customer.test"];
 
-    protected override async Task OnInitializedAsync()
-    {
-        await LoadAsync();
-    }
+    protected override async Task OnInitializedAsync() => await LoadAsync();
 
     private async Task LoadAsync()
     {
-        isLoading = true;
-        message = null;
-
+        loading = true; message = null;
         try
         {
             roles = await UserAdmin.GetRolesAsync();
             users = await UserAdmin.GetUsersAsync();
             selectedRoles.Clear();
-            foreach (var user in users)
-            {
-                selectedRoles[user.Id] = new HashSet<string>(user.Roles, StringComparer.OrdinalIgnoreCase);
-            }
+            foreach (var user in users) selectedRoles[user.Id] = new HashSet<string>(user.Roles, StringComparer.OrdinalIgnoreCase);
         }
-        catch (Exception ex)
-        {
-            isError = true;
-            message = "خطا در بارگیری کاربران: " + ex.Message;
-        }
-        finally
-        {
-            isLoading = false;
-        }
+        catch (Exception ex) { isError = true; message = "خطا در بارگیری کاربران: " + ex.Message; }
+        finally { loading = false; }
     }
 
     private async Task CreateUserAsync()
     {
-        isBusy = true;
-        isError = false;
-        message = null;
-
+        busy = true; isError = false; message = null;
         try
         {
-            var request = new CreateLocalUserRequest
-            {
-                UserName = createModel.UserName,
-                Email = createModel.Email,
-                FullName = createModel.FullName,
-                Password = createModel.Password,
-                ConfirmPassword = createModel.ConfirmPassword,
-                Roles = createModel.SelectedRoles.OrderBy(x => x).ToList()
-            };
-
-            var result = await UserAdmin.CreateUserAsync(request);
-            isError = !result.IsSuccess;
-            message = result.Message;
-
-            if (result.IsSuccess)
-            {
-                createModel.Clear();
-                await LoadAsync();
-            }
+            var result = await UserAdmin.CreateUserAsync(new CreateLocalUserRequest { UserName = createModel.UserName, Email = createModel.Email, FullName = createModel.FullName, Password = createModel.Password, ConfirmPassword = createModel.ConfirmPassword, Roles = createModel.SelectedRoles.OrderBy(x => x).ToList() });
+            isError = !result.IsSuccess; message = result.Message;
+            if (result.IsSuccess) { createModel.Clear(); await LoadAsync(); }
         }
-        finally
-        {
-            isBusy = false;
-        }
+        finally { busy = false; }
     }
 
-    private void ToggleCreateRole(string role, object? value)
-    {
-        var isChecked = value is bool b && b;
-        if (isChecked)
-        {
-            createModel.SelectedRoles.Add(role);
-        }
-        else
-        {
-            createModel.SelectedRoles.Remove(role);
-        }
-    }
-
-    private void ToggleUserRole(string userId, string role, object? value)
-    {
-        if (!selectedRoles.TryGetValue(userId, out var set))
-        {
-            set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            selectedRoles[userId] = set;
-        }
-
-        var isChecked = value is bool b && b;
-        if (isChecked)
-        {
-            set.Add(role);
-        }
-        else
-        {
-            set.Remove(role);
-        }
-    }
-
-    private async Task SaveRolesAsync(string userId)
-    {
-        isBusy = true;
-        isError = false;
-        message = null;
-
-        try
-        {
-            var rolesToSave = selectedRoles.TryGetValue(userId, out var set) ? set.OrderBy(x => x).ToList() : [];
-            var result = await UserAdmin.UpdateRolesAsync(userId, rolesToSave);
-            isError = !result.IsSuccess;
-            message = result.Message;
-            if (result.IsSuccess)
-            {
-                await LoadAsync();
-            }
-        }
-        finally
-        {
-            isBusy = false;
-        }
-    }
-
-    private async Task ResetPasswordAsync(string userId)
-    {
-        isBusy = true;
-        isError = false;
-        var result = await UserAdmin.ResetPasswordAsync(userId, "Kharbarchi@Test123!");
-        isError = !result.IsSuccess;
-        message = result.Message;
-        isBusy = false;
-    }
-
-    private async Task ToggleLockAsync(LocalUserDto user)
-    {
-        isBusy = true;
-        isError = false;
-        var result = await UserAdmin.SetLockStateAsync(user.Id, !user.IsLockedOut);
-        isError = !result.IsSuccess;
-        message = result.Message;
-        if (result.IsSuccess)
-        {
-            await LoadAsync();
-        }
-        isBusy = false;
-    }
+    private void ToggleCreateRole(string role, object? value) { if (value is bool b && b) createModel.SelectedRoles.Add(role); else createModel.SelectedRoles.Remove(role); }
+    private void ToggleUserRole(string userId, string role, object? value) { if (!selectedRoles.TryGetValue(userId, out var set)) selectedRoles[userId] = set = new(StringComparer.OrdinalIgnoreCase); if (value is bool b && b) set.Add(role); else set.Remove(role); }
+    private async Task SaveRolesAsync(string id) { busy = true; var r = await UserAdmin.UpdateRolesAsync(id, selectedRoles[id].OrderBy(x => x).ToList()); isError = !r.IsSuccess; message = r.Message; busy = false; }
+    private async Task ResetPasswordAsync(string id) { busy = true; var r = await UserAdmin.ResetPasswordAsync(id, "Kharbarchi@Test123!"); isError = !r.IsSuccess; message = r.Message; busy = false; }
+    private async Task ToggleLockAsync(LocalUserDto user) { busy = true; var r = await UserAdmin.SetLockStateAsync(user.Id, !user.IsLockedOut); isError = !r.IsSuccess; message = r.Message; await LoadAsync(); busy = false; }
 
     private sealed class CreateUserFormModel
     {
-        [Required(ErrorMessage = "نام کاربری الزامی است.")]
-        public string UserName { get; set; } = string.Empty;
-
+        [Required] public string UserName { get; set; } = string.Empty;
         public string? Email { get; set; }
         public string? FullName { get; set; }
-
-        [Required(ErrorMessage = "رمز عبور الزامی است.")]
-        [StringLength(200, MinimumLength = 10, ErrorMessage = "رمز عبور باید حداقل ۱۰ کاراکتر باشد.")]
-        public string Password { get; set; } = string.Empty;
-
-        [Compare(nameof(Password), ErrorMessage = "تکرار رمز عبور با رمز اصلی یکی نیست.")]
-        public string ConfirmPassword { get; set; } = string.Empty;
-
+        [Required, MinLength(10)] public string Password { get; set; } = "Kharbarchi@Test123!";
+        [Compare(nameof(Password))] public string ConfirmPassword { get; set; } = "Kharbarchi@Test123!";
         public HashSet<string> SelectedRoles { get; } = new(StringComparer.OrdinalIgnoreCase);
-
-        public void Clear()
-        {
-            UserName = string.Empty;
-            Email = null;
-            FullName = null;
-            Password = string.Empty;
-            ConfirmPassword = string.Empty;
-            SelectedRoles.Clear();
-        }
+        public void Clear() { UserName = Email = FullName = string.Empty; Password = ConfirmPassword = "Kharbarchi@Test123!"; SelectedRoles.Clear(); }
     }
 }

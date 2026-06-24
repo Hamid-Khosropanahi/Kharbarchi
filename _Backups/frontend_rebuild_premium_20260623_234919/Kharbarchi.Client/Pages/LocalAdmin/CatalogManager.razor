@@ -1,0 +1,9 @@
+@page "/local-admin/catalog"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = KharbarchiRoles.CatalogWriters)]
+@using Kharbarchi.Shared.Security
+
+<PageTitle>کاتالوگ کالا</PageTitle>
+<section class="khb-page" dir="rtl">
+    <div class="khb-hero"><span class="khb-eyebrow">کالا</span><h1>کاتالوگ کالا</h1><p>مدیریت کالاهای داخلی، تنوع‌ها، تصویر، وضعیت فروش و آماده‌سازی برای همگام‌سازی با ووکامرس.</p><div class="khb-actions"><button class="khb-primary-btn">کالای جدید</button><a class="khb-secondary-btn" href="/local-admin/woocommerce-import">ورود از ووکامرس</a></div></div>
+    <div class="khb-panel"><h2>لیست کالاها</h2><p>در نسخه بعدی، جدول کالاها به API کاتالوگ متصل می‌شود. این صفحه فعلاً route را پایدار و ظاهر مدیریت را یکپارچه می‌کند.</p></div>
+</section>

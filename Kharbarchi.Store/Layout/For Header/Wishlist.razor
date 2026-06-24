@@ -1,0 +1,22 @@
+﻿@namespace Kharbarchi.Client.Components.Header
+
+<div class="wd-header-wishlist bi bi-heart fs-4  wd-with-count wd-design-2 @CssClass" style="color:dimgray" title="لیست علاقمندی های من">
+    <a href="@WishlistUrl" title="محصولات علاقه مندی">
+        <span class="position-absolute">
+            <span class="top-0 start-100 translate-middle badge rounded-pill text-bg-success" style="font-size:10px">@WishlistCount</span>
+        </span>
+        <span class="wd-tools-text">
+        </span>
+    </a>
+</div>
+
+@code {
+    [Parameter]
+    public int WishlistCount { get; set; }
+
+    [Parameter]
+    public string WishlistUrl { get; set; } = "./";
+
+    [Parameter]
+    public string CssClass { get; set; } = string.Empty;
+}

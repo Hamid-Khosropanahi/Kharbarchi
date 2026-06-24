@@ -1,0 +1,17 @@
+﻿.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit,minmax(180px,1fr));
+    gap: 16px;
+}
+
+.stat-card {
+    background: var(--card);
+    padding: 16px;
+    border-radius: 12px;
+    box-shadow: 0 2px 4px hsla(240, 100%, 3%, 0);
+    text-align: center;
+}
+
+.orders-table {
+    margin-top: 20px;
+}

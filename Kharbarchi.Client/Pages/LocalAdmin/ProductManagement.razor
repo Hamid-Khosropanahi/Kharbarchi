@@ -1,0 +1,438 @@
+@page "/local-admin/products"
+@page "/local-admin/product-management"
+@attribute [Authorize]
+@using System.Net.Http.Json
+@using System.Text.Encodings.Web
+@using System.Text.Json
+@using System.Text.Json.Nodes
+@using Microsoft.AspNetCore.Authorization
+@inject IHttpClientFactory HttpClientFactory
+@inject IJSRuntime JS
+
+<PageTitle>مدیریت حرفه‌ای محصولات</PageTitle>
+
+<section class="khb-page khb-products-page khb-sand-filter" dir="rtl">
+    <div class="khb-page-hero khb-glass-card khb-products-hero">
+        <div>
+            <span class="khb-eyebrow">Product Command Center</span>
+            <h1>مدیریت کامل محصولات، قیمت‌ها و همگام‌سازی ووکامرس</h1>
+            <p>تمام محصولات دریافتی از WooCommerce یا جدول منبع MySQL در این صفحه با صفحه‌بندی نمایش داده می‌شوند. با دابل‌کلیک روی هر ردیف، صفحه ویرایش کامل محصول باز می‌شود.</p>
+        </div>
+        <div class="khb-hero-actions">
+            <button class="khb-btn khb-btn-soft" @onclick="EnsureSchema" disabled="@Busy">آماده‌سازی جدول‌ها</button>
+            <button class="khb-btn khb-btn-primary" @onclick="SyncAllWooProducts" disabled="@Busy">دریافت همه محصولات ووکامرس</button>
+            <button class="khb-btn khb-btn-ghost" @onclick="LoadProducts" disabled="@Busy">بارگذاری لیست</button>
+        </div>
+    </div>
+
+    <div class="khb-product-toolbar khb-glass-card">
+        <div class="khb-field compact">
+            <label>جستجو</label>
+            <input class="khb-input" placeholder="نام، SKU، Slug، بسته‌بندی..." @bind="Search" @bind:event="oninput" />
+        </div>
+        <div class="khb-field tiny">
+            <label>تعداد در صفحه</label>
+            <select class="khb-input" @bind="PageSize">
+                <option value="20">20</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+                <option value="200">200</option>
+            </select>
+        </div>
+        <div class="khb-field compact">
+            <label>نام جدول منبع MySQL</label>
+            <input class="khb-input ltr" placeholder="مثلاً All_Product_With_Process" @bind="SourceTableName" />
+        </div>
+        <button class="khb-btn khb-btn-soft" @onclick="ImportFromSourceTable" disabled="@Busy">ساخت محصولات از جدول منبع</button>
+        <button class="khb-btn khb-btn-primary" @onclick="SearchProducts" disabled="@Busy">اعمال فیلتر</button>
+    </div>
+
+    <div class="khb-grid khb-grid-4 khb-product-stats">
+        <div class="khb-glass-card khb-mini-stat"><span>کل محصولات</span><strong>@Total</strong></div>
+        <div class="khb-glass-card khb-mini-stat"><span>صفحه</span><strong>@Page / @TotalPages</strong></div>
+        <div class="khb-glass-card khb-mini-stat"><span>دریافت‌شده از ووکامرس</span><strong>@WooSyncedCount</strong></div>
+        <div class="khb-glass-card khb-mini-stat"><span>وضعیت</span><strong>@StatusMessage</strong></div>
+    </div>
+
+    <div class="khb-products-layout">
+        <div class="khb-glass-card khb-products-table-card">
+            <div class="khb-table-header">
+                <h2>لیست محصولات قابل فروش</h2>
+                <div class="khb-pager">
+                    <button class="khb-icon-btn" @onclick="PrevPage" disabled="@(Busy || Page <= 1)">‹</button>
+                    <span>@Page از @TotalPages</span>
+                    <button class="khb-icon-btn" @onclick="NextPage" disabled="@(Busy || Page >= TotalPages)">›</button>
+                </div>
+            </div>
+
+            <div class="khb-table-scroll">
+                <table class="khb-product-table">
+                    <thead>
+                        <tr>
+                            <th>شناسه</th>
+                            <th>نام محصول</th>
+                            <th>گروه اصلی</th>
+                            <th>SKU</th>
+                            <th>بسته‌بندی</th>
+                            <th>کارتن</th>
+                            <th>فروش نقد</th>
+                            <th>فروش شرایطی</th>
+                            <th>وضعیت</th>
+                            <th>تغییر</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (Products.Count == 0)
+                        {
+                            <tr><td colspan="10" class="khb-empty-cell">هنوز محصولی برای نمایش نیست. ابتدا «دریافت همه محصولات ووکامرس» یا «ساخت محصولات از جدول منبع» را بزن.</td></tr>
+                        }
+                        else
+                        {
+                            @foreach (var row in Products)
+                            {
+                                <tr class="@(Selected?.Id == row.Id ? "selected" : "")" @ondblclick="() => OpenEditor(row)" @onclick="() => SelectRow(row)">
+                                    <td class="ltr">@row.WooProductId</td>
+                                    <td><b>@row.ProductName</b><small>@row.Slug</small></td>
+                                    <td>@row.MainGroupName</td>
+                                    <td class="ltr">@row.Sku</td>
+                                    <td>@row.PackagingName</td>
+                                    <td>@row.CartonQuantity</td>
+                                    <td>@Money(row.CashSalePrice)</td>
+                                    <td>@Money(row.InstallmentSalePrice)</td>
+                                    <td><span class="khb-state-pill tiny @StatusClass(row.Status)">@row.Status</span></td>
+                                    <td>@(string.IsNullOrWhiteSpace(row.SourceRowHash) ? "—" : "ثبت‌شده")</td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <aside class="khb-glass-card khb-product-editor @(EditorOpen ? "open" : "")">
+            @if (Selected is null)
+            {
+                <div class="khb-editor-empty">
+                    <div class="khb-orb-icon">✦</div>
+                    <h2>ویرایش محصول</h2>
+                    <p>روی یک محصول دابل‌کلیک کن تا تمام مشخصات آن برای ویرایش باز شود.</p>
+                </div>
+            }
+            else
+            {
+                <div class="khb-editor-head">
+                    <div>
+                        <span class="khb-eyebrow">Product Editor</span>
+                        <h2>@EditModel.ProductName</h2>
+                        <p class="ltr">Woo ID: @EditModel.WooProductId</p>
+                    </div>
+                    <button class="khb-icon-btn" @onclick="CloseEditor">×</button>
+                </div>
+
+                <div class="khb-editor-body">
+                    <div class="khb-form-row">
+                        <label>نام محصول</label>
+                        <input class="khb-input" @bind="EditModel.ProductName" />
+                    </div>
+                    <div class="khb-form-row two">
+                        <div><label>SKU</label><input class="khb-input ltr" @bind="EditModel.Sku" /></div>
+                        <div><label>Slug</label><input class="khb-input ltr" @bind="EditModel.Slug" /></div>
+                    </div>
+                    <div class="khb-form-row two">
+                        <div><label>وضعیت</label><input class="khb-input ltr" @bind="EditModel.Status" /></div>
+                        <div><label>نوع بسته‌بندی</label><input class="khb-input" @bind="EditModel.PackagingName" /></div>
+                    </div>
+                    <div class="khb-form-row two">
+                        <div><label>تعداد در کارتن</label><input class="khb-input" type="number" @bind="EditModel.CartonQuantity" /></div>
+                        <div><label>آدرس تصویر</label><input class="khb-input ltr" @bind="EditModel.ImageUrl" /></div>
+                    </div>
+                    <div class="khb-form-row two">
+                        <div><label>قیمت فروش نقد</label><input class="khb-input" type="number" step="0.01" @bind="EditModel.CashSalePrice" /></div>
+                        <div><label>قیمت فروش شرایطی</label><input class="khb-input" type="number" step="0.01" @bind="EditModel.InstallmentSalePrice" /></div>
+                    </div>
+                    <div class="khb-form-row two">
+                        <div><label>قیمت خرید نقد</label><input class="khb-input" type="number" step="0.01" @bind="EditModel.CashPurchasePrice" /></div>
+                        <div><label>قیمت خرید شرایطی</label><input class="khb-input" type="number" step="0.01" @bind="EditModel.InstallmentPurchasePrice" /></div>
+                    </div>
+                    <div class="khb-form-row">
+                        <label>توضیحات کوتاه</label>
+                        <textarea class="khb-input textarea" @bind="EditModel.ShortDescription"></textarea>
+                    </div>
+                    <div class="khb-form-row">
+                        <label>توضیحات کلی</label>
+                        <textarea class="khb-input textarea tall" @bind="EditModel.FullDescription"></textarea>
+                    </div>
+                    <div class="khb-form-row">
+                        <label>دسته‌بندی‌ها / JSON</label>
+                        <textarea class="khb-input textarea ltr" @bind="EditModel.CategoriesJson"></textarea>
+                    </div>
+                    <div class="khb-editor-actions">
+                        <button class="khb-btn khb-btn-soft" @onclick="SaveLocal" disabled="@Busy">ذخیره داخلی</button>
+                        <button class="khb-btn khb-btn-primary" @onclick="SaveToWoo" disabled="@(Busy || !EditModel.WooProductId.HasValue)">ذخیره در ووکامرس</button>
+                        <button class="khb-btn khb-btn-ghost" @onclick="LoadWooDetail" disabled="@(Busy || !EditModel.WooProductId.HasValue)">نمایش Raw Woo</button>
+                    </div>
+                    <textarea class="khb-result-box editor-result" readonly>@RawResult</textarea>
+                </div>
+            }
+        </aside>
+    </div>
+</section>
+
+@code {
+    private readonly JsonSerializerOptions JsonOptions = new()
+    {
+        WriteIndented = true,
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        PropertyNameCaseInsensitive = true
+    };
+
+    private HttpClient Api => HttpClientFactory.CreateClient("KharbarchiAPI");
+    private List<ProductRow> Products { get; set; } = new();
+    private ProductRow? Selected { get; set; }
+    private ProductEdit EditModel { get; set; } = new();
+    private bool EditorOpen { get; set; }
+    private bool Busy { get; set; }
+    private int Page { get; set; } = 1;
+    private int PageSize { get; set; } = 50;
+    private long Total { get; set; }
+    private long TotalPages { get; set; } = 1;
+    private int WooSyncedCount { get; set; }
+    private string? Search { get; set; }
+    private string SourceTableName { get; set; } = "All_Product_With_Process";
+    private string StatusMessage { get; set; } = "آماده";
+    private string RawResult { get; set; } = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProducts();
+    }
+
+    private async Task EnsureSchema() => await Run(async () =>
+    {
+        var response = await Api.GetAsync("api/product-management/schema/ensure");
+        await ReadResponse(response);
+    }, "جدول‌های مدیریت محصول آماده شدند.");
+
+    private async Task LoadProducts() => await Run(async () =>
+    {
+        var url = $"api/product-management/products?page={Page}&pageSize={PageSize}&search={Uri.EscapeDataString(Search ?? string.Empty)}";
+        var result = await Api.GetFromJsonAsync<ProductListResult>(url, JsonOptions);
+        Products = result?.Rows ?? new();
+        Total = result?.Total ?? 0;
+        TotalPages = Math.Max(1, result?.TotalPages ?? 1);
+        StatusMessage = $"{Products.Count} ردیف از {Total} محصول";
+    }, "لیست محصولات بارگذاری شد.");
+
+    private async Task SearchProducts()
+    {
+        Page = 1;
+        await LoadProducts();
+    }
+
+    private async Task NextPage()
+    {
+        if (Page < TotalPages)
+        {
+            Page++;
+            await LoadProducts();
+        }
+    }
+
+    private async Task PrevPage()
+    {
+        if (Page > 1)
+        {
+            Page--;
+            await LoadProducts();
+        }
+    }
+
+    private void SelectRow(ProductRow row) => Selected = row;
+
+    private void OpenEditor(ProductRow row)
+    {
+        Selected = row;
+        EditorOpen = true;
+        EditModel = new ProductEdit
+        {
+            Id = row.Id,
+            WooProductId = row.WooProductId,
+            ExternalId = row.ExternalId,
+            ProductName = row.ProductName,
+            Sku = row.Sku,
+            Slug = row.Slug,
+            Status = row.Status,
+            PackagingName = row.PackagingName,
+            CartonQuantity = row.CartonQuantity,
+            CashSalePrice = row.CashSalePrice,
+            InstallmentSalePrice = row.InstallmentSalePrice,
+            CashPurchasePrice = row.CashPurchasePrice,
+            InstallmentPurchasePrice = row.InstallmentPurchasePrice,
+            ShortDescription = row.ShortDescription,
+            FullDescription = row.FullDescription,
+            ImageUrl = row.ImageUrl,
+            CategoriesJson = row.CategoriesJson
+        };
+    }
+
+    private void CloseEditor() => EditorOpen = false;
+
+    private async Task ImportFromSourceTable() => await Run(async () =>
+    {
+        var response = await Api.PostAsJsonAsync("api/product-management/import-source-table", new { tableName = SourceTableName, maxRows = 50000 });
+        await ReadResponse(response);
+        Page = 1;
+        await LoadProducts();
+    }, "محصولات از جدول منبع ساخته شدند.");
+
+    private async Task SyncAllWooProducts() => await Run(async () =>
+    {
+        WooSyncedCount = 0;
+        var page = 1;
+        while (true)
+        {
+            StatusMessage = $"در حال دریافت صفحه {page} از ووکامرس...";
+            StateHasChanged();
+            var request = await BuildWooRequest(page, 100);
+            var response = await Api.PostAsJsonAsync("api/product-management/woocommerce/import-page", request);
+            var text = await ReadResponse(response);
+            var node = JsonNode.Parse(text);
+            var count = node?["count"]?.GetValue<int>() ?? 0;
+            WooSyncedCount += count;
+            if (count < 100 || page >= 200)
+            {
+                break;
+            }
+            page++;
+        }
+        Page = 1;
+        await LoadProducts();
+    }, "همه محصولات ووکامرس صفحه‌به‌صفحه دریافت شدند.");
+
+    private async Task SaveLocal() => await Run(async () =>
+    {
+        if (!EditModel.Id.HasValue) return;
+        var response = await Api.PutAsJsonAsync($"api/product-management/products/{EditModel.Id.Value}", EditModel);
+        await ReadResponse(response);
+        await LoadProducts();
+    }, "محصول در دیتابیس داخلی ذخیره شد.");
+
+    private async Task SaveToWoo() => await Run(async () =>
+    {
+        if (!EditModel.WooProductId.HasValue) return;
+        var response = await Api.PutAsJsonAsync($"api/product-management/woocommerce/product/{EditModel.WooProductId.Value}", EditModel);
+        await ReadResponse(response);
+        await LoadProducts();
+    }, "تغییرات به WooCommerce ارسال شد.");
+
+    private async Task LoadWooDetail() => await Run(async () =>
+    {
+        if (!EditModel.WooProductId.HasValue) return;
+        var response = await Api.GetAsync($"api/product-management/woocommerce/product/{EditModel.WooProductId.Value}");
+        await ReadResponse(response);
+    }, "جزئیات WooCommerce خوانده شد.");
+
+    private async Task<object> BuildWooRequest(int page, int perPage)
+    {
+        return new
+        {
+            baseUrl = await GetLocal("khb.woo.baseUrl") ?? "https://localhost:4433/Kharbarchi",
+            consumerKey = await GetLocal("khb.woo.consumerKey"),
+            consumerSecret = await GetLocal("khb.woo.consumerSecret"),
+            wordPressUsername = await GetLocal("khb.woo.wpUsername"),
+            wordPressPassword = await GetLocal("khb.woo.wpPassword"),
+            timeoutSeconds = 600,
+            allowInsecureLocalhostSsl = true,
+            page,
+            perPage
+        };
+    }
+
+    private async Task Run(Func<Task> action, string ok)
+    {
+        Busy = true;
+        try
+        {
+            await action();
+            StatusMessage = ok;
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = "خطا";
+            RawResult = ToReadable(ex.ToString());
+        }
+        finally
+        {
+            Busy = false;
+        }
+    }
+
+    private async Task<string> ReadResponse(HttpResponseMessage response)
+    {
+        var text = await response.Content.ReadAsStringAsync();
+        RawResult = ToReadable(text);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new InvalidOperationException($"HTTP {(int)response.StatusCode} {response.ReasonPhrase}\n{RawResult}");
+        }
+        return text;
+    }
+
+    private string ToReadable(string text)
+    {
+        try
+        {
+            var node = JsonNode.Parse(text);
+            return node?.ToJsonString(JsonOptions) ?? text;
+        }
+        catch
+        {
+            return text;
+        }
+    }
+
+    private async Task<string?> GetLocal(string key) => await JS.InvokeAsync<string?>("localStorage.getItem", key);
+    private static string Money(decimal? value) => value.HasValue ? value.Value.ToString("N0") : "—";
+    private static string StatusClass(string? status) => string.Equals(status, "publish", StringComparison.OrdinalIgnoreCase) ? "ok" : "warn";
+
+    private sealed class ProductListResult
+    {
+        public bool Ok { get; set; }
+        public int Page { get; set; }
+        public int PageSize { get; set; }
+        public long Total { get; set; }
+        public long TotalPages { get; set; }
+        public List<ProductRow> Rows { get; set; } = new();
+    }
+
+    private sealed class ProductRow : ProductEdit
+    {
+        public string? MainGroupName { get; set; }
+        public string? MainGroupSlug { get; set; }
+        public string? SourceTableName { get; set; }
+        public string? ImportedAtUtc { get; set; }
+        public string? UpdatedAtUtc { get; set; }
+    }
+
+    private class ProductEdit
+    {
+        public long? Id { get; set; }
+        public int? WooProductId { get; set; }
+        public string? ExternalId { get; set; }
+        public string ProductName { get; set; } = string.Empty;
+        public string? Sku { get; set; }
+        public string? Slug { get; set; }
+        public string? Status { get; set; }
+        public string? PackagingName { get; set; }
+        public int? CartonQuantity { get; set; }
+        public decimal? CashSalePrice { get; set; }
+        public decimal? InstallmentSalePrice { get; set; }
+        public decimal? CashPurchasePrice { get; set; }
+        public decimal? InstallmentPurchasePrice { get; set; }
+        public string? ShortDescription { get; set; }
+        public string? FullDescription { get; set; }
+        public string? ImageUrl { get; set; }
+        public string? CategoriesJson { get; set; }
+        public string? SourceRowHash { get; set; }
+    }
+}

@@ -1,0 +1,45 @@
+﻿@page "/products"
+@using Kharbarchi.Client.Services
+@using Kharbarchi.Shared.Models
+@inject ProductService ProductService
+
+<PageTitle>محصولات | خربارچی</PageTitle>
+
+<!-- Container fits inside your MainLayout Body -->
+<div class="products-content" dir="rtl">
+    
+    <!-- Page Title Section (Not the global header) -->
+    <div class="section-title-area">
+        <h1>محصولات</h1>
+        <div class="title-underline"></div>
+        <p class="subtitle">بهترین‌ها را برای شما دستچین کرده‌ایم</p>
+    </div>
+
+    @if (products == null)
+    {
+        <!-- Animated Leaf Spinner -->
+        <div class="loading-state">
+            <div class="leaf-spinner"></div>
+            <p>در حال بارگذاری...</p>
+        </div>
+    }
+    else
+    {
+        <div class="products-grid-container">
+            @foreach (var p in products)
+            {
+                <ProductCard Product="p" />
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private List<ProductDto>? products;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Add a small delay to prevent flickering if API is too fast (Optional)
+        products = await ProductService.GetAllAsync();
+    }
+}

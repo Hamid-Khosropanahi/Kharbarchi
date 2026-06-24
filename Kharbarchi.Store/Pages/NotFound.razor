@@ -1,0 +1,78 @@
+﻿@page "/404"
+@inject NavigationManager NavigationManager
+
+<div class="garden-container">
+    <!-- Floating Background Leaves -->
+    <div class="leaf"></div>
+    <div class="leaf"></div>
+    <div class="leaf"></div>
+    <div class="leaf"></div>
+    <div class="leaf"></div>
+
+    <div class="content-card">
+        <div class="graphic-section">
+            <!-- Animated SVG Pea Pod -->
+            <svg class="legume-svg" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">
+                <!-- Shadow -->
+                <ellipse cx="150" cy="280" rx="60" ry="10" fill="rgba(0,0,0,0.1)" class="shadow-anim" />
+
+                <!-- The Pod Group -->
+                <g class="pod-sway">
+                    <!-- Stem -->
+                    <path d="M145,20 Q150,0 160,20 L155,40 Z" fill="#1e7e48" />
+
+                    <!-- Back Pod Shell -->
+                    <path d="M150,40 Q220,150 150,260 Q80,150 150,40 Z" fill="#258c51" />
+
+                    <!-- Inner Light Part -->
+                    <path d="M150,50 Q200,150 150,250 Q100,150 150,50 Z" fill="#2fac66" />
+
+                    <!-- Peas inside -->
+                    <g class="peas">
+                        <!-- Top Pea -->
+                        <circle cx="150" cy="90" r="25" fill="#4ade80" />
+
+                        <!-- Middle Pea (The Character) -->
+                        <circle cx="150" cy="150" r="28" fill="#4ade80" />
+                        <!-- Eyes -->
+                        <g class="face">
+                            <circle cx="140" cy="145" r="3" fill="#1b4d31" class="blink" />
+                            <circle cx="160" cy="145" r="3" fill="#1b4d31" class="blink" />
+                            <!-- Confused Mouth -->
+                            <path d="M145,158 Q150,153 155,158" stroke="#1b4d31" stroke-width="2" fill="none" />
+                            <!-- Sweat drop -->
+                            <path d="M165,130 Q168,125 171,130 L168,135 Z" fill="#a7f3d0" class="sweat-drop" />
+                        </g>
+
+                        <!-- Bottom Pea -->
+                        <circle cx="150" cy="210" r="25" fill="#4ade80" />
+                    </g>
+
+                    <!-- Front Translucent Shine -->
+                    <path d="M150,40 Q220,150 150,260" fill="rgba(255,255,255,0.1)" />
+                </g>
+            </svg>
+        </div>
+
+        <div class="text-section">
+            <h1 class="error-header">۴۰۴</h1>
+            <h2 class="error-title">ای وای! این دانه هنوز جوانه نزده است</h2>
+            <p class="error-desc">
+                متاسفیم، صفحه‌ای که به دنبال آن می‌گردید در باغچه ما پیدا نشد.
+                ممکن است چیده شده باشد یا اصلا کاشته نشده باشد.
+            </p>
+
+            <button class="return-btn" @onclick="NavigateHome">
+                بازگشت به باغچه
+            </button>
+        </div>
+    </div>
+</div>
+
+@code
+{
+    private void NavigateHome()
+    {
+        NavigationManager.NavigateTo("/");
+    }
+}

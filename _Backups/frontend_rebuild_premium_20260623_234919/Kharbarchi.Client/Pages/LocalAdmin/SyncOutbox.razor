@@ -1,0 +1,9 @@
+@page "/local-admin/sync-outbox"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = KharbarchiRoles.SyncOperatorsCsv)]
+@using Kharbarchi.Shared.Security
+
+<PageTitle>صف همگام‌سازی</PageTitle>
+<section class="khb-page" dir="rtl">
+    <div class="khb-hero"><span class="khb-eyebrow">Sync</span><h1>صف همگام‌سازی مرکزی</h1><p>بررسی پیام‌های خروجی آماده ارسال به ووکامرس. فقط مدیر کل و عامل همگام‌سازی مرکزی به این بخش دسترسی دارند.</p><div class="khb-actions"><button class="khb-primary-btn">ارسال پیام‌های آماده</button><button class="khb-secondary-btn">بازخوانی صف</button></div></div>
+    <div class="khb-panel"><h2>وضعیت صف</h2><p>پس از اتصال سرویس، پیام‌های pending، ارسال‌شده و خطادار در این بخش فهرست می‌شوند.</p></div>
+</section>

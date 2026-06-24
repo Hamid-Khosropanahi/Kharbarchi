@@ -1,0 +1,39 @@
+﻿@inherits LayoutComponentBase
+@using Kharbarchi.Client.Layout.For_Header
+@using Kharbarchi.Client.Layout.Footer
+@inject IJSRuntime JS
+
+<div>
+    <header>
+        <MainHeader />
+    </header>
+
+    <main class="layout">
+        @Body
+    </main>
+
+    <footer class="app-footer">
+        <Footer/>
+    </footer>
+</div>
+
+@code {
+    bool menuOpen;
+    bool darkMode;
+
+    protected override async Task OnInitializedAsync()
+    {
+        darkMode = await JS.InvokeAsync<string?>("localStorage.getItem", "theme") == "dark";
+        await JS.InvokeVoidAsync("setTheme", darkMode);
+    }
+
+    // void ToggleMenu() => menuOpen = !menuOpen;
+    // void CloseMenu() => menuOpen = false;
+
+    async Task ToggleTheme()
+    {
+        darkMode = !darkMode;
+        await JS.InvokeVoidAsync("localStorage.setItem", "theme", darkMode ? "dark" : "light");
+        await JS.InvokeVoidAsync("setTheme", darkMode);
+    }
+}

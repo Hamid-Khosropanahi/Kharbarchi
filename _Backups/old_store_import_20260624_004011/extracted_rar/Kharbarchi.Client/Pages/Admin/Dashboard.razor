@@ -1,0 +1,90 @@
+﻿@page "/admin/dashboard"
+@using Kharbarchi.Client.Services
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "Admin")]
+@inject DashboardService DashboardService
+
+<h2>داشبورد مدیریت Kharbarchi</h2>
+
+@if (stats == null)
+{
+    <p>در حال بارگذاری...</p>
+}
+else
+{
+    <div class="stats-grid">
+        <div class="stat-card">
+            <h4>کل سفارش‌ها</h4>
+            <p>@stats.TotalOrders</p>
+        </div>
+
+        <div class="stat-card">
+            <h4>سفارش‌های امروز</h4>
+            <p>@stats.TodayOrders</p>
+        </div>
+
+        <div class="stat-card">
+            <h4>فروش امروز</h4>
+            <p>@stats.TodaySales.ToString("N0") تومان</p>
+        </div>
+
+        <div class="stat-card">
+            <h4>فروش ماه</h4>
+            <p>@stats.MonthSales.ToString("N0") تومان</p>
+        </div>
+
+        <div class="stat-card">
+            <h4>کاربران</h4>
+            <p>@stats.Users</p>
+        </div>
+
+        <div class="stat-card">
+            <h4>محصولات</h4>
+            <p>@stats.Products</p>
+        </div>
+    </div>
+
+    <h3>آخرین سفارش‌ها</h3>
+
+    @if (latestOrders == null)
+    {
+        <p>در حال بارگذاری...</p>
+    }
+    else
+    {
+        <table class="orders-table">
+            <thead>
+                <tr>
+                    <th>شماره</th>
+                    <th>مشتری</th>
+                    <th>مبلغ</th>
+                    <th>وضعیت</th>
+                    <th>تاریخ</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var o in latestOrders)
+                {
+                    <tr>
+                        <td>@o.Id</td>
+                        <td>@o.Customer</td>
+                        <td>@o.TotalAmount.ToString("N0") تومان</td>
+                        <td>@o.Status</td>
+                        <td>@o.CreatedAt.ToLocalTime().ToString("yyyy/MM/dd HH:mm")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+}
+
+@code {
+    private DashboardStats? stats;
+    private List<LatestOrderDto>? latestOrders;
+
+    protected override async Task OnInitializedAsync()
+    {
+        stats = await DashboardService.GetStatsAsync();
+        latestOrders = await DashboardService.GetLatestOrdersAsync();
+    }
+}

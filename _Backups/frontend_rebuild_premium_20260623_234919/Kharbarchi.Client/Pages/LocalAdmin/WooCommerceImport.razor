@@ -1,0 +1,137 @@
+@page "/local-admin/woocommerce-import"
+@using Kharbarchi.Client.Services
+@using Kharbarchi.Shared.Contracts.WooCommerce
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "SuperAdmin,Admin,CentralSyncAgent")]
+@inject WooConnectionService WooService
+
+<PageTitle>ورود اطلاعات از ووکامرس | خواربارچی</PageTitle>
+
+<section class="khb-page-hero khb-reveal">
+    <div>
+        <span class="khb-eyebrow">WooCommerce Import</span>
+        <h1>دریافت اطلاعات اولیه از سایت اصلی</h1>
+        <p>محصولات، دسته‌بندی‌ها و در صورت نیاز سفارش‌های ووکامرس را دریافت می‌کنیم و به‌صورت خام و قابل پیگیری داخل MySQL ذخیره می‌کنیم.</p>
+    </div>
+    <div class="khb-hero-actions">
+        <a class="khb-btn khb-btn-ghost" href="/local-admin/woocommerce-settings">تنظیمات و تست API</a>
+        <a class="khb-btn khb-btn-soft" href="https://localhost:7030" target="_blank" rel="noopener">باز کردن فروشگاه جدا</a>
+    </div>
+</section>
+
+<div class="khb-grid khb-grid-two">
+    <section class="khb-card khb-reveal">
+        <div class="khb-card-header">
+            <div>
+                <span class="khb-card-kicker">Import Control</span>
+                <h2>انتخاب داده‌های ورودی</h2>
+            </div>
+            <span class="khb-status-pill @(importResult?.Success == true ? "is-ok" : "is-warn")">MySQL Import</span>
+        </div>
+
+        <div class="khb-form-grid">
+            <label class="khb-check">
+                <input type="checkbox" @bind="request.ImportProducts" />
+                <span>محصولات ووکامرس</span>
+            </label>
+            <label class="khb-check">
+                <input type="checkbox" @bind="request.ImportCategories" />
+                <span>دسته‌بندی‌ها</span>
+            </label>
+            <label class="khb-check">
+                <input type="checkbox" @bind="request.ImportOrders" />
+                <span>سفارش‌ها؛ فقط اگر لازم است</span>
+            </label>
+            <label class="khb-field">
+                <span>تعداد در هر صفحه</span>
+                <input type="number" min="1" max="100" @bind="request.PerPage" />
+            </label>
+            <label class="khb-field">
+                <span>حداکثر صفحات</span>
+                <input type="number" min="1" max="50" @bind="request.MaxPages" />
+            </label>
+        </div>
+
+        <div class="khb-actions-row">
+            <button class="khb-btn khb-btn-primary" @onclick="ImportAsync" disabled="@busy">دریافت و ذخیره در MySQL</button>
+            <button class="khb-btn khb-btn-ghost" @onclick="Clear">پاک کردن خروجی</button>
+        </div>
+
+        <p>جدول مقصد:</p>
+        <code dir="ltr">khb_imported_woocommerce_records</code>
+    </section>
+
+    <section class="khb-card khb-reveal">
+        <div class="khb-card-header">
+            <div>
+                <span class="khb-card-kicker">Result</span>
+                <h2>خلاصه ورود اطلاعات</h2>
+            </div>
+            @if (importResult is not null)
+            {
+                <span class="khb-status-pill @(importResult.Success ? "is-ok" : "is-error")">@(importResult.Success ? "موفق" : "ناموفق")</span>
+            }
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(message))
+        {
+            <div class="khb-alert @(importResult?.Success == false ? "khb-alert-error" : "khb-alert-info")">@message</div>
+        }
+
+        <div class="khb-grid khb-grid-three">
+            <article class="khb-mini-stat"><strong>@(importResult?.ProductsImported ?? 0)</strong><span>محصول</span></article>
+            <article class="khb-mini-stat"><strong>@(importResult?.CategoriesImported ?? 0)</strong><span>دسته‌بندی</span></article>
+            <article class="khb-mini-stat"><strong>@(importResult?.OrdersImported ?? 0)</strong><span>سفارش</span></article>
+        </div>
+
+        <label class="khb-field khb-field-wide">
+            <span>Log خام عملیات</span>
+            <textarea class="khb-console" rows="18" dir="ltr" readonly value="@logText"></textarea>
+        </label>
+    </section>
+</div>
+
+@code {
+    private WooDefaultImportRequestDto request = new()
+    {
+        ImportProducts = true,
+        ImportCategories = true,
+        ImportOrders = false,
+        PerPage = 100,
+        MaxPages = 10
+    };
+
+    private WooDefaultImportResultDto? importResult;
+    private string message = string.Empty;
+    private string logText = string.Empty;
+    private bool busy;
+
+    private async Task ImportAsync()
+    {
+        busy = true;
+        message = "در حال دریافت اطلاعات از ووکامرس...";
+        logText = string.Empty;
+        try
+        {
+            importResult = await WooService.ImportDefaultDataAsync(request);
+            message = importResult.Message;
+            logText = importResult.RawLog;
+        }
+        catch (Exception ex)
+        {
+            message = "خطا در ورود اطلاعات: " + ex.Message;
+            logText = ex.ToString();
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private void Clear()
+    {
+        importResult = null;
+        message = string.Empty;
+        logText = string.Empty;
+    }
+}

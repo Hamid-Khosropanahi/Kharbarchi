@@ -1,0 +1,228 @@
+@page "/local-admin/woocommerce-import"
+@attribute [Authorize]
+@using System.Net.Http.Json
+@using System.Text.Encodings.Web
+@using System.Text.Json
+@using System.Text.Json.Nodes
+@using Microsoft.AspNetCore.Authorization
+@inject IHttpClientFactory HttpClientFactory
+@inject IJSRuntime JS
+
+<PageTitle>دریافت اطلاعات ووکامرس</PageTitle>
+
+<section class="khb-page khb-page-premium khb-sand-filter">
+    <div class="khb-page-hero khb-glass-card">
+        <div>
+            <span class="khb-eyebrow">WooCommerce → MySQL</span>
+            <h1>دریافت و ذخیره اطلاعات در MySQL</h1>
+            <p>محصولات، دسته‌بندی‌ها، سفارش‌ها و خروجی خام API در جدول <b>khb_imported_woocommerce_records</b> ذخیره می‌شوند. اگر ستون‌هایی مثل SourceUrl وجود نداشته باشند، سرور خودش جدول را ترمیم می‌کند.</p>
+        </div>
+        <div class="khb-hero-actions">
+            <a class="khb-btn khb-btn-ghost" href="/local-admin/woocommerce-settings">تنظیمات اتصال</a>
+            <button class="khb-btn khb-btn-soft" @onclick="LoadSettings">بارگذاری تنظیمات</button>
+            <button class="khb-btn khb-btn-primary" @onclick="ImportData" disabled="@Busy">دریافت و ذخیره در MySQL</button>
+        </div>
+    </div>
+
+    <div class="khb-grid khb-grid-3">
+        <div class="khb-glass-card khb-mini-stat">
+            <span>وضعیت</span>
+            <strong>@(Busy ? "در حال دریافت..." : LastMessage)</strong>
+        </div>
+        <div class="khb-glass-card khb-mini-stat">
+            <span>آدرس ووکامرس</span>
+            <strong class="ltr small-text">@Model.BaseUrl</strong>
+        </div>
+        <div class="khb-glass-card khb-mini-stat">
+            <span>کلیدها</span>
+            <strong>@(HasKeys ? "تنظیم شده" : "تنظیم نشده")</strong>
+        </div>
+    </div>
+
+    <div class="khb-grid khb-grid-2">
+        <div class="khb-glass-card khb-form-card">
+            <h2>تنظیمات Import</h2>
+            <p class="khb-muted">این مقادیر از صفحه تنظیمات خوانده می‌شوند. برای امنیت، مقدار Secret در خروجی API نمایش داده نمی‌شود.</p>
+
+            <label>BaseUrl</label>
+            <input class="khb-input ltr" @bind="Model.BaseUrl" />
+
+            <label>Consumer Key</label>
+            <input class="khb-input ltr" @bind="Model.ConsumerKey" autocomplete="off" />
+
+            <label>Consumer Secret</label>
+            <input class="khb-input ltr" type="password" @bind="Model.ConsumerSecret" autocomplete="off" />
+
+            <div class="khb-inline-fields">
+                <div>
+                    <label>Per Page</label>
+                    <input class="khb-input" type="number" min="10" max="100" @bind="Model.PerPage" />
+                </div>
+                <div>
+                    <label>Max Pages</label>
+                    <input class="khb-input" type="number" min="1" max="20" @bind="Model.MaxPages" />
+                </div>
+            </div>
+
+            <label>نام کاربری WordPress</label>
+            <input class="khb-input ltr" @bind="Model.WordPressUsername" autocomplete="off" />
+
+            <label>رمز یا Application Password وردپرس</label>
+            <input class="khb-input ltr" type="password" @bind="Model.WordPressPassword" autocomplete="off" />
+
+            <div class="khb-test-actions">
+                <button class="khb-btn khb-btn-soft" @onclick="SaveSettings">ذخیره همین تنظیمات</button>
+                <button class="khb-btn khb-btn-primary" @onclick="ImportData" disabled="@Busy">شروع Import</button>
+                <button class="khb-btn khb-btn-ghost" @onclick="LoadSummary" disabled="@Busy">نمایش خلاصه دیتابیس</button>
+            </div>
+        </div>
+
+        <div class="khb-glass-card khb-status-card">
+            <h2>خروجی خوانا</h2>
+            <div class="khb-state-pill @(LastOk ? "ok" : "warn")">@LastMessage</div>
+            <textarea class="khb-result-box tall" readonly>@RawResult</textarea>
+        </div>
+    </div>
+</section>
+
+@code {
+    private readonly WooLabRequest Model = new()
+    {
+        BaseUrl = "https://localhost:4433/Kharbarchi",
+        TimeoutSeconds = 60,
+        AllowInsecureLocalhostSsl = true,
+        PerPage = 100,
+        MaxPages = 3
+    };
+
+    private bool Busy;
+    private bool LastOk;
+    private string LastMessage = "آماده دریافت اطلاعات.";
+    private string RawResult = "";
+    private bool HasKeys => !string.IsNullOrWhiteSpace(Model.ConsumerKey) && !string.IsNullOrWhiteSpace(Model.ConsumerSecret);
+    private HttpClient Api => HttpClientFactory.CreateClient("KharbarchiAPI");
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await LoadSettings();
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadSettings()
+    {
+        Model.BaseUrl = await GetLocal("khb.woo.baseUrl") ?? Model.BaseUrl;
+        Model.ConsumerKey = await GetLocal("khb.woo.consumerKey") ?? Model.ConsumerKey;
+        Model.ConsumerSecret = await GetLocal("khb.woo.consumerSecret") ?? Model.ConsumerSecret;
+        Model.WordPressUsername = await GetLocal("khb.woo.wpUsername") ?? Model.WordPressUsername;
+        Model.WordPressPassword = await GetLocal("khb.woo.wpPassword") ?? Model.WordPressPassword;
+        LastOk = true;
+        LastMessage = HasKeys ? "تنظیمات از مرورگر خوانده شد." : "تنظیمات خوانده شد، اما Consumer Key/Secret در UI خالی است. اگر در User Secrets گذاشته باشی، سرور از همان استفاده می‌کند.";
+    }
+
+    private async Task SaveSettings()
+    {
+        await SetLocal("khb.woo.baseUrl", Model.BaseUrl);
+        await SetLocal("khb.woo.consumerKey", Model.ConsumerKey);
+        await SetLocal("khb.woo.consumerSecret", Model.ConsumerSecret);
+        await SetLocal("khb.woo.wpUsername", Model.WordPressUsername);
+        await SetLocal("khb.woo.wpPassword", Model.WordPressPassword);
+        LastOk = true;
+        LastMessage = "تنظیمات ذخیره شد.";
+    }
+
+    private async Task ImportData()
+    {
+        await SaveSettings();
+        await Run(async () =>
+        {
+            var response = await Api.PostAsJsonAsync("api/woo-lab/import-default", Model);
+            await ReadResponse(response);
+        }, "دریافت و ذخیره اطلاعات انجام شد.");
+    }
+
+    private async Task LoadSummary()
+    {
+        await Run(async () =>
+        {
+            var response = await Api.GetAsync("api/woo-lab/imported-summary");
+            await ReadResponse(response);
+        }, "خلاصه اطلاعات ذخیره‌شده خوانده شد.");
+    }
+
+    private async Task Run(Func<Task> action, string okMessage)
+    {
+        Busy = true;
+        LastOk = false;
+        LastMessage = "در حال انجام عملیات...";
+        try
+        {
+            await action();
+            LastOk = true;
+            LastMessage = okMessage;
+        }
+        catch (Exception ex)
+        {
+            LastOk = false;
+            LastMessage = "خطا در دریافت یا ذخیره اطلاعات";
+            RawResult = ToReadablePersian(ex.ToString());
+        }
+        finally
+        {
+            Busy = false;
+        }
+    }
+
+    private async Task ReadResponse(HttpResponseMessage response)
+    {
+        var text = await response.Content.ReadAsStringAsync();
+        RawResult = ToReadablePersian(text);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new InvalidOperationException($"HTTP {(int)response.StatusCode} {response.ReasonPhrase}\n{RawResult}");
+        }
+    }
+
+    private static string ToReadablePersian(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return string.Empty;
+        }
+
+        try
+        {
+            var node = JsonNode.Parse(text);
+            return node?.ToJsonString(new JsonSerializerOptions
+            {
+                WriteIndented = true,
+                Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+            }) ?? text;
+        }
+        catch
+        {
+            return text;
+        }
+    }
+
+    private async Task<string?> GetLocal(string key)
+        => await JS.InvokeAsync<string?>("localStorage.getItem", key);
+
+    private async Task SetLocal(string key, string? value)
+        => await JS.InvokeVoidAsync("localStorage.setItem", key, value ?? string.Empty);
+
+    private sealed class WooLabRequest
+    {
+        public string? BaseUrl { get; set; }
+        public string? ConsumerKey { get; set; }
+        public string? ConsumerSecret { get; set; }
+        public string? WordPressUsername { get; set; }
+        public string? WordPressPassword { get; set; }
+        public int TimeoutSeconds { get; set; } = 60;
+        public bool AllowInsecureLocalhostSsl { get; set; } = true;
+        public int PerPage { get; set; } = 100;
+        public int MaxPages { get; set; } = 3;
+    }
+}

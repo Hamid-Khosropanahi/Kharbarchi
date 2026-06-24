@@ -1,0 +1,55 @@
+@page "/local-admin/woocommerce-import"
+@attribute [Authorize(Roles = "SuperAdmin,Admin,CentralSyncAgent")]
+@using Microsoft.AspNetCore.Authorization
+@using Kharbarchi.Client.Services
+@using Kharbarchi.Shared.Contracts.WooCommerce
+@inject WooConnectionService Woo
+
+<PageTitle>ورود اطلاعات از ووکامرس</PageTitle>
+
+<section class="khb-page-head">
+    <div>
+        <span class="khb-eyebrow">Data Import</span>
+        <h1>ورود اطلاعات سایت اصلی به MySQL</h1>
+        <p>ابتدا اتصال را در صفحه تنظیمات تست کن؛ سپس محصولات، دسته‌ها، سفارش‌ها و خروجی خام سایت اصلی را دریافت و ذخیره کن.</p>
+    </div>
+    <a class="khb-btn khb-btn-secondary" href="/local-admin/woocommerce-settings">تنظیمات اتصال</a>
+</section>
+
+<section class="khb-panel khb-panel-elevated">
+    <div class="khb-panel-heading">
+        <div><h2>دریافت داده پیش‌فرض</h2><p>این عملیات برای شروع، داده‌ها را به شکل خام در MySQL ذخیره می‌کند تا بعداً به جداول نهایی map شود.</p></div>
+    </div>
+    <div class="khb-actions-row">
+        <button class="khb-btn khb-btn-primary" @onclick="RunImport" disabled="@busy">دریافت و ذخیره در MySQL</button>
+        <a class="khb-btn khb-btn-ghost" href="/local-admin/woocommerce-settings">تست API قبل از Import</a>
+    </div>
+    @if (!string.IsNullOrWhiteSpace(message)) { <div class="khb-alert @(success ? "success" : "danger")">@message</div> }
+    <textarea class="khb-textarea khb-response ltr" readonly>@raw</textarea>
+</section>
+
+@code {
+    private bool busy;
+    private bool success;
+    private string? message;
+    private string raw = "هنوز import اجرا نشده است.";
+
+    private async Task RunImport()
+    {
+        busy = true; success = false; message = null;
+        try
+        {
+            var result = await Woo.ImportDefaultDataAsync(new WooDefaultImportRequestDto { ImportProducts = true, ImportCategories = true, ImportOrders = true, PerPage = 100, MaxPages = 10 });
+            success = result.Success;
+            message = result.Message;
+            raw = System.Text.Json.JsonSerializer.Serialize(result, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+        }
+        catch (Exception ex)
+        {
+            success = false;
+            message = ex.Message;
+            raw = ex.ToString();
+        }
+        finally { busy = false; }
+    }
+}

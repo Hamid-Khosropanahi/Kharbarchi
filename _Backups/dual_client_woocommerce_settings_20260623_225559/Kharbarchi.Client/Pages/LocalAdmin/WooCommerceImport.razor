@@ -1,0 +1,36 @@
+@page "/local-admin/woocommerce-import"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = KharbarchiRoles.CatalogWriters)]
+@using Kharbarchi.Shared.Security
+
+<PageTitle>ورود اطلاعات از ووکامرس</PageTitle>
+
+<section class="khb-page" dir="rtl">
+    <div class="khb-hero">
+        <span class="khb-eyebrow">ووکامرس</span>
+        <h1>ورود اطلاعات از ووکامرس</h1>
+        <p>این صفحه مسیر رسمی دریافت اطلاعات از فروشگاه وردپرس/ووکامرس به دیتابیس محلی است. اگر قبلاً روی این لینک 404 می‌گرفتی، دلیلش نبودن همین route در Client بود.</p>
+        <div class="khb-actions">
+            <button class="khb-primary-btn" type="button">دریافت محصولات</button>
+            <button class="khb-secondary-btn" type="button">دریافت سفارش‌ها</button>
+            <a class="khb-secondary-btn" href="/local-admin/catalog">رفتن به کاتالوگ</a>
+        </div>
+    </div>
+
+    <div class="khb-card-grid">
+        <article class="khb-panel">
+            <span class="khb-badge">مرحله ۱</span>
+            <h2>بررسی اتصال</h2>
+            <p>آدرس WooCommerce از تنظیمات Server با کلید <strong>WooCommerce:BaseUrl</strong> خوانده می‌شود.</p>
+        </article>
+        <article class="khb-panel">
+            <span class="khb-badge">مرحله ۲</span>
+            <h2>دریافت داده</h2>
+            <p>محصولات، تصاویر، قیمت‌ها و سفارش‌ها دریافت و در Snapshotهای محلی ذخیره می‌شوند.</p>
+        </article>
+        <article class="khb-panel">
+            <span class="khb-badge">مرحله ۳</span>
+            <h2>بازبینی داخلی</h2>
+            <p>قبل از ارسال تغییرات به ووکامرس، اطلاعات در فرآیند قیمت، انبار و سفارش بازبینی می‌شود.</p>
+        </article>
+    </div>
+</section>

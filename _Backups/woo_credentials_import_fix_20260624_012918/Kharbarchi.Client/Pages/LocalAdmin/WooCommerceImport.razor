@@ -1,0 +1,164 @@
+@page "/local-admin/woocommerce-import"
+@attribute [Authorize(Roles = "SuperAdmin,Admin,CentralSyncAgent")]
+@using System.Net.Http.Json
+@using System.Text.Json
+@using Microsoft.AspNetCore.Authorization
+@inject IHttpClientFactory HttpClientFactory
+
+<section class="khb-hero">
+    <span class="khb-eyebrow">WooCommerce → MySQL</span>
+    <h1 class="khb-title">دریافت و ذخیره اطلاعات پایه فروشگاه</h1>
+    <p class="khb-lead">
+        این صفحه درخواست را از مرورگر مستقیم به ووکامرس نمی‌فرستد؛ ابتدا به Server داخلی وصل می‌شود و Server با ووکامرس ارتباط می‌گیرد. اگر خطای Failed to fetch دیدی یعنی Client نتوانسته به Server در https://localhost:7100 وصل شود یا CORS/SSL مشکل دارد.
+    </p>
+</section>
+
+<section class="khb-grid">
+    <div class="khb-card" style="grid-column: span 5;">
+        <div class="khb-card-head"><h3>تنظیمات دریافت</h3><span class="khb-badge">Import</span></div>
+        <div class="khb-form">
+            <div class="khb-field full">
+                <label>آدرس سایت ووکامرس</label>
+                <input class="khb-input" @bind="Request.BaseUrl" placeholder="https://localhost:4433/Kharbarchi" />
+            </div>
+            <div class="khb-field full">
+                <label>Consumer Key</label>
+                <input class="khb-input" @bind="Request.ConsumerKey" placeholder="ck_..." />
+            </div>
+            <div class="khb-field full">
+                <label>Consumer Secret</label>
+                <input class="khb-input" type="password" @bind="Request.ConsumerSecret" placeholder="cs_..." />
+            </div>
+            <div class="khb-field">
+                <label>تعداد محصولات</label>
+                <input class="khb-input" type="number" @bind="Request.ProductTake" />
+            </div>
+            <div class="khb-field">
+                <label>تعداد سفارش‌ها</label>
+                <input class="khb-input" type="number" @bind="Request.OrderTake" />
+            </div>
+        </div>
+        <div class="khb-actions">
+            <button class="khb-btn khb-btn-ghost" disabled="@Busy" @onclick="TestServer">۱) تست Server داخلی</button>
+            <button class="khb-btn khb-btn-soft" disabled="@Busy" @onclick="TestWoo">۲) تست ووکامرس</button>
+            <button class="khb-btn khb-btn-primary" disabled="@Busy" @onclick="ImportData">۳) دریافت و ذخیره در MySQL</button>
+        </div>
+        @if (!string.IsNullOrWhiteSpace(Status))
+        {
+            <div class="khb-status @(IsError ? "error" : "")" style="margin-top:16px">@Status</div>
+        }
+    </div>
+
+    <div class="khb-card" style="grid-column: span 7;">
+        <div class="khb-card-head"><h3>Raw Result / Error</h3><span class="khb-badge">Debug</span></div>
+        <textarea class="khb-textarea" readonly @bind="RawResult"></textarea>
+        <div class="khb-actions">
+            <button class="khb-btn khb-btn-ghost" @onclick="Clear">پاک کردن خروجی</button>
+        </div>
+    </div>
+</section>
+
+@code {
+    private readonly WooLabRequest Request = new()
+    {
+        BaseUrl = "https://localhost:4433/Kharbarchi",
+        ProductTake = 50,
+        OrderTake = 50
+    };
+
+    private bool Busy;
+    private bool IsError;
+    private string? Status;
+    private string RawResult = "برای شروع، ابتدا Server داخلی را تست کنید.";
+
+    private HttpClient Api => HttpClientFactory.CreateClient("KharbarchiAPI");
+
+    private async Task TestServer()
+    {
+        await Run(async () =>
+        {
+            var result = await Api.GetStringAsync("api/health/live");
+            return result;
+        }, "اتصال Client به Server داخلی برقرار است.");
+    }
+
+    private async Task TestWoo()
+    {
+        await Run(async () =>
+        {
+            var response = await Api.PostAsJsonAsync("api/admin/woo-lab/test", Request);
+            return await ReadResponse(response);
+        }, "پاسخ تست ووکامرس دریافت شد.");
+    }
+
+    private async Task ImportData()
+    {
+        await Run(async () =>
+        {
+            var response = await Api.PostAsJsonAsync("api/admin/woo-lab/import-default", Request);
+            return await ReadResponse(response);
+        }, "فرآیند دریافت و ذخیره اجرا شد. خروجی خام را بررسی کنید.");
+    }
+
+    private async Task<string> ReadResponse(HttpResponseMessage response)
+    {
+        var text = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new InvalidOperationException($"HTTP {(int)response.StatusCode} {response.ReasonPhrase}\n{text}");
+        }
+        return Pretty(text);
+    }
+
+    private async Task Run(Func<Task<string>> action, string okMessage)
+    {
+        Busy = true;
+        IsError = false;
+        Status = "در حال انجام عملیات...";
+        RawResult = string.Empty;
+        try
+        {
+            RawResult = await action();
+            Status = okMessage;
+        }
+        catch (Exception ex)
+        {
+            IsError = true;
+            Status = "خطا در ارتباط یا پردازش. متن کامل در خروجی خام آمده است.";
+            RawResult = ex.ToString();
+        }
+        finally
+        {
+            Busy = false;
+        }
+    }
+
+    private static string Pretty(string text)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(text);
+            return JsonSerializer.Serialize(doc, new JsonSerializerOptions { WriteIndented = true });
+        }
+        catch
+        {
+            return text;
+        }
+    }
+
+    private void Clear()
+    {
+        RawResult = string.Empty;
+        Status = null;
+        IsError = false;
+    }
+
+    private sealed class WooLabRequest
+    {
+        public string BaseUrl { get; set; } = string.Empty;
+        public string ConsumerKey { get; set; } = string.Empty;
+        public string ConsumerSecret { get; set; } = string.Empty;
+        public int ProductTake { get; set; } = 50;
+        public int OrderTake { get; set; } = 50;
+    }
+}

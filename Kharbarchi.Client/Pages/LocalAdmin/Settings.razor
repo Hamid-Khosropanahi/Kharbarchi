@@ -1,0 +1,23 @@
+@page "/local-admin/settings"
+@attribute [Authorize(Roles = "SuperAdmin,Admin")]
+@using Microsoft.AspNetCore.Authorization
+
+<PageTitle>تنظیمات سامانه</PageTitle>
+
+<section class="khb-page-head">
+    <div><span class="khb-eyebrow">System Settings</span><h1>تنظیمات عمومی پنل</h1><p>این صفحه مرکز تنظیمات UI، لینک فروشگاه قدیمی و اتصال‌های اصلی است.</p></div>
+</section>
+
+<section class="khb-two-col">
+    <article class="khb-panel khb-panel-elevated">
+        <div class="khb-panel-title"><span>01</span><div><h2>آدرس‌ها</h2><p>لینک‌های اصلی محیط توسعه.</p></div></div>
+        <label class="khb-field">پنل مدیریت <input class="khb-input ltr" readonly value="https://localhost:7029/local-admin" /></label>
+        <label class="khb-field">فروشگاه قدیمی <input class="khb-input ltr" readonly value="https://localhost:7030" /></label>
+        <label class="khb-field">API Server <input class="khb-input ltr" readonly value="https://localhost:7100" /></label>
+    </article>
+    <article class="khb-panel khb-panel-elevated">
+        <div class="khb-panel-title"><span>02</span><div><h2>ظاهر و تجربه کاربری</h2><p>تم روشن/تاریک از منوی بالا تغییر می‌کند و در مرورگر ذخیره می‌شود.</p></div></div>
+        <p class="khb-muted">لوگو از مسیر <code>wwwroot/Logo/LOGO.svg</code> خوانده می‌شود و صفحه Loading از همان فایل استفاده می‌کند.</p>
+        <button class="khb-btn khb-btn-primary" onclick="khbPremium.toggleTheme()">تغییر تم</button>
+    </article>
+</section>

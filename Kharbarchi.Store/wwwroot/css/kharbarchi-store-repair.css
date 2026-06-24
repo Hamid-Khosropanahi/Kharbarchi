@@ -1,0 +1,134 @@
+:root {
+  --store-green: #22a86b;
+  --store-green-dark: #0f7d55;
+  --store-yellow: #f7e36a;
+  --store-coral: #ff6a5f;
+  --store-ink: #12231c;
+  --store-muted: #61756b;
+}
+
+html, body {
+  direction: rtl;
+  overflow-x: hidden;
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  color: var(--store-ink);
+  background:
+    radial-gradient(circle at 10% 8%, rgba(247,227,106,.34), transparent 28rem),
+    radial-gradient(circle at 84% 12%, rgba(34,168,107,.20), transparent 30rem),
+    linear-gradient(180deg, #ffffff 0%, #fbfff8 100%) !important;
+  font-family: Peyda, Vazirmatn, Tahoma, Arial, sans-serif;
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: .10;
+  background-image:
+    radial-gradient(circle, rgba(34,168,107,.5) 0 1px, transparent 1.4px),
+    radial-gradient(circle, rgba(247,227,106,.55) 0 1px, transparent 1.4px);
+  background-size: 56px 56px, 88px 88px;
+}
+
+#app, .page, main, header, footer { position: relative; z-index: 1; }
+
+ul, ol { list-style: none !important; margin: 0; padding: 0; }
+a { color: inherit; text-decoration: none; }
+img, svg { max-width: 100%; height: auto; }
+
+/* Repair old storefront header/menu when original CSS is incomplete */
+header, .site-header, .main-header, .header, [class*="Header"], [class*="header"] {
+  box-sizing: border-box;
+}
+
+header nav ul,
+.header nav ul,
+.site-header nav ul,
+.main-header nav ul,
+[class*="menu"] ul,
+[class*="Menu"] ul,
+nav ul {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: clamp(10px, 2vw, 28px) !important;
+  flex-wrap: wrap !important;
+}
+
+header li, nav li, [class*="menu"] li, [class*="Menu"] li {
+  display: inline-flex !important;
+  align-items: center !important;
+  margin: 0 !important;
+}
+
+header a, nav a, [class*="menu"] a, [class*="Menu"] a {
+  display: inline-flex !important;
+  align-items: center !important;
+  min-height: 38px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  transition: background .2s ease, transform .2s ease, color .2s ease;
+}
+
+header a:hover, nav a:hover, [class*="menu"] a:hover, [class*="Menu"] a:hover {
+  background: rgba(34,168,107,.10);
+  color: var(--store-green-dark);
+  transform: translateY(-1px);
+}
+
+.logo, .brand, [class*="logo"], [class*="Logo"] {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.logo img, .brand img, [class*="logo"] img, [class*="Logo"] img,
+img[src*="Logo"], img[src*="LOGO"], img[src*="logo"] {
+  max-width: 160px !important;
+  max-height: 92px !important;
+  object-fit: contain !important;
+}
+
+/* Stop huge / vertical broken logo clusters */
+[class*="Header"] img, [class*="header"] img, header img {
+  width: auto !important;
+}
+
+/* Product / hero sections */
+section, .section, .hero, [class*="hero"], [class*="Hero"] {
+  box-sizing: border-box;
+}
+
+.hero, [class*="hero"], [class*="Hero"] {
+  padding-block: clamp(40px, 8vw, 110px);
+}
+
+button, .btn, [class*="btn"], [class*="Button"] {
+  border-radius: 999px;
+  transition: transform .2s ease, box-shadow .2s ease, background .2s ease;
+}
+button:hover, .btn:hover, [class*="btn"]:hover, [class*="Button"]:hover {
+  transform: translateY(-2px);
+}
+
+.card, [class*="card"], [class*="Card"], .product, [class*="product"], [class*="Product"] {
+  border-radius: 24px;
+}
+
+@media (max-width: 768px) {
+  header nav ul, nav ul, [class*="menu"] ul, [class*="Menu"] ul {
+    justify-content: flex-start !important;
+    overflow-x: auto;
+    padding: 8px 4px;
+  }
+  .logo img, .brand img, [class*="logo"] img, [class*="Logo"] img,
+  img[src*="Logo"], img[src*="LOGO"], img[src*="logo"] {
+    max-width: 126px !important;
+  }
+}

@@ -1,0 +1,45 @@
+@page "/"
+
+<section class="store-hero">
+    <div class="store-hero-copy">
+        <span class="store-eyebrow">خواربارچی؛ از کشاورز تا قفسه فروشگاه</span>
+        <h1>حبوبات تازه، سورت‌شده و آماده فروش برای کسب‌وکارها</h1>
+        <p>این کلاینت جداگانه برای فروشگاه عمومی است تا طراحی فروشگاه از پنل مدیریت جدا بماند. بعد از اتصال WooCommerce، محصولات واقعی از سایت اصلی خوانده می‌شوند.</p>
+        <div class="store-actions"><a class="store-btn primary" href="#products">مشاهده محصولات</a><a class="store-btn" href="#quality">چرا خواربارچی؟</a></div>
+    </div>
+    <div class="store-product-visual">
+        <div class="store-bag-card"><img src="Logo/LOGO.svg" alt="خواربارچی" /><div class="beans"></div><strong>ارسال روز</strong><span>کیفیت کنترل‌شده</span></div>
+    </div>
+</section>
+
+<section id="products" class="store-section">
+    <div class="store-section-head"><h2>محصولات منتخب</h2><p>نمایش نمونه تا زمان اتصال کامل به WooCommerce</p></div>
+    <div class="store-products">
+        @foreach (var item in Products)
+        {
+            <article class="store-product-card">
+                <div class="store-product-art"><span>@item.Badge</span></div>
+                <h3>@item.Name</h3>
+                <p>@item.Description</p>
+                <button>افزودن به سبد</button>
+            </article>
+        }
+    </div>
+</section>
+
+<section id="quality" class="store-section split">
+    <div><span class="store-eyebrow">کیفیت قابل پیگیری</span><h2>سورت، بسته‌بندی و کنترل قبل از ارسال</h2><p>طراحی این بخش به‌صورت جدا از پنل مدیریت انجام شده تا فروشگاه عمومی حس فروشگاهی، سبک و قابل توسعه داشته باشد.</p></div>
+    <div class="store-quality-grid"><span>سورت دقیق</span><span>بسته‌بندی تمیز</span><span>ارسال روز</span><span>مناسب عمده‌فروشی</span></div>
+</section>
+
+@code {
+    private readonly ProductCard[] Products =
+    {
+        new("نخود ممتاز", "سورت‌شده و مناسب فروشگاه‌ها", "25kg"),
+        new("لوبیا چیتی", "کیفیت پایدار برای فروش عمده", "20kg"),
+        new("عدس درجه یک", "تمیز، خوش‌پخت و آماده عرضه", "15kg"),
+        new("لپه ممتاز", "رنگ و دانه‌بندی یکنواخت", "900g")
+    };
+
+    private sealed record ProductCard(string Name, string Description, string Badge);
+}

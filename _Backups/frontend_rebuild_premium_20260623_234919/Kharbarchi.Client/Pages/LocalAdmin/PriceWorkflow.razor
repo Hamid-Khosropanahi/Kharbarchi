@@ -1,0 +1,9 @@
+@page "/local-admin/pricing"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = KharbarchiRoles.PriceProposers)]
+@using Kharbarchi.Shared.Security
+
+<PageTitle>فرآیند قیمت‌گذاری</PageTitle>
+<section class="khb-page" dir="rtl">
+    <div class="khb-hero"><span class="khb-eyebrow">قیمت</span><h1>فرآیند قیمت‌گذاری</h1><p>ثبت پیشنهاد قیمت، تفکیک نقش کارشناس و مدیر، تایید قیمت نهایی و آماده‌سازی برای ارسال به ووکامرس.</p><div class="khb-actions"><button class="khb-primary-btn">ثبت پیشنهاد قیمت</button><button class="khb-secondary-btn">در انتظار تایید</button></div></div>
+    <div class="khb-card-grid"><article class="khb-panel"><h2>قیمت فروش</h2><p>کارشناس قیمت‌گذاری فقط قیمت فروش پیشنهادی را ثبت می‌کند.</p></article><article class="khb-panel"><h2>قیمت خرید</h2><p>مشاهده و تایید قیمت خرید فقط برای مدیر قیمت‌گذاری و مدیر کل فعال است.</p></article><article class="khb-panel"><h2>همگام‌سازی</h2><p>بعد از تایید، پیام خروجی برای عامل مرکزی ساخته می‌شود.</p></article></div>
+</section>

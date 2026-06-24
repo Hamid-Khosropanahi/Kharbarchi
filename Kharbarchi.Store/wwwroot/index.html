@@ -1,0 +1,153 @@
+﻿<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<!--Carousel Should Added-->
+<!--<ul class="dropdown-menu">
+    <li><a class="dropdown-item" href="#">Dropdown link</a></li>
+    <li><a class="dropdown-item" href="#">Dropdown link</a></li>
+</ul>-->
+
+<!--<nav style="--bs-breadcrumb-divider: '';" aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="#">Home</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Library</li>
+    </ol>
+</nav>-->
+
+
+
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>خواربارچی</title>
+    <base href="/" />
+    <link href="css/lib/bootstrap/css/bootstrap.rtl.min.css" rel="stylesheet" />
+    <link href="css/lib/bootstrap/css/bootstrap-grid.rtl.css" rel="stylesheet" />
+    <link href="css/lib/bootstrap/css/bootstrap-utilities.rtl.css" rel="stylesheet" />
+    <link href="css/lib/bootstrap-icons/font/bootstrap-icons.min.css" rel="stylesheet" />
+    <link href="css/Rotate.css" rel="stylesheet" />
+    <!--<link href="./css/For_Header/CSS/Header_Css_File.css" rel="stylesheet" />-->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link href="Kharbarchi.Client.styles.css" rel="stylesheet" />
+    <link href="css/site.css" rel="stylesheet" />
+    <link href="css/admin.css" rel="stylesheet" />
+
+    <link rel="stylesheet" href="css/kharbarchi-store-repair.css" />
+    <link rel="stylesheet" href="css/app.css" />
+</head>
+
+<body>
+
+    <div id="app">
+        <div style="position:absolute; top:30vh; width:100%; text-align:center">
+            <div class="coin-container">
+                <div class="coin">
+                    <div class="front">
+                        <img src="./Logo/LOGO.svg" alt="Kharbarchi">
+                    </div>
+                    <div class="back">
+                        <!-- Optional: Different image for back side -->
+                        <img src="./Logo/LOGO.svg" alt="Kharbarchi" style="filter: hue-rotate(180deg);">
+                    </div>
+                </div>
+            </div>
+            <div style="display:flex; gap:10px; justify-content:center; align-items:center">
+               <!-- <div class="spinner-border" role="status"></div>-->
+                <p style="font-size:1.5rem;font-family:'Dana'";>در حال بارگذاری...</p>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .coin-container {
+            perspective: 1000px;
+            display: inline-block;
+            margin-bottom: 20px;
+        }
+
+        .coin {
+            width: 150px;
+            height: 150px;
+            position: relative;
+            /*transform-style: preserve-3d;*/
+            animation: coin-flip 5s linear infinite;
+        }
+
+            .coin .front, .coin .back {
+                position: absolute;
+                width: 100%;
+                height: 100%;
+                backface-visibility: hidden;
+                border-radius: 50%; /* Makes it circular like a coin */
+                overflow: hidden;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                /*background: linear-gradient(135deg, #ffffff 0%, #ffffff 100%);*/
+                box-shadow: inset 0 0 20px rgba(0,0,0,0.2);
+            }
+
+                .coin .front img, .coin .back img {
+                    max-width: 80%;
+                    max-height: 80%;
+                    object-fit: contain;
+                }
+
+            .coin .back {
+                transform: rotateY(180deg);
+            }
+
+        @keyframes coin-flip {
+            0% {
+                transform: rotateY(0deg);
+            }
+
+            50% {
+                transform: rotateY(180deg);
+            }
+
+            100% {
+                transform: rotateY(360deg);
+            }
+        }
+    </style>
+
+    <!--<div id="app">
+        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);">
+            <p style="font-size:1.5rem;">در حال بارگذاری...</p>
+        </div>
+    </div>-->
+
+    <div id="blazor-error-ui">
+        خطایی غیرمنتظره رخ داد.
+        <a href="" class="reload">بارگیری مجدد</a>
+        <a class="dismiss">🗙</a>
+    </div>
+
+    <!-- اضافه کردن اسکریپت header -->
+    <script src="css/For_Header/JS/Header.js"></script>
+    <!--<script src="JS/Rotate.js"></script>-->
+
+    <script src="site.js"></script>
+    <script src="service-worker.js"></script>
+
+    <!-- فقط یک بار Blazor را لود کنید -->
+    <script src="_framework/blazor.webassembly.js" autostart="false"></script>
+
+    <script>
+        Blazor.start().then(function () {
+            // تاخیر کوتاه برای اطمینان از رندر شدن DOM
+            setTimeout(function () {
+                if (window.headerSticky) {
+                    window.headerSticky.init();
+                }
+            }, 100);
+        });
+    </script>
+    <script src="js/kharbarchi-store-repair.js"></script>
+</body>
+
+</html>
+
+

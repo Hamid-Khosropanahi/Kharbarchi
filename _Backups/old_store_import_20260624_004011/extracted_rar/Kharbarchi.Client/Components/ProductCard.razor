@@ -1,0 +1,171 @@
+﻿@using Kharbarchi.Shared.Models
+@using Kharbarchi.Client.Services
+@inject CartService CartService
+
+<div class="product-card">
+
+    <!-- ناحیه تصویر و تعامل -->
+    <div class="image-container">
+        <img src="@(string.IsNullOrEmpty(Product.ImageUrl) ? "/images/placeholder.png" : Product.ImageUrl)"
+             alt="@Product.Name"
+             class="product-img" />
+
+        <!-- بج حراج (بر اساس وزن انتخاب شده) -->
+        @if (_selectedVariant != null && _selectedVariant.OldPrice > _selectedVariant.Price)
+        {
+            <span class="sale-badge">حراج</span>
+        }
+
+        <!-- لایه تعاملی هوشمند -->
+        <div class="interaction-layer">
+
+            <!-- دکمه حذف: فقط اگر همین وزن انتخاب شده در سبد باشد -->
+            @if (IsInCart)
+            {
+                <div class="zone zone-left" @onclick="RemoveFromBasket">
+                    <i class="bi bi-cart-dash zone-icon"></i>
+                </div>
+            }
+
+            <div class="zone-spacer"></div>
+
+            <!-- دکمه افزودن -->
+            <div class="zone zone-right" @onclick="AddToBasket">
+                <i class="bi bi-cart-plus zone-icon"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- *** بخش جدید: انتخابگر وزن (Variant Selector) *** -->
+    @if (Product.Variants != null && Product.Variants.Count > 1)
+    {
+        <div class="variant-selector">
+            <!-- دکمه قبلی -->
+            <button class="btn-arrow" @onclick="PrevVariant" disabled="@(_currentVariantIndex == 0)">
+                <i class="bi bi-chevron-right"></i> <!-- در فارسی راست یعنی قبلی -->
+            </button>
+
+            <!-- نام وزن انتخاب شده -->
+            <span class="variant-name">@_selectedVariant?.Name</span>
+
+            <!-- دکمه بعدی -->
+            <button class="btn-arrow" @onclick="NextVariant" disabled="@(_currentVariantIndex == Product.Variants.Count - 1)">
+                <i class="bi bi-chevron-left"></i> <!-- در فارسی چپ یعنی بعدی -->
+            </button>
+        </div>
+    }
+    else if (Product.Variants != null && Product.Variants.Count == 1)
+    {
+        // اگر فقط یک مدل دارد، فقط نامش را بنویس بدون فلش
+        <div class="variant-selector single">
+            <span class="variant-name">@_selectedVariant?.Name</span>
+        </div>
+    }
+
+    <!-- اطلاعات محصول -->
+    <div class="card-info">
+        <a href="@($"/products/{Product.Slug}")" class="title-link">
+            <h4 class="product-title">@Product.Name</h4>
+        </a>
+
+        <!-- قیمت بر اساس وزن انتخاب شده آپدیت می‌شود -->
+        <div class="price-wrapper">
+            @if (_selectedVariant?.OldPrice > _selectedVariant?.Price)
+            {
+                <span class="old-price">@_selectedVariant.OldPrice?.ToString("N0")</span>
+            }
+            <span class="current-price">
+                @(_selectedVariant?.Price.ToString("N0") ?? "---")
+                <small>تومان</small>
+            </span>
+        </div>
+    </div>
+
+</div>
+
+@code
+{
+    [Parameter] public ProductDto Product { get; set; } = default!;
+
+    private ProductVariantDto? _selectedVariant;
+    private int _currentVariantIndex = 0;
+
+    protected override void OnInitialized()
+    {
+        // گوش دادن به تغییرات سبد خرید برای آپدیت لحظه‌ای دکمه‌ها
+        CartService.OnChange += StateHasChanged;
+    }
+
+    protected override void OnParametersSet()
+    {
+        // انتخاب اولین وزن به عنوان پیش‌فرض هنگام بارگذاری
+        if (Product.Variants != null && Product.Variants.Any())
+        {
+            _selectedVariant = Product.Variants.First();
+            _currentVariantIndex = 0;
+        }
+    }
+
+    // منطق تغییر وزن (بعدی)
+    private void NextVariant()
+    {
+        if (Product.Variants != null && _currentVariantIndex < Product.Variants.Count - 1)
+        {
+            _currentVariantIndex++;
+            _selectedVariant = Product.Variants[_currentVariantIndex];
+        }
+    }
+
+    // منطق تغییر وزن (قبلی)
+    private void PrevVariant()
+    {
+        if (Product.Variants != null && _currentVariantIndex > 0)
+        {
+            _currentVariantIndex--;
+            _selectedVariant = Product.Variants[_currentVariantIndex];
+        }
+    }
+
+    // آیا "این محصول" با "این وزن انتخاب شده" در سبد است؟
+    private bool IsInCart
+    {
+        get
+        {
+            if (_selectedVariant == null) return false;
+            // استفاده از متد کمکی سرویس شما
+            return CartService.GetQuantity(Product.Id, _selectedVariant.Id) > 0;
+        }
+    }
+
+    private void AddToBasket()
+    {
+        if (_selectedVariant == null) return;
+
+        var cartItem = new CartItemDto
+        {
+            ProductId = Product.Id,
+            ProductName = Product.Name,
+            ImageUrl = Product.ImageUrl,
+            // اطلاعات اختصاصی وزن
+            VariantId = _selectedVariant.Id,
+            VariantName = _selectedVariant.Name,
+            UnitPrice = _selectedVariant.Price,
+            Quantity = 1
+        };
+
+        CartService.AddItem(cartItem);
+    }
+
+    private void RemoveFromBasket()
+    {
+        if (_selectedVariant == null) return;
+
+        // ارسال شناسه محصول و شناسه وزن
+        CartService.RemoveItem(Product.Id, _selectedVariant.Id);
+    }
+
+    public void Dispose()
+    {
+        CartService.OnChange -= StateHasChanged;
+    }
+}

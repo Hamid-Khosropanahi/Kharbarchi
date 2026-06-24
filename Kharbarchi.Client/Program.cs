@@ -1,4 +1,4 @@
-using Kharbarchi.Client;
+﻿using Kharbarchi.Client;
 using Kharbarchi.Client.Auth;
 using Kharbarchi.Client.Services;
 using Microsoft.AspNetCore.Components.Authorization;
@@ -17,10 +17,9 @@ if (string.IsNullOrWhiteSpace(apiBaseUrl))
 }
 
 builder.Services.AddTransient<AuthTokenHandler>();
-builder.Services.AddHttpClient("KharbarchiAPI", client =>
-{
+builder.Services.AddHttpClient("KharbarchiAPI", client => {
     client.BaseAddress = new Uri(apiBaseUrl, UriKind.Absolute);
-    client.Timeout = TimeSpan.FromSeconds(30);
+    client.Timeout = TimeSpan.FromMinutes(10);
 })
 .AddHttpMessageHandler<AuthTokenHandler>();
 
@@ -44,4 +43,16 @@ builder.Services.AddScoped<InventoryWorkflowClient>();
 builder.Services.AddScoped<SyncOutboxClient>();
 builder.Services.AddScoped<OrderWorkflowClient>();
 
+builder.Services.AddScoped<Kharbarchi.Client.Services.WooConnectionService>();
+
+builder.Services.AddHttpClient("KharbarchiAPI", client => {
+    client.BaseAddress = new Uri("https://localhost:7100/");
+    client.Timeout = TimeSpan.FromMinutes(10);
+});
+builder.Services.AddScoped<WooConnectionService>();
 await builder.Build().RunAsync();
+
+
+
+
+

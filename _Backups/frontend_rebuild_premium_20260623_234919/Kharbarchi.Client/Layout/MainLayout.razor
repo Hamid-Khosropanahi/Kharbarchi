@@ -1,0 +1,75 @@
+@inherits LayoutComponentBase
+@using Microsoft.AspNetCore.Components.Authorization
+@inject NavigationManager Navigation
+
+<CascadingAuthenticationState>
+    <AuthorizeView>
+        <Authorized Context="auth">
+            <div class="khb-shell" dir="rtl">
+                <aside class="khb-sidebar">
+                    <a class="khb-brand" href="/local-admin">
+                        <span class="khb-brand-mark">خ</span>
+                        <span>
+                            <strong>خواربارچی</strong>
+                            <small>پنل داخلی مدیریت</small>
+                        </span>
+                    </a>
+
+                    <nav class="khb-side-nav" aria-label="منوی مدیریت">
+                        <a href="/local-admin">داشبورد</a>
+                        <AuthorizeView Roles="SuperAdmin,Admin,CentralSyncAgent">
+                            <Authorized>
+                                <a href="/local-admin/woocommerce-settings">تست اتصال ووکامرس</a>
+                                <a href="/local-admin/woocommerce-import">ورود از ووکامرس</a>
+                                <a href="/local-admin/users">کاربران و نقش‌ها</a>
+                                <a href="/local-admin/sync-outbox">صف همگام‌سازی</a>
+                            </Authorized>
+                        </AuthorizeView>
+                        <AuthorizeView Roles="SuperAdmin,Admin,PricingManager,PricingEmployee">
+                            <Authorized><a href="/local-admin/pricing">قیمت‌گذاری</a></Authorized>
+                        </AuthorizeView>
+                        <AuthorizeView Roles="SuperAdmin,Admin,WarehouseEmployee,PricingManager">
+                            <Authorized><a href="/local-admin/inventory">انبار</a></Authorized>
+                        </AuthorizeView>
+                        <AuthorizeView Roles="SuperAdmin,Admin,SalesManager,ShippingOrderManager,Accountant">
+                            <Authorized><a href="/local-admin/orders">سفارش‌ها</a></Authorized>
+                        </AuthorizeView>
+                        <AuthorizeView Roles="SuperAdmin,Admin,ShippingOrderManager">
+                            <Authorized><a href="/local-admin/barook-payment">پرداخت باروک</a></Authorized>
+                        </AuthorizeView>
+                        <AuthorizeView Roles="SuperAdmin,Admin,Accountant">
+                            <Authorized><a href="/local-admin/accounting">حسابداری</a></Authorized>
+                        </AuthorizeView>
+                    </nav>
+
+                    <a class="khb-legacy-link" href="https://localhost:7030" target="_blank" rel="noopener">
+                        فروشگاه قدیمی ↗
+                    </a>
+                </aside>
+
+                <main class="khb-main">
+                    <header class="khb-topbar">
+                        <div class="khb-topbar-title">
+                            <span>سیستم مدیریت خواربارچی</span>
+                            <strong>Local Admin</strong>
+                        </div>
+                        <div class="khb-topbar-actions">
+                            <a class="khb-mini-btn" href="https://localhost:7030" target="_blank" rel="noopener">فروشگاه قدیمی</a>
+                            <a class="khb-mini-btn khb-mini-btn-primary" href="/local-admin/woocommerce-settings">تست API</a>
+                            <span class="khb-user-chip">@auth.User.Identity?.Name</span>
+                        </div>
+                    </header>
+
+                    <article class="khb-content">
+                        @Body
+                    </article>
+                </main>
+            </div>
+        </Authorized>
+        <NotAuthorized>
+            <div class="khb-public-shell" dir="rtl">
+                @Body
+            </div>
+        </NotAuthorized>
+    </AuthorizeView>
+</CascadingAuthenticationState>

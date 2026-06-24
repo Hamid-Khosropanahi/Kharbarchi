@@ -1,0 +1,111 @@
+@page "/local-admin"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+
+<PageTitle>داشبورد مدیریت | خواربارچی</PageTitle>
+
+<section class="khb-page-hero khb-reveal">
+    <div>
+        <span class="khb-eyebrow">Kharbarchi Command Center</span>
+        <h1>داشبورد نقش‌محور مدیریت</h1>
+        <p>از اینجا تمام فرآیندهای اصلی فروشگاه داخلی، ووکامرس، انبار، قیمت‌گذاری، سفارش‌ها و پرداخت را کنترل کن.</p>
+    </div>
+    <div class="khb-hero-actions">
+        <a class="khb-btn khb-btn-primary" href="/local-admin/woocommerce-settings">تست اتصال ووکامرس</a>
+        <a class="khb-btn khb-btn-ghost" href="https://localhost:7030" target="_blank" rel="noopener">فروشگاه قدیمی</a>
+    </div>
+</section>
+
+<div class="khb-metric-strip khb-reveal">
+    <div><strong>API</strong><span>وضعیت اتصال و خروجی خام</span></div>
+    <div><strong>Role Based</strong><span>نمایش ابزارها بر اساس نقش</span></div>
+    <div><strong>Local First</strong><span>پنل داخلی مستقل از فروشگاه عمومی</span></div>
+</div>
+
+<div class="khb-grid khb-grid-three">
+    <AuthorizeView Roles="SuperAdmin,Admin,CentralSyncAgent">
+        <Authorized>
+            <a class="khb-card khb-nav-card" href="/local-admin/woocommerce-settings">
+                <span class="khb-card-kicker">Woo API</span>
+                <h2>تنظیمات و تست ووکامرس</h2>
+                <p>آدرس سایت، کلیدها، تست محصولات و کنسول خام API.</p>
+            </a>
+            <a class="khb-card khb-nav-card" href="/local-admin/woocommerce-import">
+                <span class="khb-card-kicker">Import</span>
+                <h2>ورود از ووکامرس</h2>
+                <p>دریافت محصولات، تصاویر، سفارش‌ها و وضعیت‌ها.</p>
+            </a>
+            <a class="khb-card khb-nav-card" href="/local-admin/users">
+                <span class="khb-card-kicker">Security</span>
+                <h2>کاربران و نقش‌ها</h2>
+                <p>ساخت اکانت داخلی و تخصیص نقش‌ها.</p>
+            </a>
+        </Authorized>
+    </AuthorizeView>
+
+    <AuthorizeView Roles="SuperAdmin,Admin,PricingManager,PricingEmployee">
+        <Authorized>
+            <a class="khb-card khb-nav-card" href="/local-admin/pricing">
+                <span class="khb-card-kicker">Pricing</span>
+                <h2>فرآیند قیمت‌گذاری</h2>
+                <p>ثبت پیشنهاد، بررسی و تأیید قیمت فروش.</p>
+            </a>
+        </Authorized>
+    </AuthorizeView>
+
+    <AuthorizeView Roles="SuperAdmin,Admin,WarehouseEmployee,PricingManager">
+        <Authorized>
+            <a class="khb-card khb-nav-card" href="/local-admin/inventory">
+                <span class="khb-card-kicker">Inventory</span>
+                <h2>فرآیند انبار</h2>
+                <p>ثبت موجودی، کسری، اصلاح و کنترل انبار.</p>
+            </a>
+        </Authorized>
+    </AuthorizeView>
+
+    <AuthorizeView Roles="SuperAdmin,Admin,SalesManager,ShippingOrderManager,Accountant">
+        <Authorized>
+            <a class="khb-card khb-nav-card" href="/local-admin/orders">
+                <span class="khb-card-kicker">Orders</span>
+                <h2>سفارش‌ها</h2>
+                <p>مدیریت وضعیت سفارش‌های داخلی و ووکامرس.</p>
+            </a>
+        </Authorized>
+    </AuthorizeView>
+
+    <AuthorizeView Roles="SuperAdmin,Admin,ShippingOrderManager">
+        <Authorized>
+            <a class="khb-card khb-nav-card" href="/local-admin/barook-payment">
+                <span class="khb-card-kicker">Barook</span>
+                <h2>پرداخت باروک</h2>
+                <p>ارسال لینک، بررسی پرداخت و آماده‌سازی ارسال.</p>
+            </a>
+        </Authorized>
+    </AuthorizeView>
+
+    <AuthorizeView Roles="SuperAdmin,Admin,Accountant">
+        <Authorized>
+            <a class="khb-card khb-nav-card" href="/local-admin/accounting">
+                <span class="khb-card-kicker">Accounting</span>
+                <h2>حسابداری</h2>
+                <p>ثبت رسید دستی، پیگیری پرداخت و گزارش مالی.</p>
+            </a>
+        </Authorized>
+    </AuthorizeView>
+
+    <AuthorizeView Roles="SuperAdmin,Admin,CentralSyncAgent">
+        <Authorized>
+            <a class="khb-card khb-nav-card" href="/local-admin/sync-outbox">
+                <span class="khb-card-kicker">Sync</span>
+                <h2>صف همگام‌سازی</h2>
+                <p>پیام‌های آماده ارسال به ووکامرس و مرکز.</p>
+            </a>
+        </Authorized>
+    </AuthorizeView>
+
+    <a class="khb-card khb-nav-card khb-store-card" href="https://localhost:7030" target="_blank" rel="noopener">
+        <span class="khb-card-kicker">Legacy Store</span>
+        <h2>فروشگاه قدیمی</h2>
+        <p>کلاینت دوم با آدرس جداگانه برای فروشگاه عمومی.</p>
+    </a>
+</div>

@@ -1,0 +1,9 @@
+@page "/local-admin/orders"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = KharbarchiRoles.OrderViewersCsv)]
+@using Kharbarchi.Shared.Security
+
+<PageTitle>سفارش‌ها</PageTitle>
+<section class="khb-page" dir="rtl">
+    <div class="khb-hero"><span class="khb-eyebrow">سفارش</span><h1>داشبورد سفارش‌ها</h1><p>مشاهده سفارش‌های محلی، مشتری، اقلام، وضعیت داخلی و عملیات قابل انجام برای هر نقش.</p><div class="khb-actions"><button class="khb-primary-btn">به‌روزرسانی سفارش‌ها</button><a class="khb-secondary-btn" href="/local-admin/barook-payment">پرداخت باروک</a></div></div>
+    <div class="khb-panel"><h2>آخرین سفارش‌ها</h2><p>جدول سفارش‌ها پس از اتصال کامل API در همین ساختار نمایش داده می‌شود.</p></div>
+</section>

@@ -1,0 +1,504 @@
+@page "/local-admin/product-csv-import"
+@using System.Net.Http.Json
+@using Microsoft.AspNetCore.Components.Forms
+@inject IHttpClientFactory ClientFactory
+
+<PageTitle>ورود و کنترل CSV محصولات</PageTitle>
+
+<div class="khb-product-workflow" dir="rtl">
+    <section class="khb-hero khb-card">
+        <div>
+            <p class="khb-kicker">مرکز کنترل محصول خواربارچی</p>
+            <h1>ورود CSV، ویرایش داده خام، ساخت محصول نهایی و صف ووکامرس</h1>
+            <p>
+                این صفحه همان فایل CSV را وارد می‌کند، قبل از پردازش اجازه ویرایش می‌دهد، سپس جداول سخت‌کدشده KHB را می‌سازد. واحد قیمت را قبل از پردازش مشخص کن؛ خروجی نهایی همیشه تومان است.
+            </p>
+        </div>
+        <div class="khb-steps">
+            <span class="active">1 ورود CSV</span>
+            <span>2 ویرایش Source</span>
+            <span>3 ساخت جداول اصلی</span>
+            <span>4 تایید و ارسال WooCommerce</span>
+        </div>
+    </section>
+
+    <section class="khb-card khb-control-panel">
+        <label>
+            نام جدول منبع
+            <input @bind="tableName" />
+        </label>
+
+        <label class="khb-check">
+            <InputCheckbox @bind-Value="truncateBeforeImport" />
+            پاک کردن داده‌های قبلی جدول قبل از import
+        </label>
+
+        <label>
+            واحد قیمت‌های فایل/جدول هنگام پردازش
+            <select @bind="priceUnit">
+                <option value="rial">ریال - هنگام پردازش تقسیم بر ۱۰ شود</option>
+                <option value="toman">تومان - بدون تبدیل استفاده شود</option>
+            </select>
+            <small>قیمت نقد، شرایطی و قیمت بسته‌بندی اگر از CSV آمده باشند بر اساس این گزینه تفسیر می‌شوند.</small>
+        </label>
+
+        <label>
+            فایل CSV UTF-8
+            <InputFile OnChange="OnFileSelected" accept=".csv" />
+            @if (selectedFile is not null)
+            {
+                <small>@selectedFile.Name - @(selectedFile.Size / 1024) KB</small>
+            }
+        </label>
+
+        <div class="khb-actions">
+            <button class="khb-btn primary" @onclick="ImportCsv" disabled="@busy">ورود CSV به MySQL</button>
+            <button class="khb-btn" @onclick="LoadSourceRows" disabled="@busy">نمایش جدول واردشده</button>
+            <button class="khb-btn accent" @onclick="ProcessTable" disabled="@busy">ساخت جداول اصلی</button>
+            <button class="khb-btn" @onclick="LoadProducts" disabled="@busy">نمایش محصولات نهایی</button>
+        </div>
+    </section>
+
+    @if (!string.IsNullOrWhiteSpace(message))
+    {
+        <section class="khb-card khb-message">
+            <pre>@message</pre>
+        </section>
+    }
+
+    <section class="khb-card">
+        <div class="khb-toolbar">
+            <div>
+                <h2>جدول واردشده از CSV قبل از ساخت محصول</h2>
+                <p class="khb-muted">اینجا داده خام را اصلاح کن؛ سپس «ساخت جداول اصلی» را بزن.</p>
+                <p class="khb-muted">تعداد ردیف‌ها: @totalSourceRows</p>
+            </div>
+            <div class="khb-inline-controls">
+                <input placeholder="جستجو در Source..." @bind="sourceSearch" @bind:event="oninput" />
+                <select @bind="sourcePageSize">
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                    <option value="200">200</option>
+                </select>
+                <button class="khb-btn" @onclick="SearchSourceRows" disabled="@busy">جستجو</button>
+            </div>
+        </div>
+
+        <div class="khb-table-wrap tall">
+            <table class="khb-table source-table">
+                <thead>
+                <tr>
+                    <th>ذخیره</th>
+                    <th>ID</th>
+                    <th>نام فارسی</th>
+                    <th>نام انگلیسی</th>
+                    <th>کالای اصلی</th>
+                    <th>En_Taxonomic</th>
+                    <th>برند</th>
+                    <th>Brand_En</th>
+                    <th>Package</th>
+                    <th>وزن kg</th>
+                    <th>تعداد در کارتن</th>
+                    <th>بسته‌بندی هر بسته / واحد انتخابی</th>
+                    <th>قیمت نقد کیلویی / واحد انتخابی</th>
+                    <th>قیمت شرایطی کیلویی / واحد انتخابی</th>
+                    <th>Slug پیشنهادی</th>
+                    <th>SKU دستی</th>
+                    <th>وضعیت</th>
+                </tr>
+                </thead>
+                <tbody>
+                @foreach (var row in sourceRows)
+                {
+                    <tr>
+                        <td><button class="khb-btn tiny primary" @onclick="() => SaveSourceRow(row)" disabled="@busy">ذخیره</button></td>
+                        <td>@row.Id</td>
+                        <td><input @bind="row.ProductName" /></td>
+                        <td><input class="ltr" @bind="row.ProductEnglishName" /></td>
+                        <td><input @bind="row.MainProductName" /></td>
+                        <td><input class="ltr" @bind="row.CategorySlug" /></td>
+                        <td><input @bind="row.BrandName" /></td>
+                        <td><input class="ltr" @bind="row.BrandEnglishName" /></td>
+                        <td><input @bind="row.PackageName" /></td>
+                        <td><input class="num" type="number" step="0.001" @bind="row.UnitWeight" /></td>
+                        <td><input class="num" type="number" @bind="row.CartonQuantity" /></td>
+                        <td><input class="num" type="number" step="1" @bind="row.PackagingPricePerPack" /></td>
+                        <td><input class="num" type="number" step="1" @bind="row.KgCashPrice" /></td>
+                        <td><input class="num" type="number" step="1" @bind="row.KgCreditPrice" /></td>
+                        <td><input class="ltr" @bind="row.ProductSlug" /></td>
+                        <td><input class="ltr" @bind="row.Sku" /></td>
+                        <td>
+                            <select @bind="row.Status">
+                                <option value="publish">publish</option>
+                                <option value="draft">draft</option>
+                            </select>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="khb-pagination">
+            <button class="khb-btn" @onclick="PrevSourcePage" disabled="@(busy || sourcePage <= 1)">قبلی</button>
+            <span>صفحه @(sourcePage) از @SourceTotalPages</span>
+            <button class="khb-btn" @onclick="NextSourcePage" disabled="@(busy || sourcePage >= SourceTotalPages)">بعدی</button>
+        </div>
+    </section>
+
+    <section class="khb-card">
+        <div class="khb-toolbar">
+            <div>
+                <h2>محصولات نهایی قابل فروش</h2>
+                <p class="khb-muted">تعداد کل: @totalProducts</p>
+            </div>
+            <div class="khb-inline-controls">
+                <input placeholder="جستجو در محصولات..." @bind="productSearch" @bind:event="oninput" />
+                <select @bind="productPageSize">
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                    <option value="200">200</option>
+                    <option value="500">500</option>
+                </select>
+                <button class="khb-btn" @onclick="SearchProducts" disabled="@busy">جستجو</button>
+            </div>
+        </div>
+
+        <div class="khb-table-wrap">
+            <table class="khb-table">
+                <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>محصول اصلی</th>
+                    <th>نام محصول</th>
+                    <th>SKU</th>
+                    <th>Slug</th>
+                    <th>بسته‌بندی</th>
+                    <th>تعداد کارتن</th>
+                    <th>قیمت نقد کیلویی / تومان</th>
+                    <th>قیمت شرایطی کیلویی / تومان</th>
+                    <th>بسته‌بندی هر بسته / تومان</th>
+                    <th>قیمت نقد نهایی / تومان</th>
+                    <th>قیمت شرایطی نهایی / تومان</th>
+                    <th>وضعیت</th>
+                </tr>
+                </thead>
+                <tbody>
+                @foreach (var item in products)
+                {
+                    <tr @ondblclick="() => ShowDetails(item)">
+                        <td>@item.Id</td>
+                        <td>@item.MainProductName</td>
+                        <td>@item.ProductName</td>
+                        <td class="ltr">@item.Sku</td>
+                        <td class="ltr">@item.ProductSlug</td>
+                        <td>@item.PackageName</td>
+                        <td>@item.CartonQuantity</td>
+                        <td>@FormatMoney(item.KgPriceCash)</td>
+                        <td>@FormatMoney(item.KgPriceInstallment)</td>
+                        <td>@FormatMoney(item.PackagingPricePerPack)</td>
+                        <td>@FormatMoney(item.SalePriceCash)</td>
+                        <td>@FormatMoney(item.SalePriceInstallment)</td>
+                        <td>@item.Status</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="khb-pagination">
+            <button class="khb-btn" @onclick="PrevProductPage" disabled="@(busy || productPage <= 1)">قبلی</button>
+            <span>صفحه @(productPage) از @ProductTotalPages</span>
+            <button class="khb-btn" @onclick="NextProductPage" disabled="@(busy || productPage >= ProductTotalPages)">بعدی</button>
+        </div>
+    </section>
+
+    @if (selectedProduct is not null)
+    {
+        <section class="khb-card khb-details">
+            <div class="khb-toolbar">
+                <h2>مشخصات کامل محصول</h2>
+                <button class="khb-btn" @onclick="() => selectedProduct = null">بستن</button>
+            </div>
+            <pre>@System.Text.Json.JsonSerializer.Serialize(selectedProduct, new System.Text.Json.JsonSerializerOptions { WriteIndented = true })</pre>
+        </section>
+    }
+</div>
+
+<style>
+    .khb-product-workflow { display: grid; gap: 18px; padding: 24px; color: #122018; background: radial-gradient(circle at 10% 5%, rgba(46,125,79,.12), transparent 26%), linear-gradient(135deg,#f5faf6,#fff8e6); min-height: 100vh; }
+    .khb-card { background: rgba(255,255,255,.86); border: 1px solid rgba(20,80,55,.16); border-radius: 26px; padding: 22px; box-shadow: 0 24px 70px rgba(20,50,35,.12); backdrop-filter: blur(18px); }
+    .khb-hero { display: flex; justify-content: space-between; gap: 20px; align-items: center; background: linear-gradient(135deg, rgba(231,246,236,.96), rgba(255,246,218,.96)); }
+    .khb-kicker { color: #1f7a4d; font-weight: 900; margin: 0 0 8px; }
+    .khb-steps { display: grid; gap: 8px; min-width: 260px; }
+    .khb-steps span { border-radius: 999px; padding: 8px 12px; background: rgba(31,122,77,.08); font-weight: 800; }
+    .khb-steps .active { background: #1f7a4d; color: #fff; }
+    .khb-control-panel { display: grid; grid-template-columns: repeat(3, minmax(220px, 1fr)); gap: 16px; align-items: end; }
+    .khb-control-panel label { display: grid; gap: 8px; font-weight: 800; }
+    .khb-check { grid-template-columns: auto 1fr !important; align-items: center; }
+    input, select { border: 1px solid rgba(20,80,55,.18); border-radius: 12px; padding: 9px 10px; background: white; min-width: 0; }
+    .khb-actions, .khb-inline-controls, .khb-pagination { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .khb-actions { grid-column: 1 / -1; }
+    .khb-btn { border: 0; border-radius: 14px; padding: 10px 16px; cursor: pointer; background: #eef6ef; font-weight: 900; }
+    .khb-btn.primary { background: #1f7a4d; color: white; }
+    .khb-btn.accent { background: #f2b84b; color: #2b220b; }
+    .khb-btn.tiny { padding: 7px 10px; border-radius: 10px; font-size: 12px; }
+    .khb-btn:disabled { opacity: .55; cursor: not-allowed; }
+    .khb-toolbar { display: flex; justify-content: space-between; gap: 16px; align-items: center; flex-wrap: wrap; }
+    .khb-muted { color: #607167; }
+    .khb-message pre, .khb-details pre { white-space: pre-wrap; direction: ltr; text-align: left; background: #0f1f16; color: #d8ffe8; padding: 16px; border-radius: 16px; overflow:auto; }
+    .khb-table-wrap { overflow: auto; border-radius: 18px; border: 1px solid rgba(20,80,55,.12); max-height: 580px; }
+    .khb-table-wrap.tall { max-height: 680px; }
+    .khb-table { width: 100%; border-collapse: collapse; min-width: 1300px; background: white; }
+    .source-table { min-width: 1850px; }
+    .khb-table th, .khb-table td { padding: 10px; border-bottom: 1px solid #edf3ee; text-align: right; vertical-align: middle; }
+    .khb-table th { background: #f2f8f3; position: sticky; top: 0; z-index: 1; }
+    .khb-table tr:hover { background: #f8fbf8; }
+    .khb-table input, .khb-table select { width: 100%; min-width: 120px; }
+    .khb-table .num { width: 110px; }
+    .ltr { direction: ltr; text-align: left !important; }
+    @media (max-width: 900px) { .khb-control-panel, .khb-hero { grid-template-columns: 1fr; display: grid; } }
+</style>
+
+@code {
+    private string tableName = "All_Product_With_Process";
+    private IBrowserFile? selectedFile;
+    private bool truncateBeforeImport;
+    private string priceUnit = "rial";
+    private bool busy;
+    private string? message;
+
+    private int sourcePage = 1;
+    private int sourcePageSize = 50;
+    private long totalSourceRows;
+    private string? sourceSearch;
+    private List<SourceRow> sourceRows = new();
+
+    private int productPage = 1;
+    private int productPageSize = 50;
+    private long totalProducts;
+    private string? productSearch;
+    private List<SaleProductRow> products = new();
+    private SaleProductRow? selectedProduct;
+
+    private int SourceTotalPages => Math.Max(1, (int)Math.Ceiling(totalSourceRows / (double)sourcePageSize));
+    private int ProductTotalPages => Math.Max(1, (int)Math.Ceiling(totalProducts / (double)productPageSize));
+    private HttpClient Api => ClientFactory.CreateClient("KharbarchiAPI");
+
+    private void OnFileSelected(InputFileChangeEventArgs args)
+    {
+        selectedFile = args.File;
+        message = null;
+    }
+
+    private async Task ImportCsv()
+    {
+        if (selectedFile is null)
+        {
+            message = "اول فایل CSV را انتخاب کن.";
+            return;
+        }
+
+        await Run(async () =>
+        {
+            using var content = new MultipartFormDataContent();
+            await using var stream = selectedFile.OpenReadStream(100_000_000);
+            using var fileContent = new StreamContent(stream);
+            fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("text/csv");
+            content.Add(fileContent, "file", selectedFile.Name);
+
+            var url = $"api/product-csv/import-all-product-with-process?tableName={Uri.EscapeDataString(tableName)}&truncate={truncateBeforeImport.ToString().ToLowerInvariant()}";
+            using var response = await Api.PostAsync(url, content);
+            message = await ReadResponse(response);
+            sourcePage = 1;
+            await LoadSourceRows();
+        });
+    }
+
+    private async Task ProcessTable()
+    {
+        await Run(async () =>
+        {
+            using var response = await Api.PostAsync($"api/product-csv/process-all-product-with-process?tableName={Uri.EscapeDataString(tableName)}&priceUnit={Uri.EscapeDataString(priceUnit)}", null);
+            message = await ReadResponse(response);
+            productPage = 1;
+            await LoadProducts();
+        });
+    }
+
+    private async Task SearchSourceRows()
+    {
+        sourcePage = 1;
+        await LoadSourceRows();
+    }
+
+    private async Task LoadSourceRows()
+    {
+        await Run(async () =>
+        {
+            var url = $"api/product-csv/source-rows?tableName={Uri.EscapeDataString(tableName)}&page={sourcePage}&pageSize={sourcePageSize}&search={Uri.EscapeDataString(sourceSearch ?? string.Empty)}";
+            var result = await Api.GetFromJsonAsync<SourceRowsResult>(url);
+            sourceRows = result?.Items ?? new();
+            totalSourceRows = result?.Total ?? 0;
+        }, showOk: false);
+    }
+
+    private async Task SaveSourceRow(SourceRow row)
+    {
+        await Run(async () =>
+        {
+            using var response = await Api.PutAsJsonAsync($"api/product-csv/source-rows/{row.Id}?tableName={Uri.EscapeDataString(tableName)}", row);
+            message = await ReadResponse(response);
+            await LoadSourceRows();
+        });
+    }
+
+    private async Task SearchProducts()
+    {
+        productPage = 1;
+        await LoadProducts();
+    }
+
+    private async Task LoadProducts()
+    {
+        await Run(async () =>
+        {
+            var url = $"api/product-csv/sale-products?page={productPage}&pageSize={productPageSize}&search={Uri.EscapeDataString(productSearch ?? string.Empty)}";
+            var result = await Api.GetFromJsonAsync<SaleProductsResult>(url);
+            products = result?.Items ?? new();
+            totalProducts = result?.Total ?? 0;
+        }, showOk: false);
+    }
+
+    private async Task PrevSourcePage()
+    {
+        if (sourcePage <= 1) return;
+        sourcePage--;
+        await LoadSourceRows();
+    }
+
+    private async Task NextSourcePage()
+    {
+        if (sourcePage >= SourceTotalPages) return;
+        sourcePage++;
+        await LoadSourceRows();
+    }
+
+    private async Task PrevProductPage()
+    {
+        if (productPage <= 1) return;
+        productPage--;
+        await LoadProducts();
+    }
+
+    private async Task NextProductPage()
+    {
+        if (productPage >= ProductTotalPages) return;
+        productPage++;
+        await LoadProducts();
+    }
+
+    private void ShowDetails(SaleProductRow item) => selectedProduct = item;
+
+    private async Task Run(Func<Task> action, bool showOk = true)
+    {
+        try
+        {
+            busy = true;
+            await action();
+            if (showOk && string.IsNullOrWhiteSpace(message)) message = "انجام شد.";
+        }
+        catch (Exception ex)
+        {
+            message = ex.ToString();
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private static async Task<string> ReadResponse(HttpResponseMessage response)
+    {
+        var text = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new InvalidOperationException($"HTTP {(int)response.StatusCode} {response.ReasonPhrase}\n{text}");
+        }
+        return string.IsNullOrWhiteSpace(text) ? "OK" : text;
+    }
+
+    private static string FormatMoney(decimal? value) => value.HasValue ? value.Value.ToString("N0") : "-";
+
+    private sealed class SourceRowsResult
+    {
+        public int Page { get; set; }
+        public int PageSize { get; set; }
+        public long Total { get; set; }
+        public List<SourceRow> Items { get; set; } = new();
+    }
+
+    private sealed class SaleProductsResult
+    {
+        public int Page { get; set; }
+        public int PageSize { get; set; }
+        public long Total { get; set; }
+        public List<SaleProductRow> Items { get; set; } = new();
+    }
+
+    private sealed class SourceRow
+    {
+        public long Id { get; set; }
+        public int? SourceRowNumber { get; set; }
+        public string? MainProductName { get; set; }
+        public string? MainProductSlug { get; set; }
+        public string? GroupName { get; set; }
+        public string? CategoryName { get; set; }
+        public string? CategorySlug { get; set; }
+        public string? ProductName { get; set; }
+        public string? ProductEnglishName { get; set; }
+        public string? ProductSlug { get; set; }
+        public string? Sku { get; set; }
+        public string? BrandName { get; set; }
+        public string? BrandEnglishName { get; set; }
+        public string? PackageName { get; set; }
+        public decimal? UnitWeight { get; set; }
+        public int? CartonQuantity { get; set; }
+        public decimal? PackagingPricePerPack { get; set; }
+        public decimal? KgCashPrice { get; set; }
+        public decimal? KgCreditPrice { get; set; }
+        public decimal? PurchaseKgCashPrice { get; set; }
+        public decimal? PurchaseKgCreditPrice { get; set; }
+        public string? ShortDescription { get; set; }
+        public string? FullDescription { get; set; }
+        public string? ImageUrl { get; set; }
+        public string? Status { get; set; }
+        public int? HaveOtherPackage { get; set; }
+        public string? PackageOne { get; set; }
+        public string? UpdatedAtUtc { get; set; }
+    }
+
+    private sealed class SaleProductRow
+    {
+        public long Id { get; set; }
+        public long? WooProductId { get; set; }
+        public string? ProductName { get; set; }
+        public string? MainProductName { get; set; }
+        public string? Sku { get; set; }
+        public string? ProductSlug { get; set; }
+        public string? PackageName { get; set; }
+        public int? CartonQuantity { get; set; }
+        public decimal? PackagingPricePerPack { get; set; }
+        public decimal? KgPriceCash { get; set; }
+        public decimal? KgPriceInstallment { get; set; }
+        public decimal? SalePriceCash { get; set; }
+        public decimal? SalePriceInstallment { get; set; }
+        public decimal? PurchasePriceCash { get; set; }
+        public decimal? PurchasePriceInstallment { get; set; }
+        public string? Status { get; set; }
+        public string? ImageUrl { get; set; }
+        public string? UpdatedAtUtc { get; set; }
+    }
+}

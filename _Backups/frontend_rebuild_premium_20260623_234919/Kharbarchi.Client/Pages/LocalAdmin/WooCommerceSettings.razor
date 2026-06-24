@@ -1,0 +1,258 @@
+@page "/local-admin/woocommerce-settings"
+@using Kharbarchi.Shared.Contracts.WooCommerce
+@using Kharbarchi.Client.Services
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "SuperAdmin,Admin,CentralSyncAgent")]
+@inject WooConnectionService WooService
+
+<PageTitle>تنظیمات اتصال ووکامرس | خواربارچی</PageTitle>
+
+<section class="khb-page-hero khb-reveal">
+    <div>
+        <span class="khb-eyebrow">WooCommerce API Studio</span>
+        <h1>تنظیمات، تست API و اتصال سایت اصلی</h1>
+        <p>آدرس سایت، کلیدهای API، تست endpoint و خروجی خام را از همین صفحه کنترل کن. برای ورود اطلاعات به MySQL از دکمه ورود اطلاعات استفاده کن.</p>
+    </div>
+    <div class="khb-hero-actions">
+        <a class="khb-btn khb-btn-soft" href="/local-admin/woocommerce-import">ورود اطلاعات به MySQL</a>
+        <a class="khb-btn khb-btn-ghost" href="https://localhost:7030" target="_blank" rel="noopener">فروشگاه جدا</a>
+        <button class="khb-btn khb-btn-primary" @onclick="SaveAsync" disabled="@busy">ذخیره تنظیمات</button>
+    </div>
+</section>
+
+<div class="khb-grid khb-grid-two">
+    <section class="khb-card khb-reveal">
+        <div class="khb-card-header">
+            <div>
+                <span class="khb-card-kicker">Connection</span>
+                <h2>اطلاعات اتصال</h2>
+            </div>
+            <span class="khb-status-pill @(settings.HasConsumerSecret ? "is-ok" : "is-warn")">
+                @(settings.HasConsumerSecret ? "Secret ذخیره شده" : "Secret ثبت نشده")
+            </span>
+        </div>
+
+        <div class="khb-form-grid">
+            <label class="khb-field khb-field-wide">
+                <span>آدرس اصلی سایت ووکامرس</span>
+                <input dir="ltr" @bind="settings.BaseUrl" placeholder="https://localhost:4433/Kharbarchi" />
+                <small>مثال محلی: https://localhost:4433/Kharbarchi</small>
+            </label>
+
+            <label class="khb-field">
+                <span>Consumer Key</span>
+                <input dir="ltr" @bind="settings.ConsumerKey" placeholder="ck_xxxxxxxxx" />
+            </label>
+
+            <label class="khb-field">
+                <span>Consumer Secret</span>
+                <input dir="ltr" type="password" @bind="settings.ConsumerSecret" placeholder="برای تغییر، مقدار جدید را وارد کن" />
+                <small>Secret واقعی در نمایش برگردانده نمی‌شود.</small>
+            </label>
+
+            <label class="khb-field">
+                <span>Timeout ثانیه</span>
+                <input type="number" min="5" max="180" @bind="settings.TimeoutSeconds" />
+            </label>
+
+            <label class="khb-check">
+                <input type="checkbox" @bind="settings.AllowInsecureLocalhostSsl" />
+                <span>قبول SSL محلی برای localhost</span>
+            </label>
+        </div>
+
+        <div class="khb-actions-row">
+            <button class="khb-btn khb-btn-primary" @onclick="SaveAsync" disabled="@busy">ذخیره</button>
+            <button class="khb-btn khb-btn-soft" @onclick='() => QuickTestAsync("wordpress")' disabled="@busy">تست WordPress</button>
+            <button class="khb-btn khb-btn-soft" @onclick='() => QuickTestAsync("products")' disabled="@busy">تست Products</button>
+            <button class="khb-btn khb-btn-soft" @onclick='() => QuickTestAsync("system")' disabled="@busy">تست System</button>
+        </div>
+    </section>
+
+    <section class="khb-card khb-reveal">
+        <div class="khb-card-header">
+            <div>
+                <span class="khb-card-kicker">Raw Console</span>
+                <h2>تست دستی endpoint</h2>
+            </div>
+        </div>
+
+        <div class="khb-form-grid">
+            <label class="khb-field">
+                <span>Method</span>
+                <select @bind="raw.Method">
+                    <option>GET</option>
+                    <option>POST</option>
+                    <option>PUT</option>
+                    <option>PATCH</option>
+                    <option>DELETE</option>
+                </select>
+            </label>
+
+            <label class="khb-field khb-field-wide">
+                <span>Endpoint</span>
+                <input dir="ltr" @bind="raw.RelativeUrl" placeholder="/wp-json/wc/v3/products?per_page=1" />
+            </label>
+
+            <label class="khb-field khb-field-wide">
+                <span>Body JSON</span>
+                <textarea dir="ltr" rows="7" @bind="raw.BodyJson" placeholder="{ }"></textarea>
+            </label>
+        </div>
+
+        <div class="khb-actions-row">
+            <button class="khb-btn khb-btn-primary" @onclick="RawAsync" disabled="@busy">ارسال API</button>
+            <button class="khb-btn khb-btn-ghost" @onclick="ClearConsole">پاک کردن خروجی</button>
+        </div>
+    </section>
+</div>
+
+<section class="khb-card khb-api-result khb-reveal">
+    <div class="khb-card-header">
+        <div>
+            <span class="khb-card-kicker">API Result</span>
+            <h2>خروجی خام API</h2>
+        </div>
+        @if (lastResult is not null)
+        {
+            <span class="khb-status-pill @(lastResult.Success ? "is-ok" : "is-error")">
+                @(lastResult.Success ? "موفق" : "ناموفق")
+                @if (lastResult.StatusCode is not null)
+                {
+                    <span> / @lastResult.StatusCode</span>
+                }
+            </span>
+        }
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(message))
+    {
+        <div class="khb-alert @(lastResult?.Success == false ? "khb-alert-error" : "khb-alert-info")">@message</div>
+    }
+
+    <div class="khb-console-meta">
+        <span>URL: <code>@(lastResult?.Url ?? "-")</code></span>
+        <span>Time: <code>@(lastResult?.ElapsedMilliseconds.ToString() ?? "-") ms</code></span>
+    </div>
+
+    <label class="khb-field khb-field-wide">
+        <span>Response Body</span>
+        <textarea class="khb-console" dir="ltr" rows="18" readonly value="@consoleText"></textarea>
+    </label>
+
+    @if (!string.IsNullOrWhiteSpace(lastResult?.CurlPreview))
+    {
+        <label class="khb-field khb-field-wide">
+            <span>cURL Preview</span>
+            <textarea class="khb-console khb-console-small" dir="ltr" rows="5" readonly value="@lastResult.CurlPreview"></textarea>
+        </label>
+    }
+</section>
+
+@code {
+    private WooConnectionSettingsDto settings = new();
+    private WooRawApiRequest raw = new() { Method = "GET", RelativeUrl = "/wp-json/wc/v3/products?per_page=1" };
+    private WooApiTestResultDto? lastResult;
+    private string consoleText = string.Empty;
+    private string message = string.Empty;
+    private bool busy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        busy = true;
+        try
+        {
+            settings = await WooService.GetSettingsAsync();
+            raw.BaseUrl = settings.BaseUrl;
+            raw.ConsumerKey = settings.ConsumerKey;
+            raw.TimeoutSeconds = settings.TimeoutSeconds;
+            raw.AllowInsecureLocalhostSsl = settings.AllowInsecureLocalhostSsl;
+        }
+        catch (Exception ex)
+        {
+            message = "خطا در خواندن تنظیمات: " + ex.Message;
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        busy = true;
+        try
+        {
+            settings = await WooService.SaveSettingsAsync(settings);
+            message = "تنظیمات اتصال ووکامرس ذخیره شد.";
+            settings.ConsumerSecret = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            message = "خطا در ذخیره تنظیمات: " + ex.Message;
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private async Task QuickTestAsync(string kind)
+    {
+        busy = true;
+        try
+        {
+            lastResult = await WooService.TestAsync(new WooConnectionTestRequest
+            {
+                TestKind = kind,
+                BaseUrl = settings.BaseUrl,
+                ConsumerKey = settings.ConsumerKey,
+                ConsumerSecret = settings.ConsumerSecret,
+                TimeoutSeconds = settings.TimeoutSeconds,
+                AllowInsecureLocalhostSsl = settings.AllowInsecureLocalhostSsl
+            });
+            ApplyResult(lastResult);
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private async Task RawAsync()
+    {
+        busy = true;
+        try
+        {
+            raw.BaseUrl = settings.BaseUrl;
+            raw.ConsumerKey = settings.ConsumerKey;
+            raw.ConsumerSecret = settings.ConsumerSecret;
+            raw.TimeoutSeconds = settings.TimeoutSeconds;
+            raw.AllowInsecureLocalhostSsl = settings.AllowInsecureLocalhostSsl;
+            lastResult = await WooService.RawAsync(raw);
+            ApplyResult(lastResult);
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private void ApplyResult(WooApiTestResultDto result)
+    {
+        message = result.Message;
+        consoleText = result.ResponseBody;
+    }
+
+    private void ClearConsole()
+    {
+        lastResult = null;
+        consoleText = string.Empty;
+        message = string.Empty;
+    }
+}

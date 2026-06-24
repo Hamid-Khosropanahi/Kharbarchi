@@ -1,0 +1,70 @@
+﻿@page "/TestPage"
+
+@inject IJSRuntime JS
+
+<div class="container">
+    <!-- Header -->
+    <header class="main-header">
+        <div class="logo">
+            <h1>خرbachi</h1>
+        </div>
+        <div class="search-bar">
+            <input type="text" placeholder="جستجو محصول..." />
+            <button>جستجو</button>
+        </div>
+        <div class="user-actions">
+            <a href="#">ورود</a>
+            <a href="#">ثبت نام</a>
+            <a href="#">سبد خرید</a>
+        </div>
+    </header>
+
+    <!-- Sticky Menu 1 -->
+    <nav class="sticky-menu sticky-menu-1">
+        <ul>
+            <li><a href="#">خانه</a></li>
+            <li><a href="#">دسته‌بندی‌ها</a></li>
+            <li><a href="#">فروشگاه</a></li>
+        </ul>
+    </nav>
+
+    <!-- Sticky Menu 2 -->
+    <nav class="sticky-menu sticky-menu-2">
+        <ul>
+            <li><a href="#">درباره ما</a></li>
+            <li><a href="#">تماس با ما</a></li>
+            <li><a href="#">پشتیبانی</a></li>
+        </ul>
+    </nav>
+
+    <!-- Main Content -->
+    <main>
+        <section class="content">
+            <h2>محتوای اصلی</h2>
+            <p>این یک مثال ساده از محتوای صفحه است. می‌تونی اینجا هر چیزی رو که می‌خوای اضافه کنی.</p>
+            <p>برای تست اسکرول، چند خط متن دیگه:</p>
+            <p>لورم ایپسوم متن ساختگی با تولید سادگی نامفهوم از صنعت چاپ و با استفاده از طراحان گرافیک است.</p>
+            <p>لورم ایپسوم متن ساختگی با تولید سادگی نامفهوم از صنعت چاپ و با استفاده از طراحان گرافیک است.</p>
+            <p>لورم ایپسوم متن ساختگی با تولید سادگی نامفهوم از صنعت چاپ و با استفاده از طراحان گرافیک است.</p>
+            <p>لورم ایپسوم متن ساختگی با تولید سادگی نامفهوم از صنعت چاپ و با استفاده از طراحان گرافیک است.</p>
+            <p>لورم ایپسوم متن ساختگی با تولید سادگی نامفهوم از صنعت چاپ و با استفاده از طراحان گرافیک است.</p>
+            <p>لورم ایپسوم متن ساختگی با تولید سادگی نامفهوم از صنعت چاپ و با استفاده از طراحان گرافیک است.</p>
+            <p>لورم ایپسوم متن ساختگی با تولید سادگی نامفهوم از صنعت چاپ و با استفاده از طراحان گرافیک است.</p>
+            <p>لورم ایپسوم متن ساختگی با تولید سادگی نامفهوم از صنعت چاپ و با استفاده از طراحان گرافیک است.</p>
+        </section>
+    </main>
+
+    <footer>
+        <p>تمامی حقوق محفوظ است. &copy; 2025 kharbarchi.ir</p>
+    </footer>
+</div>
+
+@code {
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JS.InvokeVoidAsync("initializeStickyMenus");
+        }
+    }
+}

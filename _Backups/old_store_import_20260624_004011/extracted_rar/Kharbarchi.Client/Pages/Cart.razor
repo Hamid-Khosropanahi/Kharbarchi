@@ -1,0 +1,50 @@
+﻿@page "/cart"
+@using Kharbarchi.Client.Services
+@using Microsoft.AspNetCore.Components
+@inject CartService CartService
+@inject NavigationManager Nav
+
+<PageTitle>سبد خرید | Kharbarchi</PageTitle>
+
+<h2>سبد خرید</h2>
+
+@if (!CartService.Items.Any())
+{
+    <p>سبد خرید خالی است.</p>
+}
+else
+{
+    <table>
+        <thead>
+            <tr>
+                <th>محصول</th>
+                <th>تعداد</th>
+                <th>قیمت</th>
+                <th>جمع</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var item in CartService.Items)
+        {
+            <tr>
+                <td>@item.ProductName</td>
+                <td>@item.Quantity</td>
+                <td>@item.UnitPrice.ToString("N0")</td>
+                <td>@item.LineTotal.ToString("N0")</td>
+                    <td><button @onclick="() => Remove(productid:item.ProductId,variantid: item.VariantId)">حذف</button></td>
+            </tr>
+        }
+        </tbody>
+    </table>
+
+    <h3>جمع کل: @CartService.GetTotal().ToString("N0") تومان</h3>
+
+    <NavLink href="/checkout" class="btn btn-primary">
+        تسویه حساب
+    </NavLink>
+}
+
+@code {
+    private void Remove(int productid,int variantid) => CartService.RemoveItem(productId: productid,variantId:variantid);
+}

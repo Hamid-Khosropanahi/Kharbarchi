@@ -1,29 +1,41 @@
-﻿@using Kharbarchi.Client.Pages
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Routing
+
 <CascadingAuthenticationState>
-    <Router AppAssembly="@typeof(App).Assembly">
+    <Router AppAssembly="@typeof(App).Assembly" PreferExactMatches="true">
         <Found Context="routeData">
             <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
                 <NotAuthorized>
-                    @if (context.User.Identity?.IsAuthenticated != true)
-                    {
-                        @* If user is not logged in, run our redirect logic *@
-                        <RedirectToLogin />
-                    }
-                    else
-                    {
-                        <p role="alert">شما اجازه دسترسی به این قسمت را ندارید ! ! ! </p>
-                    }
+                    <LayoutView Layout="@typeof(MainLayout)">
+                        <section class="khb-empty-state" dir="rtl">
+                            <div class="khb-empty-icon">🔐</div>
+                            <h1>نیاز به ورود</h1>
+                            <p>برای مشاهده این بخش باید ابتدا وارد پنل مدیریت شوید.</p>
+                            <a class="khb-btn khb-btn-primary" href="/login">ورود به پنل</a>
+                        </section>
+                    </LayoutView>
                 </NotAuthorized>
+                <Authorizing>
+                    <LayoutView Layout="@typeof(MainLayout)">
+                        <section class="khb-empty-state" dir="rtl">
+                            <div class="khb-empty-icon">⏳</div>
+                            <h1>در حال بررسی دسترسی</h1>
+                            <p>لطفاً چند لحظه صبر کنید.</p>
+                        </section>
+                    </LayoutView>
+                </Authorizing>
             </AuthorizeRouteView>
+            <FocusOnNavigate RouteData="@routeData" Selector="h1" />
         </Found>
         <NotFound>
-            <PageTitle>صفحه مورد نظر موجود نیست</PageTitle>
-         <LayoutView Layout="@typeof(MainLayout)">
-            <!-- If you want the nav bar, keep LayoutView. 
-                 If you want a pure full screen experience, 
-                 remove LayoutView and just use the component below -->
-            <NotFound />
-        </LayoutView>
+            <LayoutView Layout="@typeof(MainLayout)">
+                <section class="khb-empty-state" dir="rtl">
+                    <div class="khb-empty-icon">404</div>
+                    <h1>صفحه پیدا نشد</h1>
+                    <p>آدرسی که وارد کرده‌اید در پنل مدیریت وجود ندارد.</p>
+                    <a class="khb-btn khb-btn-primary" href="/local-admin">بازگشت به داشبورد</a>
+                </section>
+            </LayoutView>
         </NotFound>
     </Router>
 </CascadingAuthenticationState>

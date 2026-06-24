@@ -1,0 +1,9 @@
+@page "/local-admin/accounting"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = KharbarchiRoles.PaymentOperatorsCsv)]
+@using Kharbarchi.Shared.Security
+
+<PageTitle>حسابداری</PageTitle>
+<section class="khb-page" dir="rtl">
+    <div class="khb-hero"><span class="khb-eyebrow">مالی</span><h1>پنل حسابداری</h1><p>مشاهده پرداخت‌ها، رسیدها، وضعیت تسویه و ثبت دریافت دستی برای سفارش‌ها.</p><div class="khb-actions"><button class="khb-primary-btn">ثبت دریافت دستی</button><button class="khb-secondary-btn">گزارش پرداخت‌ها</button></div></div>
+    <div class="khb-panel"><h2>رسیدها</h2><p>رسیدهای مالی و پرداختی پس از اتصال API در این بخش نمایش داده می‌شوند.</p></div>
+</section>

@@ -1,0 +1,151 @@
+﻿:root {
+    --white: #ffffff;
+    --black: #2f2f2f;
+    --green: #2fac66;
+    --orange: #ff9800;
+    --brown: #d1b842;
+    --light-blue: #17a;
+}
+
+.logout-container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, var(--green) 0%, var(--orange) 100%);
+    padding: 20px;
+}
+
+.logout-card {
+    background: white;
+    border-radius: 20px;
+    padding: 50px 40px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    text-align: center;
+    max-width: 450px;
+    width: 100%;
+    animation: slideUp 0.5s ease-out;
+}
+
+.h1{
+    font-family:'Dana';
+    font-weight:900;
+    font-style:normal;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.icon-wrapper {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 30px;
+    background: linear-gradient(135deg, var(--green) 0%, var(--orange) 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.05);
+    }
+}
+
+.logout-icon {
+    width: 40px;
+    height: 40px;
+    color: white;
+}
+
+.logout-title {
+    font-family: 'Dana';
+    font-size: 32px;
+    font-weight: 900;
+    color: #2d3748;
+    margin: 0 0 15px 0;
+}
+
+.logout-message {
+    font-size: 16px;
+    color: #718096;
+    margin: 0 0 35px 0;
+    line-height: 1.6;
+}
+
+.button-group {
+    display: flex;
+    gap: 15px;
+    flex-direction: column;
+}
+
+.btn {
+    padding: 15px 30px;
+    font-size: 16px;
+    font-weight: 600;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    width: 100%;
+}
+
+.btn-logout {
+    background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
+    color: white;
+}
+
+    .btn-logout:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px rgba(245, 101, 101, 0.4);
+    }
+
+    .btn-logout:active {
+        transform: translateY(0);
+    }
+
+.btn-cancel {
+    background: #e2e8f0;
+    color: #4a5568;
+}
+
+    .btn-cancel:hover {
+        background: #cbd5e0;
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    }
+
+    .btn-cancel:active {
+        transform: translateY(0);
+    }
+
+@media (max-width: 480px) {
+    .logout-card {
+        padding: 40px 25px;
+    }
+
+    .logout-title {
+        font-family: 'Dana';
+        font-weight: 900;
+        font-size: 26px;
+    }
+
+    .logout-message {
+        font-size: 14px;
+    }
+}

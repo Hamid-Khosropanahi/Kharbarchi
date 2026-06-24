@@ -1,0 +1,252 @@
+﻿
+:root {
+    --primary-green: #2fac66;
+    --dark-green: #1b4d31;
+    --light-green: #e8f5e9;
+    --bg-gradient: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+    --orange: #ff9800;
+}
+
+.garden-container {
+    height: 100vh;
+    width: 100%;
+    background: var(--bg-gradient);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    position: relative;
+    font-family: 'Yekanbakh', 'Tahoma', sans-serif;
+    direction: rtl;
+}
+
+/* The Main Card */
+.content-card {
+    display: flex;
+    flex-direction: row-reverse; /* Graphic on left, Text on right for RTL */
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    width: 90%;
+    max-width: 1000px;
+}
+
+/* Text Styling */
+.text-section {
+    flex: 1;
+    padding: 2rem;
+    text-align: right;
+    color: var(--dark-green);
+}
+
+.error-header {
+    font-size: 8rem;
+    font-weight: 900;
+    color: var(--primary-green);
+    margin: 0;
+    line-height: 1;
+    text-shadow: 4px 4px 0px rgba(47, 172, 102, 0.2);
+}
+
+.error-title {
+    font-size: 2rem;
+    margin: 1rem 0;
+    font-weight: 700;
+}
+
+.error-desc {
+    font-size: 1.1rem;
+    color: #555;
+    margin-bottom: 2rem;
+    line-height: 1.8;
+    max-width: 400px;
+}
+
+/* Button Styling */
+.return-btn {
+    background-color: #ff9800;
+    color: #FFFFFF;
+    border: none;
+    padding: 12px 35px;
+    font-size: 1.1rem;
+    border-radius: 50px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(47, 172, 102, 0.3);
+}
+
+    .return-btn:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 20px rgba(47, 172, 102, 0.4);
+        background-color: #258c51;
+    }
+
+/* Graphic Section */
+.graphic-section {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.legume-svg {
+    width: 350px;
+    height: 350px;
+    filter: drop-shadow(0 10px 15px rgba(0,0,0,0.1));
+}
+
+/* Animations */
+
+/* 1. Pod Swaying in the wind */
+.pod-sway {
+    transform-origin: 150px 20px; /* Pivot from the stem */
+    animation: sway 4s ease-in-out infinite;
+}
+
+@keyframes sway {
+    0%, 100% {
+        transform: rotate(5deg);
+    }
+
+    50% {
+        transform: rotate(-5deg);
+    }
+}
+
+/* 2. Blinking Eyes */
+.blink {
+    animation: blink-anim 4s infinite;
+}
+
+@keyframes blink-anim {
+    0%, 96%, 98% {
+        transform: scaleY(1);
+    }
+
+    97%, 99% {
+        transform: scaleY(0.1);
+        transform-origin: center;
+    }
+}
+
+/* 3. Shadow Breathing */
+.shadow-anim {
+    transform-origin: center;
+    animation: shadow-scale 4s ease-in-out infinite;
+}
+
+@keyframes shadow-scale {
+    0%, 100% {
+        transform: scaleX(1);
+        opacity: 0.1;
+    }
+
+    50% {
+        transform: scaleX(1.2);
+        opacity: 0.05;
+    }
+}
+
+/* 4. Sweat Drop */
+.sweat-drop {
+    opacity: 0;
+    animation: drop 3s ease-in-out infinite;
+}
+
+@keyframes drop {
+    0% {
+        opacity: 0;
+        transform: translateY(0);
+    }
+
+    50% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+}
+
+/* 5. Falling Leaves Background */
+.leaf {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    background: var(--primary-green);
+    border-radius: 0 100% 0 100%;
+    opacity: 0.4;
+    top: -10%;
+    animation: falling 15s linear infinite;
+}
+
+    .leaf:nth-child(1) {
+        left: 10%;
+        animation-duration: 10s;
+        transform: scale(0.8);
+    }
+
+    .leaf:nth-child(2) {
+        left: 30%;
+        animation-duration: 15s;
+        transform: scale(1.2) rotate(45deg);
+    }
+
+    .leaf:nth-child(3) {
+        left: 70%;
+        animation-duration: 8s;
+        transform: scale(0.6);
+    }
+
+    .leaf:nth-child(4) {
+        left: 90%;
+        animation-duration: 12s;
+    }
+
+    .leaf:nth-child(5) {
+        left: 50%;
+        animation-duration: 18s;
+        transform: scale(1);
+    }
+
+@keyframes falling {
+    0% {
+        top: -10%;
+        transform: translateX(0) rotate(0deg);
+        opacity: 0;
+    }
+
+    10% {
+        opacity: 0.6;
+    }
+
+    100% {
+        top: 110%;
+        transform: translateX(100px) rotate(360deg);
+        opacity: 0;
+    }
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+    .content-card {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .text-section {
+        text-align: center;
+        padding: 1rem;
+    }
+
+    .error-header {
+        font-size: 5rem;
+    }
+
+    .legume-svg {
+        width: 250px;
+        height: 250px;
+    }
+}

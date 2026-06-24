@@ -1,0 +1,53 @@
+﻿@page "/products/{Slug}"
+@inject ProductService ProductService
+@inject CartService CartService
+
+@using Kharbarchi.Shared.Models
+@using Microsoft.AspNetCore.Components
+@using Kharbarchi.Client.Services
+
+<PageTitle>@(product?.Name ?? "محصول") | Kharbarchi</PageTitle>
+
+@if (product == null)
+{
+    <p>در حال بارگذاری...</p>
+}
+else
+{
+    <div class="product-detail">
+        <img src="@product.ImageUrl" alt="@product.Name" />
+
+        <div class="info">
+            <h2>@product.Name</h2>
+            <p>@product.Description</p>
+            <h3>@product.Price.ToString("N0") تومان</h3>
+
+            <button @onclick="AddToCart">افزودن به سبد خرید</button>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public string Slug { get; set; } = default!;
+    private ProductDto? product;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var all = await ProductService.GetAllAsync();
+        product = all?.FirstOrDefault(p => p.Slug == Slug);
+    }
+
+    private void AddToCart()
+    {
+        if (product == null) return;
+
+        CartService.AddItem(new CartItemDto
+        {
+            ProductId = product.Id,
+            ProductName = product.Name,
+            UnitPrice = product.Price,
+            Quantity = 1,
+            ImageUrl = product.ImageUrl
+        });
+    }
+}

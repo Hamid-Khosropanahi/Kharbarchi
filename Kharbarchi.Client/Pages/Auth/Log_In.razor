@@ -6,17 +6,14 @@
 @inject AuthService AuthService
 @inject NavigationManager Navigation
 
-<PageTitle>ورود به مدیریت خواربارچی</PageTitle>
+<PageTitle>ورود به پنل مدیریت خواربارچی</PageTitle>
 
 <div class="khb-auth-page" dir="rtl">
     <section class="khb-auth-card">
-        <div class="khb-auth-brand">
-            <div class="khb-auth-logo">خ</div>
-            <div>
-                <h1>ورود به مدیریت خواربارچی</h1>
-                <p>فقط کاربران داخلی مجاز به ورود هستند.</p>
-            </div>
-        </div>
+        <div class="khb-auth-logo">خ</div>
+        <span class="khb-eyebrow">ورود امن</span>
+        <h1>ورود به پنل مدیریت</h1>
+        <p>برای مدیریت کاتالوگ، قیمت، انبار، سفارش و پرداخت‌ها وارد حساب داخلی خود شوید.</p>
 
         <EditForm Model="model" OnValidSubmit="HandleLoginAsync" class="khb-form">
             <DataAnnotationsValidator />
@@ -38,7 +35,7 @@
             }
 
             <button class="khb-primary-btn" type="submit" disabled="@isBusy">
-                @(isBusy ? "در حال ورود..." : "ورود")
+                @(isBusy ? "در حال ورود..." : "ورود به سامانه")
             </button>
         </EditForm>
 
@@ -85,6 +82,11 @@
 
             isError = true;
             message = string.IsNullOrWhiteSpace(result.Message) ? "نام کاربری یا رمز عبور اشتباه است." : result.Message;
+        }
+        catch (Exception ex)
+        {
+            isError = true;
+            message = $"خطا در ورود: {ex.Message}";
         }
         finally
         {

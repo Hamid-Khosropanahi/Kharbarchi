@@ -1,0 +1,78 @@
+﻿@page "/admin/orders"
+@using Kharbarchi.Shared.Models
+@using Microsoft.AspNetCore.Authorization
+@using Kharbarchi.Client.Services
+@attribute [Authorize(Roles = "Admin")]
+@inject OrderAdminService OrderService
+@inject NavigationManager Nav
+
+<h2>مدیریت سفارش‌ها</h2>
+
+<select @onchange="FilterChanged">
+    <option value="">همه</option>
+    <option value="New">جدید</option>
+    <option value="Processing">در حال پردازش</option>
+    <option value="Shipped">ارسال شده</option>
+    <option value="Completed">تکمیل شده</option>
+</select>
+
+@if (orders == null)
+{
+    <p>در حال بارگذاری...</p>
+}
+else
+{
+    <table class="orders-table">
+        <thead>
+        <tr>
+            <th>شماره</th>
+            <th>مشتری</th>
+            <th>مبلغ</th>
+            <th>وضعیت</th>
+            <th>تاریخ</th>
+            <th></th>
+        </tr>
+        </thead>
+        <tbody>
+        @foreach (var o in orders)
+        {
+            <tr>
+                <td>@o.Id</td>
+                <td>@o.Customer</td>
+                <td>@o.TotalAmount.ToString("N0") تومان</td>
+                <td>@o.Status</td>
+                <td>@o.CreatedAt.ToLocalTime().ToString("yyyy/MM/dd HH:mm")</td>
+                <td>
+                        <button @onclick="() => GoToOrder(o.Id)">مشاهده</button>
+
+               
+
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<OrderListDto>? orders;
+    private string? selectedStatus;
+
+    protected override async Task OnInitializedAsync()
+    {
+        orders = await OrderService.GetOrdersAsync();
+    }
+
+    private async Task FilterChanged(ChangeEventArgs e)
+    {
+        selectedStatus = e.Value?.ToString();
+        orders = await OrderService.GetOrdersAsync(selectedStatus);
+    }
+    void GoToOrder(int orderId)
+    {
+        Nav.NavigateTo($"/admin/orders/{orderId}");
+    }
+   
+ 
+
+}

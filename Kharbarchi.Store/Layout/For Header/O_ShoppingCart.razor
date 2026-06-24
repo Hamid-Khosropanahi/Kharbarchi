@@ -1,0 +1,52 @@
+﻿@using Kharbarchi.Client.Model.Header
+@using Kharbarchi.Client.Services
+@* تزریق سرویس و مدیریت حافظه *@
+@inject CartService CartService
+@implements IDisposable
+
+<div class="wd-header-cart wd-tools-element wd-design-2 cart-widget-opener whb-909xiifk7ve155p9rk10 @CssClass">
+    <a href="@CartUrl" title="سبد خرید">
+        <span class="bi bi-cart fs-4 position-relative">
+            <!-- نمایش تعداد آیتم‌ها از روی داده‌های سرویس -->
+            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-success" style="font-size : 10px">
+                @CartItemCount
+                <span class="visually-hidden">unread messages</span>
+            </span>
+        </span>
+        <span class="wd-tools-text">
+            <span class="wd-cart-subtotal">
+                <span class="Hd-Price-amount amount">
+                    <!-- نمایش قیمت کل از روی داده‌های سرویس -->
+                    <bdi>@CartTotal.ToString("N0")&nbsp;<span class="Hd-Price-currencySymbol">@Currency</span></bdi>
+                </span>
+            </span>
+        </span>
+    </a>
+</div>
+
+@code
+{
+    [Parameter] public string CartUrl { get; set; } = "./cart/";
+    [Parameter] public string CssClass { get; set; } = string.Empty;
+    [Parameter] public string Currency { get; set; } = "تومان";
+
+    // این پارامتر را می‌توان حذف کرد چون داده‌ها مستقیم از سرویس می‌آیند
+    // اما اگر برای مقدار اولیه نیاز دارید می‌توانید نگه دارید
+    // [Parameter] public CartInfo CartData { get; set; } ...
+
+    // محاسبه ویژگی‌ها به صورت زنده از روی سرویس
+    private int CartItemCount => CartService.Items.Sum(i => i.Quantity);
+    private decimal CartTotal => CartService.GetTotal();
+
+    protected override void OnInitialized()
+    {
+        // مشترک شدن در رویداد تغییرات سرویس
+        CartService.OnChange += StateHasChanged;
+    }
+
+    public void Dispose()
+    {
+        // لغو اشتراک هنگام بسته شدن کامپوننت (بسیار مهم)
+        CartService.OnChange -= StateHasChanged;
+    }
+}

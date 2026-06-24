@@ -1,0 +1,52 @@
+﻿@inherits Microsoft.AspNetCore.Components.LayoutComponentBase
+@inject Microsoft.JSInterop.IJSRuntime JS
+
+<div class="main-layout">
+    <header>
+        <div class="logo">Kharbarchi</div>
+        <button class="menu-btn" @onclick="ToggleMenu">☰</button>
+
+        <nav class="@menuClass">
+            <NavLink href="/" Match="NavLinkMatch.All">خانه</NavLink>
+            <NavLink href="/products">محصولات</NavLink>
+            <NavLink href="/cart">سبد خرید</NavLink>
+            <NavLink href="/admin/dashboard">مدیریت</NavLink>
+            <NavLink href="/auth/login">ورود</NavLink>
+        </nav>
+
+        <button @onclick="ToggleTheme">🌓</button>
+    </header>
+
+    <main class="fade">
+        @Body
+    </main>
+
+    <footer>
+        <p>© Kharbarchi</p>
+    </footer>
+</div>
+
+@code {
+    private bool menuOpen;
+    private bool darkMode;
+    private string menuClass => menuOpen ? "open" : "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var saved = await JS.InvokeAsync<string?>("localStorage.getItem", "theme");
+        darkMode = saved == "dark";
+        await UpdateTheme();
+    }
+
+    void ToggleMenu() => menuOpen = !menuOpen;
+
+    async Task ToggleTheme()
+    {
+        darkMode = !darkMode;
+        await JS.InvokeVoidAsync("localStorage.setItem", "theme", darkMode ? "dark" : "light");
+        await UpdateTheme();
+    }
+
+    Task UpdateTheme() =>
+    JS.InvokeVoidAsync("eval", $"document.body.className = '{(darkMode ? "dark" : "")}';").AsTask();
+}

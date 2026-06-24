@@ -1,0 +1,114 @@
+@inherits LayoutComponentBase
+@using Kharbarchi.Shared.Security
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Routing
+
+<div class="khb-shell" dir="rtl">
+    <header class="khb-shell-header" id="khb-sticky-header">
+        <div class="khb-header-inner">
+            <a class="khb-brand-mark" href="/local-admin" aria-label="داشبورد خواربارچی">
+                <span class="khb-brand-orbit" aria-hidden="true">
+                    <span class="khb-brand-seed khb-seed-a"></span>
+                    <span class="khb-brand-seed khb-seed-b"></span>
+                    <span class="khb-brand-seed khb-seed-c"></span>
+                    <span class="khb-brand-seed khb-seed-d"></span>
+                </span>
+                <span class="khb-brand-text">
+                    <strong>خواربارچی</strong>
+                    <small>پنل داخلی مدیریت</small>
+                </span>
+            </a>
+
+            <AuthorizeView Context="authState">
+                <Authorized>
+                    <nav class="khb-shell-nav" aria-label="منوی اصلی مدیریت">
+                        <NavLink href="/local-admin" Match="NavLinkMatch.All">داشبورد</NavLink>
+
+                        <AuthorizeView Roles="@KharbarchiRoles.SuperAdmins" Context="superAdminContext">
+                            <Authorized>
+                                <NavLink href="/local-admin/users">کاربران</NavLink>
+                                <NavLink href="/local-admin/sync-outbox">همگام‌سازی</NavLink>
+                            </Authorized>
+                        </AuthorizeView>
+
+                        <AuthorizeView Roles="@KharbarchiRoles.CatalogWriters" Context="catalogContext">
+                            <Authorized>
+                                <NavLink href="/local-admin/catalog">کالا</NavLink>
+                                <NavLink href="/local-admin/woocommerce-import">ووکامرس</NavLink>
+                            </Authorized>
+                        </AuthorizeView>
+
+                        <AuthorizeView Roles="@KharbarchiRoles.PriceProposers" Context="priceContext">
+                            <Authorized>
+                                <NavLink href="/local-admin/pricing">قیمت</NavLink>
+                            </Authorized>
+                        </AuthorizeView>
+
+                        <AuthorizeView Roles="@KharbarchiRoles.InventoryProposers" Context="inventoryContext">
+                            <Authorized>
+                                <NavLink href="/local-admin/inventory">انبار</NavLink>
+                            </Authorized>
+                        </AuthorizeView>
+
+                        <AuthorizeView Roles="@KharbarchiRoles.OrderViewersCsv" Context="orderContext">
+                            <Authorized>
+                                <NavLink href="/local-admin/orders">سفارش‌ها</NavLink>
+                            </Authorized>
+                        </AuthorizeView>
+
+                        <AuthorizeView Roles="@KharbarchiRoles.BarookPaymentOperatorsCsv" Context="barookContext">
+                            <Authorized>
+                                <NavLink href="/local-admin/barook-payment">باروک</NavLink>
+                            </Authorized>
+                        </AuthorizeView>
+
+                        <AuthorizeView Roles="@KharbarchiRoles.PaymentOperatorsCsv" Context="accountingContext">
+                            <Authorized>
+                                <NavLink href="/local-admin/accounting">حسابداری</NavLink>
+                            </Authorized>
+                        </AuthorizeView>
+                    </nav>
+
+                    <div class="khb-user-chip" title="کاربر فعلی">
+                        <span class="khb-user-avatar">@GetInitial(authState.User.Identity?.Name)</span>
+                        <span>
+                            <strong>@DisplayName(authState.User.Identity?.Name)</strong>
+                            <small>کاربر داخلی</small>
+                        </span>
+                    </div>
+                </Authorized>
+                <NotAuthorized>
+                    <nav class="khb-shell-nav khb-shell-nav-guest" aria-label="منوی ورود">
+                        <NavLink href="/login">ورود به سامانه</NavLink>
+                    </nav>
+                </NotAuthorized>
+            </AuthorizeView>
+        </div>
+    </header>
+
+    <main class="khb-shell-main">
+        @Body
+    </main>
+</div>
+
+@code {
+    private static string DisplayName(string? userName)
+    {
+        if (string.IsNullOrWhiteSpace(userName))
+        {
+            return "کاربر";
+        }
+
+        return userName.Replace(".", " ");
+    }
+
+    private static string GetInitial(string? userName)
+    {
+        if (string.IsNullOrWhiteSpace(userName))
+        {
+            return "خ";
+        }
+
+        return userName.Trim()[0].ToString().ToUpperInvariant();
+    }
+}

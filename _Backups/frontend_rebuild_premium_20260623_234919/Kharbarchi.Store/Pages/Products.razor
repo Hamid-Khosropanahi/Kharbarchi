@@ -1,0 +1,23 @@
+@page "/products"
+<PageTitle>محصولات | خواربارچی</PageTitle>
+
+<section class="store-page">
+    <span class="store-eyebrow">Products</span>
+    <h1>محصولات فروشگاه</h1>
+    <p>این صفحه برای نمایش محصولات فروشگاه قدیمی جدا شده است. در مرحله بعد می‌توانیم محصولات را از API داخلی یا ووکامرس بخوانیم.</p>
+    <div class="store-product-grid">
+        @foreach (var item in products)
+        {
+            <article class="store-product-card">
+                <div class="store-product-image"></div>
+                <h2>@item</h2>
+                <p>کیفیت کنترل‌شده، مناسب فروشگاه‌ها و عمده‌فروشی.</p>
+                <button>جزئیات محصول</button>
+            </article>
+        }
+    </div>
+</section>
+
+@code {
+    private readonly string[] products = ["نخود", "لوبیا چیتی", "عدس", "لپه", "لوبیا قرمز", "ماش"];
+}

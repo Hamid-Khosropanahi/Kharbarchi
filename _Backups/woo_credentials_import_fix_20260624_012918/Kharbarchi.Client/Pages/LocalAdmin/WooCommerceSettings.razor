@@ -1,0 +1,88 @@
+@page "/local-admin/woocommerce-settings"
+@attribute [Authorize(Roles = "SuperAdmin,Admin,CentralSyncAgent")]
+@using System.Net.Http.Json
+@using System.Text.Json
+@using Microsoft.AspNetCore.Authorization
+@inject IHttpClientFactory HttpClientFactory
+
+<section class="khb-hero">
+    <span class="khb-eyebrow">Connection Lab</span>
+    <h1 class="khb-title">آزمایشگاه اتصال ووکامرس</h1>
+    <p class="khb-lead">برای عیب‌یابی، همه پاسخ‌ها به‌صورت خام نمایش داده می‌شوند. اول Server داخلی را تست کن، بعد Root سایت و سپس endpoint دلخواه ووکامرس را بررسی کن.</p>
+</section>
+
+<section class="khb-grid">
+    <div class="khb-card" style="grid-column: span 5;">
+        <div class="khb-card-head"><h3>تنظیمات اتصال</h3><span class="khb-badge">API</span></div>
+        <div class="khb-form">
+            <div class="khb-field full"><label>Base Url</label><input class="khb-input" @bind="Request.BaseUrl" /></div>
+            <div class="khb-field full"><label>Consumer Key</label><input class="khb-input" @bind="Request.ConsumerKey" /></div>
+            <div class="khb-field full"><label>Consumer Secret</label><input class="khb-input" type="password" @bind="Request.ConsumerSecret" /></div>
+            <div class="khb-field full"><label>Endpoint</label><input class="khb-input" @bind="Request.Endpoint" /></div>
+        </div>
+        <div class="khb-actions">
+            <button class="khb-btn khb-btn-ghost" disabled="@Busy" @onclick="PingServer">تست Server</button>
+            <button class="khb-btn khb-btn-soft" disabled="@Busy" @onclick="TestEndpoint">تست Endpoint</button>
+            <a class="khb-btn khb-btn-ghost" href="local-admin/woocommerce-import">ورود اطلاعات</a>
+        </div>
+        @if (!string.IsNullOrWhiteSpace(Status))
+        {
+            <div class="khb-status @(IsError ? "error" : "")" style="margin-top:16px">@Status</div>
+        }
+    </div>
+    <div class="khb-card" style="grid-column: span 7;">
+        <div class="khb-card-head"><h3>Raw API Response</h3><span class="khb-badge">JSON</span></div>
+        <textarea class="khb-textarea" readonly @bind="RawResult"></textarea>
+    </div>
+</section>
+
+@code {
+    private readonly WooLabRequest Request = new()
+    {
+        BaseUrl = "https://localhost:4433/Kharbarchi",
+        Endpoint = "wp-json/wc/v3/products?per_page=5"
+    };
+
+    private bool Busy;
+    private bool IsError;
+    private string? Status;
+    private string RawResult = "برای بررسی اتصال، از دکمه تست Server شروع کنید.";
+    private HttpClient Api => HttpClientFactory.CreateClient("KharbarchiAPI");
+
+    private async Task PingServer() => await Run(async () => await Api.GetStringAsync("api/health/live"), "Server داخلی در دسترس است.");
+
+    private async Task TestEndpoint()
+    {
+        await Run(async () =>
+        {
+            var response = await Api.PostAsJsonAsync("api/admin/woo-lab/test", Request);
+            var text = await response.Content.ReadAsStringAsync();
+            if (!response.IsSuccessStatusCode) throw new InvalidOperationException($"HTTP {(int)response.StatusCode} {response.ReasonPhrase}\n{text}");
+            return Pretty(text);
+        }, "پاسخ endpoint دریافت شد.");
+    }
+
+    private async Task Run(Func<Task<string>> action, string ok)
+    {
+        Busy = true;
+        IsError = false;
+        Status = "در حال ارسال درخواست...";
+        try { RawResult = await action(); Status = ok; }
+        catch (Exception ex) { IsError = true; Status = "خطا در اتصال. متن کامل را بررسی کنید."; RawResult = ex.ToString(); }
+        finally { Busy = false; }
+    }
+
+    private static string Pretty(string text)
+    {
+        try { using var doc = JsonDocument.Parse(text); return JsonSerializer.Serialize(doc, new JsonSerializerOptions { WriteIndented = true }); }
+        catch { return text; }
+    }
+
+    private sealed class WooLabRequest
+    {
+        public string BaseUrl { get; set; } = string.Empty;
+        public string ConsumerKey { get; set; } = string.Empty;
+        public string ConsumerSecret { get; set; } = string.Empty;
+        public string Endpoint { get; set; } = string.Empty;
+    }
+}

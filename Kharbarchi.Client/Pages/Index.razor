@@ -1,48 +1,17 @@
 @page "/"
-@using Microsoft.AspNetCore.Components.Authorization
-@inject AuthenticationStateProvider AuthStateProvider
-@inject NavigationManager Navigation
+@inject NavigationManager Nav
 
 <PageTitle>خواربارچی</PageTitle>
 
-<AuthorizeView Context="authContext">
-    <Authorized>
-        <div class="khb-home-gate" dir="rtl">
-            <section class="khb-home-card">
-                <div class="khb-auth-logo">خ</div>
-                <h1>در حال انتقال به پنل مدیریت...</h1>
-                <p>اگر انتقال انجام نشد، روی دکمه زیر بزنید.</p>
-                <button class="khb-primary-btn" @onclick="GoToAdmin">ورود به پنل مدیریت</button>
-            </section>
+<section class="khb-landing" dir="rtl">
+    <div class="khb-landing-card">
+        <img src="Logo/LOGO.svg" alt="خواربارچی" />
+        <span class="khb-eyebrow">Local Admin</span>
+        <h1>پنل داخلی مدیریت</h1>
+        <p>برای شروع، وارد سامانه شوید یا به داشبورد مدیریت بروید.</p>
+        <div class="khb-actions-row">
+            <a class="khb-btn khb-btn-primary" href="/local-admin">ورود داشبورد</a>
+            <a class="khb-btn khb-btn-ghost" href="https://localhost:7030" target="_blank">فروشگاه قدیمی</a>
         </div>
-    </Authorized>
-    <NotAuthorized>
-        <div class="khb-home-gate" dir="rtl">
-            <section class="khb-home-card">
-                <div class="khb-auth-logo">خ</div>
-                <h1>سامانه مدیریت خواربارچی</h1>
-                <p>برای مشاهده داشبورد، سفارش‌ها، قیمت‌گذاری، انبار و پرداخت‌ها باید وارد حساب داخلی خود شوید.</p>
-                <button class="khb-primary-btn" @onclick="GoToLogin">ورود به سامانه</button>
-            </section>
-        </div>
-    </NotAuthorized>
-</AuthorizeView>
-
-@code {
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (!firstRender)
-        {
-            return;
-        }
-
-        var state = await AuthStateProvider.GetAuthenticationStateAsync();
-        if (state.User.Identity?.IsAuthenticated == true)
-        {
-            Navigation.NavigateTo("/local-admin", replace: true);
-        }
-    }
-
-    private void GoToLogin() => Navigation.NavigateTo("/login");
-    private void GoToAdmin() => Navigation.NavigateTo("/local-admin");
-}
+    </div>
+</section>

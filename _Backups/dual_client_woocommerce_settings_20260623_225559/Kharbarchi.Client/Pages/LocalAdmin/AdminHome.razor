@@ -1,0 +1,95 @@
+@page "/local-admin"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@using Kharbarchi.Shared.Security
+
+<PageTitle>داشبورد مدیریت خواربارچی</PageTitle>
+
+<section class="khb-admin-home" dir="rtl">
+    <div class="khb-hero">
+        <span class="khb-eyebrow">پنل داخلی خواربارچی</span>
+        <h1>داشبورد مدیریت نقش‌محور</h1>
+        <p>همه بخش‌های عملیاتی فروشگاه در این محیط یکپارچه شده‌اند؛ فقط کارت‌هایی را می‌بینید که نقش کاربری شما اجازه دسترسی به آن‌ها را دارد.</p>
+    </div>
+
+    <div class="khb-dashboard-grid">
+        <AuthorizeView Roles="@KharbarchiRoles.SuperAdmins" Context="superAdminContext">
+            <Authorized>
+                <a class="khb-tile" href="/local-admin/users">
+                    <span class="khb-badge">مدیر کل</span>
+                    <h2>کاربران و نقش‌ها</h2>
+                    <p>ساخت حساب داخلی، تخصیص نقش، فعال/غیرفعال‌سازی و مدیریت دسترسی.</p>
+                </a>
+                <a class="khb-tile" href="/local-admin/sync-outbox">
+                    <span class="khb-badge">Sync</span>
+                    <h2>صف همگام‌سازی</h2>
+                    <p>بررسی پیام‌های آماده ارسال به ووکامرس توسط عامل مرکزی.</p>
+                </a>
+            </Authorized>
+        </AuthorizeView>
+
+        <AuthorizeView Roles="@KharbarchiRoles.CatalogWriters" Context="catalogContext">
+            <Authorized>
+                <a class="khb-tile" href="/local-admin/woocommerce-import">
+                    <span class="khb-badge">Import</span>
+                    <h2>ورود از ووکامرس</h2>
+                    <p>دریافت محصولات، تصاویر، وضعیت‌ها و سفارش‌ها از ووکامرس به دیتابیس محلی.</p>
+                </a>
+                <a class="khb-tile" href="/local-admin/catalog">
+                    <span class="khb-badge">کالا</span>
+                    <h2>کاتالوگ کالا</h2>
+                    <p>ایجاد و اصلاح محصولات داخلی و آماده‌سازی برای فروش.</p>
+                </a>
+            </Authorized>
+        </AuthorizeView>
+
+        <AuthorizeView Roles="@KharbarchiRoles.PriceProposers" Context="priceContext">
+            <Authorized>
+                <a class="khb-tile" href="/local-admin/pricing">
+                    <span class="khb-badge">قیمت</span>
+                    <h2>فرآیند قیمت‌گذاری</h2>
+                    <p>ثبت پیشنهاد قیمت، تایید مدیر قیمت‌گذاری و آماده‌سازی برای همگام‌سازی.</p>
+                </a>
+            </Authorized>
+        </AuthorizeView>
+
+        <AuthorizeView Roles="@KharbarchiRoles.InventoryProposers" Context="inventoryContext">
+            <Authorized>
+                <a class="khb-tile" href="/local-admin/inventory">
+                    <span class="khb-badge">انبار</span>
+                    <h2>فرآیند انبار</h2>
+                    <p>ثبت پیشنهاد موجودی، اصلاح کسری، کنترل انبار و ارسال وضعیت نهایی.</p>
+                </a>
+            </Authorized>
+        </AuthorizeView>
+
+        <AuthorizeView Roles="@KharbarchiRoles.OrderViewersCsv" Context="orderContext">
+            <Authorized>
+                <a class="khb-tile" href="/local-admin/orders">
+                    <span class="khb-badge">سفارش</span>
+                    <h2>سفارش‌ها</h2>
+                    <p>مشاهده سفارش‌ها، مشتری، اقلام، وضعیت داخلی و پیگیری عملیات.</p>
+                </a>
+            </Authorized>
+        </AuthorizeView>
+
+        <AuthorizeView Roles="@KharbarchiRoles.BarookPaymentOperatorsCsv" Context="barookContext">
+            <Authorized>
+                <a class="khb-tile" href="/local-admin/barook-payment">
+                    <span class="khb-badge">Barook</span>
+                    <h2>پرداخت باروک</h2>
+                    <p>ایجاد پرداخت، ارسال لینک، بررسی وضعیت و آماده‌سازی ارسال.</p>
+                </a>
+            </Authorized>
+        </AuthorizeView>
+
+        <AuthorizeView Roles="@KharbarchiRoles.PaymentOperatorsCsv" Context="accountingContext">
+            <Authorized>
+                <a class="khb-tile" href="/local-admin/accounting">
+                    <span class="khb-badge">مالی</span>
+                    <h2>حسابداری</h2>
+                    <p>مشاهده رسیدها، پرداخت‌ها و ثبت دریافت دستی برای سفارش‌ها.</p>
+                </a>
+            </Authorized>
+        </AuthorizeView>
+    </div>
+</section>

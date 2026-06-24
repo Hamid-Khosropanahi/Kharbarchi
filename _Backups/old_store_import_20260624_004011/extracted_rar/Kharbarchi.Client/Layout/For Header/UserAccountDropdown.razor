@@ -1,0 +1,46 @@
+﻿@using Kharbarchi.Client.Model.Header
+
+@* UserAccountDropdown.razor *@
+<div class="wd-header-my-account wd-tools-element wd-event-hover wd-with-username wd-design-1 wd-account-style-icon whb-y44vgu0l4o7ai2qgq2hp">
+
+    <div class="whb-column whb-col-right whb-column13 whb-visible-lg">
+        <Menu NavClass="wd-header-nav wd-header-secondary-nav whb-7owsphvfa2xjclaxkj3r text-left"
+              AriaLabel="منوی چپ"
+              MenuId="menu-left"
+              MenuClass="wd-style-default wd-gap-l"
+              MenuItems="User_Menu" 
+              Base_Classes="nav-link-Toptext"/>
+    </div>
+
+</div>
+
+@code {
+    [Parameter]
+    public string UserName { get; set; } = "admin";
+
+    private bool IsDropdownOpen { get; set; }
+    private List<MenuItem> User_Menu; // Don't initialize here
+
+    protected override void OnInitialized()
+    {
+        // Initialize here where you can access instance properties
+        User_Menu = new List<MenuItem>
+    {
+
+            new MenuItem {
+                Id = 283,
+                Title = $"سلام، {UserName}",
+                IconClass = "bi bi-person fs-4",
+                Url = "./my-account/",
+                Children = new List<MenuItem>
+            {
+                    new MenuItem { Id = 23, Title = "پیشخوان", Url = "./cart/" },
+                    new MenuItem { Id = 22, Title = "سفارش‌ها", Url = "./my-account/" },
+                    new MenuItem { Id = 21, Title = "نشانی", Url = "./checkout/" },
+                    new MenuItem { Id = 24, Title = "جزئیات حساب", Url = "./checkout/" },
+                    new MenuItem { Id = 25, Title = "خروج", Url = "/auth/logout" }
+                }
+            }
+        };
+    }
+}

@@ -1,0 +1,16 @@
+﻿@namespace Kharbarchi.Client.Components.Header
+
+<div class="wd-tools-element wd-header-mobile-nav wd-style-text wd-design-1 @CssClass">
+    <a href="#" rel="nofollow" aria-label="باز کردن منوی موبایل" @onclick="OnMenuClick" @onclick:preventDefault>
+        <span class="wd-tools-icon"></span>
+        <span class="wd-tools-text">منو</span>
+    </a>
+</div>
+
+@code {
+    [Parameter]
+    public string CssClass { get; set; } = string.Empty;
+
+    [Parameter]
+    public EventCallback OnMenuClick { get; set; }
+}

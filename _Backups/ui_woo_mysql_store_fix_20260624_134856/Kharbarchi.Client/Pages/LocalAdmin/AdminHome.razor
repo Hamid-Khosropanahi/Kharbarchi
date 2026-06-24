@@ -1,0 +1,35 @@
+@page "/local-admin"
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
+
+<section class="khb-hero">
+    <span class="khb-eyebrow">پنل داخلی خواربارچی</span>
+    <h1 class="khb-title">داشبورد عملیات، فروش و همگام‌سازی</h1>
+    <p class="khb-lead">
+        این نسخه برای مدیریت داخلی طراحی شده است؛ هر نقش فقط ابزارهای مجاز خود را می‌بیند. از اینجا می‌توانید اتصال ووکامرس را تست کنید، داده‌های فروشگاه را وارد MySQL کنید و وضعیت سفارش‌ها، انبار و قیمت‌گذاری را پیگیری کنید.
+    </p>
+    <div class="khb-actions">
+        <a class="khb-btn khb-btn-primary" href="local-admin/woocommerce-settings">تست اتصال ووکامرس</a>
+        <a class="khb-btn khb-btn-soft" href="local-admin/woocommerce-import">دریافت و ذخیره در MySQL</a>
+        <a class="khb-btn khb-btn-ghost" href="https://localhost:7030" target="_blank" rel="noopener">مشاهده فروشگاه قدیمی</a>
+    </div>
+</section>
+
+<section class="khb-grid">
+    <a class="khb-card" href="local-admin/woocommerce-settings">
+        <div class="khb-card-head"><h3>آزمایشگاه API</h3><span class="khb-badge">WooCommerce</span></div>
+        <p>تست اتصال Server، تست Root ووکامرس، محصولات، سفارش‌ها و مشاهده خروجی خام API در محیط امن.</p>
+    </a>
+    <a class="khb-card" href="local-admin/woocommerce-import">
+        <div class="khb-card-head"><h3>ورود اطلاعات پایه</h3><span class="khb-badge">MySQL</span></div>
+        <p>دریافت دسته‌بندی‌ها، محصولات و سفارش‌ها از سایت اصلی و ذخیره خام در دیتابیس محلی برای مرحله نگاشت.</p>
+    </a>
+    <a class="khb-card" href="local-admin/catalog">
+        <div class="khb-card-head"><h3>کاتالوگ کالا</h3><span class="khb-badge">Catalog</span></div>
+        <p>مدیریت ساختار محصولات، بسته‌بندی‌ها، وضعیت فروش و آماده‌سازی برای انتشار.</p>
+    </a>
+    <a class="khb-card" href="local-admin/users">
+        <div class="khb-card-head"><h3>کاربران و نقش‌ها</h3><span class="khb-badge">Security</span></div>
+        <p>ساخت اکانت داخلی، تخصیص نقش، کنترل دسترسی و آماده‌سازی کاربران تست و واقعی.</p>
+    </a>
+</section>

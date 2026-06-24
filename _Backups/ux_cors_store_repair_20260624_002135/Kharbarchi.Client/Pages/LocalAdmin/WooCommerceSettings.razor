@@ -1,0 +1,130 @@
+@page "/local-admin/woocommerce-settings"
+@page "/local-admin/settings/integrations"
+@attribute [Authorize(Roles = "SuperAdmin,Admin,CentralSyncAgent")]
+@using Microsoft.AspNetCore.Authorization
+@using Kharbarchi.Client.Services
+@using Kharbarchi.Shared.Contracts.WooCommerce
+@inject WooConnectionService Woo
+
+<PageTitle>تست اتصال ووکامرس</PageTitle>
+
+<section class="khb-page-head">
+    <div>
+        <span class="khb-eyebrow">WooCommerce API Lab</span>
+        <h1>تنظیمات و تست اتصال سایت اصلی</h1>
+        <p>آدرس ووکامرس، کلیدها و endpoint دلخواه را تست کن و خروجی خام API را در همین صفحه ببین.</p>
+    </div>
+    <a class="khb-btn khb-btn-secondary" href="/local-admin">داشبورد</a>
+</section>
+
+<section class="khb-two-col khb-two-col-wide">
+    <article class="khb-panel khb-panel-elevated">
+        <div class="khb-panel-title"><span>01</span><div><h2>تنظیمات اتصال</h2><p>برای لوکال SSL self-signed گزینه SSL محلی را روشن بگذار.</p></div></div>
+        <EditForm Model="settings" OnValidSubmit="SaveAsync" class="khb-form-grid">
+            <label class="khb-field khb-field-full">آدرس سایت ووکامرس
+                <InputText class="khb-input" @bind-Value="settings.BaseUrl" placeholder="https://localhost:4433/Kharbarchi" />
+            </label>
+            <label class="khb-field">Consumer Key
+                <InputText class="khb-input ltr" @bind-Value="settings.ConsumerKey" placeholder="ck_..." />
+            </label>
+            <label class="khb-field">Consumer Secret
+                <InputText class="khb-input ltr" type="password" @bind-Value="settings.ConsumerSecret" placeholder="cs_..." />
+            </label>
+            <label class="khb-field">Timeout ثانیه
+                <InputNumber class="khb-input" @bind-Value="settings.TimeoutSeconds" />
+            </label>
+            <label class="khb-toggle-line"><InputCheckbox @bind-Value="settings.AllowInsecureLocalhostSsl" /> پذیرش SSL لوکال/self-signed</label>
+            <div class="khb-actions-row khb-field-full">
+                <button class="khb-btn khb-btn-primary" type="submit" disabled="@busy">ذخیره تنظیمات</button>
+                <button class="khb-btn khb-btn-secondary" type="button" @onclick='() => TestAsync("wordpress")' disabled="@busy">تست WordPress</button>
+                <button class="khb-btn khb-btn-secondary" type="button" @onclick='() => TestAsync("products")' disabled="@busy">تست محصولات</button>
+                <button class="khb-btn khb-btn-secondary" type="button" @onclick='() => TestAsync("status")' disabled="@busy">System Status</button>
+            </div>
+        </EditForm>
+    </article>
+
+    <article class="khb-panel khb-panel-elevated">
+        <div class="khb-panel-title"><span>02</span><div><h2>تست Endpoint دلخواه</h2><p>مسیر نسبی را وارد کن و پاسخ خام را ببین.</p></div></div>
+        <div class="khb-form-grid">
+            <label class="khb-field">Method
+                <select class="khb-input" @bind="raw.Method"><option>GET</option><option>POST</option><option>PUT</option><option>DELETE</option></select>
+            </label>
+            <label class="khb-field khb-field-full">Relative Url
+                <InputText class="khb-input ltr" @bind-Value="raw.RelativeUrl" />
+            </label>
+            <label class="khb-field khb-field-full">Body JSON
+                <InputTextArea class="khb-textarea ltr" @bind-Value="raw.BodyJson" />
+            </label>
+            <button class="khb-btn khb-btn-primary khb-field-full" @onclick="RawAsync" disabled="@busy">اجرای تست خام API</button>
+        </div>
+    </article>
+</section>
+
+<section class="khb-panel khb-result-panel">
+    <div class="khb-panel-heading">
+        <div><h2>خروجی API</h2><p>همه جزئیات درخواست، وضعیت و پاسخ خام اینجا نمایش داده می‌شود.</p></div>
+        <span class="khb-status-badge @(last?.Success == true ? "ok" : "bad")">@(last is null ? "آماده تست" : last.Success ? "موفق" : "خطا")</span>
+    </div>
+    @if (!string.IsNullOrWhiteSpace(message)) { <div class="khb-alert @(isError ? "danger" : "success")">@message</div> }
+    <div class="khb-api-meta">
+        <span>Method: <b>@(last?.Method ?? "-")</b></span>
+        <span>Status: <b>@(last?.StatusCode?.ToString() ?? "-")</b></span>
+        <span>Time: <b>@(last?.ElapsedMilliseconds.ToString() ?? "-") ms</b></span>
+    </div>
+    <label class="khb-field">URL
+        <input class="khb-input ltr" readonly value="@(last?.Url ?? string.Empty)" />
+    </label>
+    <label class="khb-field">پیام
+        <textarea class="khb-textarea" readonly>@(last?.Message ?? "هنوز تستی اجرا نشده است.")</textarea>
+    </label>
+    <label class="khb-field">Response Body
+        <textarea class="khb-textarea khb-response ltr" readonly>@(last?.ResponseBody ?? string.Empty)</textarea>
+    </label>
+</section>
+
+@code {
+    private WooConnectionSettingsDto settings = new() { BaseUrl = "https://localhost:4433/Kharbarchi", TimeoutSeconds = 30, AllowInsecureLocalhostSsl = true };
+    private WooRawApiRequest raw = new() { Method = "GET", RelativeUrl = "/wp-json/wc/v3/products?per_page=1" };
+    private WooApiTestResultDto? last;
+    private bool busy;
+    private bool isError;
+    private string? message;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            settings = await Woo.GetSettingsAsync();
+            if (string.IsNullOrWhiteSpace(settings.BaseUrl)) settings.BaseUrl = "https://localhost:4433/Kharbarchi";
+        }
+        catch (Exception ex)
+        {
+            isError = true;
+            message = "خطا در دریافت تنظیمات: " + ex.Message;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        busy = true; isError = false; message = null;
+        try { settings = await Woo.SaveSettingsAsync(settings); message = "تنظیمات با موفقیت ذخیره شد."; }
+        catch (Exception ex) { isError = true; message = ex.Message; }
+        finally { busy = false; }
+    }
+
+    private async Task TestAsync(string kind)
+    {
+        busy = true; isError = false; message = null;
+        try { last = await Woo.TestAsync(new WooConnectionTestRequest { TestKind = kind }); isError = !last.Success; message = last.Message; }
+        catch (Exception ex) { isError = true; message = ex.Message; }
+        finally { busy = false; }
+    }
+
+    private async Task RawAsync()
+    {
+        busy = true; isError = false; message = null;
+        try { last = await Woo.RawAsync(raw); isError = !last.Success; message = last.Message; }
+        catch (Exception ex) { isError = true; message = ex.Message; }
+        finally { busy = false; }
+    }
+}

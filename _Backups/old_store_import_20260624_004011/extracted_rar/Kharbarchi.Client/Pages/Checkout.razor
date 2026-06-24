@@ -1,0 +1,59 @@
+﻿@page "/checkout"
+@inject CartService CartService
+@inject OrderService OrderService
+@inject NavigationManager Nav
+
+@using Kharbarchi.Shared.Models
+@using Microsoft.AspNetCore.Components
+@using Kharbarchi.Client.Services
+
+<PageTitle>تسویه حساب | Kharbarchi</PageTitle>
+
+<h2>تسویه حساب</h2>
+
+@if (!CartService.Items.Any())
+{
+    <p>سبد خرید خالی است.</p>
+}
+else
+{
+    <div>
+        <label>نام کامل:</label>
+        <input @bind="fullName" />
+
+        <label>تلفن:</label>
+        <input @bind="phone" />
+
+        <label>آدرس:</label>
+        <textarea @bind="address"></textarea>
+
+        <button @onclick="SubmitOrder">ثبت سفارش</button>
+    </div>
+}
+
+@code {
+    private string fullName = "";
+    private string phone = "";
+    private string address = "";
+
+    private async Task SubmitOrder()
+    {
+        var request = new CreateOrderRequest
+        {
+            FullName = fullName,
+            PhoneNumber = phone,
+            AddressLine = address,
+            City = "تهران",
+            PostalCode = "0000000000",
+            Items = CartService.Items.ToList(),
+            PaymentMethod = "Offline"
+        };
+
+        var orderId = await OrderService.CreateOrderAsync(request);
+        if (orderId > 0)
+        {
+            CartService.Clear();
+            Nav.NavigateTo($"/order/confirm/{orderId}");
+        }
+    }
+}

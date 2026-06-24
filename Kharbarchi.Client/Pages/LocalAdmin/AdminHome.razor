@@ -1,91 +1,173 @@
 @page "/local-admin"
+@page "/local-admin/dashboard"
 @attribute [Authorize]
-@using Kharbarchi.Shared.Security
+@using System.Net.Http.Json
 @using Microsoft.AspNetCore.Authorization
-@using Microsoft.AspNetCore.Components.Authorization
+@inject IHttpClientFactory HttpClientFactory
 
 <PageTitle>داشبورد مدیریت خواربارچی</PageTitle>
 
-<div class="khb-admin-shell" dir="rtl">
-    <section class="khb-admin-hero">
+<section class="khb-page khb-page-premium khb-sand-filter khb-dashboard-page">
+    <div class="khb-page-hero khb-glass-card khb-hero-balanced">
         <div>
-            <span class="khb-eyebrow">پنل داخلی خواربارچی</span>
-            <h1>داشبورد نقش‌محور مدیریت</h1>
-            <AuthorizeView Context="authContext">
-                <Authorized>
-                    <p>سلام @GetUserDisplayName(authContext.User). این صفحه فقط ماژول‌هایی را نشان می‌دهد که نقش شما اجازه دسترسی به آن را دارد.</p>
-                    <div class="khb-role-pills">
-                        @foreach (var role in GetRoles(authContext.User))
-                        {
-                            <span>@KharbarchiRoles.GetDisplayName(role)</span>
-                        }
-                    </div>
-                </Authorized>
-            </AuthorizeView>
+            <span class="khb-eyebrow">Kharbarchi Control Center</span>
+            <h1>داشبورد مدیریت خواربارچی</h1>
+            <p>نمای کلی اتصال‌ها، داده‌های واردشده از WooCommerce، وضعیت محصولات و مسیرهای عملیاتی اصلی.</p>
         </div>
-    </section>
+        <div class="khb-hero-actions">
+            <a class="khb-btn khb-btn-primary" href="/local-admin/woocommerce-import">دریافت اطلاعات از WooCommerce</a>
+            <a class="khb-btn khb-btn-ghost" href="https://localhost:7030" target="_blank">مشاهده فروشگاه</a>
+        </div>
+    </div>
 
-    <section class="khb-admin-grid">
-        <AuthorizeView Roles="@KharbarchiRoles.SuperAdmins" Context="superAdminContext">
-            <Authorized>
-                <AdminTile Title="کاربران و نقش‌ها" Text="ساخت اکانت داخلی، تغییر نقش، قفل/فعال‌سازی حساب و ریست رمز عبور." Href="/local-admin/users" Badge="مدیر کل" />
-                <AdminTile Title="صف همگام‌سازی" Text="بررسی پیام‌های آماده ارسال به ووکامرس توسط عامل مرکزی." Href="/local-admin/sync-outbox" Badge="Sync" />
-            </Authorized>
-        </AuthorizeView>
+    <div class="khb-grid khb-grid-4">
+        <div class="khb-glass-card khb-stat-card">
+            <span>محصولات واردشده</span>
+            <strong>@ProductCount</strong>
+            <small>از جدول MySQL</small>
+        </div>
+        <div class="khb-glass-card khb-stat-card">
+            <span>وضعیت سرور</span>
+            <strong class="@(ServerOk ? "khb-ok-text" : "khb-warn-text")">@(ServerOk ? "فعال" : "نامشخص")</strong>
+            <small>@ServerMessage</small>
+        </div>
+        <div class="khb-glass-card khb-stat-card">
+            <span>فروشگاه قدیمی</span>
+            <strong>7030</strong>
+            <small>کلاینت جدا</small>
+        </div>
+        <div class="khb-glass-card khb-stat-card">
+            <span>پنل مدیریت</span>
+            <strong>7029</strong>
+            <small>Local Admin</small>
+        </div>
+    </div>
 
-        <AuthorizeView Roles="@KharbarchiRoles.CatalogWriters" Context="catalogContext">
-            <Authorized>
-                <AdminTile Title="کاتالوگ کالا" Text="ایجاد و اصلاح محصولات داخلی و آماده‌سازی برای فروش." Href="/local-admin/catalog" Badge="کالا" />
-                <AdminTile Title="ورود از ووکامرس" Text="دریافت محصولات، تصاویر، سفارش‌ها و وضعیت‌های ووکامرس در دیتابیس محلی." Href="/local-admin/woocommerce-import" Badge="Import" />
-            </Authorized>
-        </AuthorizeView>
+    <div class="khb-grid khb-grid-2">
+        <div class="khb-glass-card">
+            <div class="khb-section-title">
+                <div>
+                    <span class="khb-eyebrow">Current Products</span>
+                    <h2>کالاهای فعلی خوانده‌شده از MySQL</h2>
+                </div>
+                <button class="khb-btn khb-btn-soft" @onclick="LoadProducts" disabled="@Busy">به‌روزرسانی</button>
+            </div>
 
-        <AuthorizeView Roles="@KharbarchiRoles.PriceProposers" Context="priceContext">
-            <Authorized>
-                <AdminTile Title="فرآیند قیمت‌گذاری" Text="ثبت پیشنهاد قیمت، تایید مدیر قیمت‌گذاری و کنترل دسترسی قیمت خرید." Href="/local-admin/pricing" Badge="قیمت" />
-            </Authorized>
-        </AuthorizeView>
+            @if (Busy)
+            {
+                <div class="khb-skeleton-list">
+                    <span></span><span></span><span></span>
+                </div>
+            }
+            else if (!Products.Any())
+            {
+                <div class="khb-empty-state">
+                    هنوز محصولی در جدول import پیدا نشد. از صفحه «دریافت اطلاعات از WooCommerce» اطلاعات را وارد MySQL کن.
+                </div>
+            }
+            else
+            {
+                <div class="khb-table-wrap">
+                    <table class="khb-table">
+                        <thead>
+                            <tr>
+                                <th>نام کالا</th>
+                                <th>SKU</th>
+                                <th>قیمت</th>
+                                <th>موجودی</th>
+                                <th>وضعیت</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var product in Products)
+                            {
+                                <tr>
+                                    <td>@product.Name</td>
+                                    <td class="ltr">@product.Sku</td>
+                                    <td>@product.Price</td>
+                                    <td>@product.StockStatus</td>
+                                    <td><span class="khb-badge">@product.Status</span></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
 
-        <AuthorizeView Roles="@KharbarchiRoles.InventoryProposers" Context="inventoryContext">
-            <Authorized>
-                <AdminTile Title="فرآیند انبار" Text="ثبت پیشنهاد موجودی، اصلاح کسری، کنترل موجودی و تایید مرحله‌ای." Href="/local-admin/inventory" Badge="انبار" />
-            </Authorized>
-        </AuthorizeView>
-
-        <AuthorizeView Roles="@KharbarchiRoles.OrderViewersCsv" Context="orderContext">
-            <Authorized>
-                <AdminTile Title="سفارش‌ها" Text="مشاهده سفارش‌های محلی و ووکامرس، وضعیت داخلی و جزئیات مشتری." Href="/local-admin/orders" Badge="Orders" />
-            </Authorized>
-        </AuthorizeView>
-
-        <AuthorizeView Roles="@KharbarchiRoles.BarookPaymentOperatorsCsv" Context="barookContext">
-            <Authorized>
-                <AdminTile Title="پرداخت باروک" Text="شروع پرداخت، ارسال لینک پرداخت، استعلام و تایید پرداخت." Href="/local-admin/barook-payment" Badge="Barook" />
-            </Authorized>
-        </AuthorizeView>
-
-        <AuthorizeView Roles="@KharbarchiRoles.PaymentOperatorsCsv" Context="accountingContext">
-            <Authorized>
-                <AdminTile Title="حسابداری" Text="مشاهده وضعیت پرداخت، ثبت دریافت دستی و کنترل رسیدها." Href="/local-admin/accounting" Badge="مالی" />
-            </Authorized>
-        </AuthorizeView>
-    </section>
-</div>
+        <div class="khb-glass-card">
+            <span class="khb-eyebrow">Quick Actions</span>
+            <h2>عملیات سریع</h2>
+            <div class="khb-action-list">
+                <a href="/local-admin/woocommerce-settings"><b>تنظیمات WooCommerce</b><span>تست اتصال، کلیدها و کاربر وردپرس</span></a>
+                <a href="/local-admin/woocommerce-import"><b>Import به MySQL</b><span>دریافت محصولات، دسته‌ها و سفارش‌ها</span></a>
+                <a href="/local-admin/catalog"><b>مدیریت کاتالوگ</b><span>مرتب‌سازی کالاها و آماده‌سازی داده محصول</span></a>
+                <a href="/local-admin/pricing"><b>قیمت‌گذاری</b><span>هماهنگ‌سازی قیمت نقد و شرایطی</span></a>
+                <a href="/local-admin/settings"><b>تنظیمات عمومی</b><span>آدرس‌ها، تم و تنظیمات پایه</span></a>
+            </div>
+        </div>
+    </div>
+</section>
 
 @code {
-    private static string GetUserDisplayName(System.Security.Claims.ClaimsPrincipal user)
+    private bool Busy;
+    private bool ServerOk;
+    private string ServerMessage = "در حال بررسی...";
+    private List<ProductRow> Products { get; set; } = new();
+    private int ProductCount => Products.Count;
+    private HttpClient Api => HttpClientFactory.CreateClient("KharbarchiAPI");
+
+    protected override async Task OnInitializedAsync()
     {
-        return user.FindFirst("full_name")?.Value
-            ?? user.Identity?.Name
-            ?? "کاربر";
+        await CheckServer();
+        await LoadProducts();
     }
 
-    private static IReadOnlyList<string> GetRoles(System.Security.Claims.ClaimsPrincipal user)
+    private async Task CheckServer()
     {
-        return user.Claims
-            .Where(x => x.Type == System.Security.Claims.ClaimTypes.Role || x.Type.EndsWith("/role", StringComparison.OrdinalIgnoreCase))
-            .Select(x => x.Value)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        try
+        {
+            var response = await Api.GetAsync("api/woo-lab/server-health");
+            ServerOk = response.IsSuccessStatusCode;
+            ServerMessage = ServerOk ? "سرور داخلی آماده است" : "پاسخ سرور خطا بود";
+        }
+        catch
+        {
+            ServerOk = false;
+            ServerMessage = "ارتباط با سرور برقرار نشد";
+        }
+    }
+
+    private async Task LoadProducts()
+    {
+        Busy = true;
+        try
+        {
+            var response = await Api.GetFromJsonAsync<ProductsResponse>("api/woo-lab/imported-products?take=20");
+            Products = response?.Rows ?? new();
+        }
+        catch
+        {
+            Products = new();
+        }
+        finally
+        {
+            Busy = false;
+        }
+    }
+
+    private sealed class ProductsResponse
+    {
+        public bool Ok { get; set; }
+        public List<ProductRow> Rows { get; set; } = new();
+    }
+
+    private sealed class ProductRow
+    {
+        public string? Name { get; set; }
+        public string? Sku { get; set; }
+        public string? Price { get; set; }
+        public string? StockStatus { get; set; }
+        public string? Status { get; set; }
     }
 }

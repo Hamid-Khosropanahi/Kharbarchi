@@ -1,0 +1,41 @@
+@page "/local-admin"
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
+
+<PageTitle>داشبورد مدیریت</PageTitle>
+
+<section class="khb-page-head">
+    <div>
+        <span class="khb-eyebrow">پنل داخلی خواربارچی</span>
+        <h1>داشبورد نقش‌محور مدیریت</h1>
+        <p>هر کاربر فقط ابزارهای مجاز نقش خود را می‌بیند. از اینجا اتصال ووکامرس، ورود داده‌ها، قیمت‌گذاری، انبار و سفارش‌ها را مدیریت کن.</p>
+    </div>
+    <div class="khb-page-actions">
+        <a class="khb-btn khb-btn-secondary" href="https://localhost:7030" target="_blank">مشاهده فروشگاه قدیمی</a>
+        <a class="khb-btn khb-btn-primary" href="/local-admin/woocommerce-settings">تست API ووکامرس</a>
+    </div>
+</section>
+
+<section class="khb-metrics-grid">
+    <article class="khb-metric-card khb-metric-primary"><span>اتصال</span><strong>WooCommerce Lab</strong><p>تست آدرس، کلیدها، محصولات، سفارش‌ها و پاسخ خام API.</p></article>
+    <article class="khb-metric-card"><span>امنیت</span><strong>Role Based Access</strong><p>منو و صفحه‌ها بر اساس نقش کاربر کنترل می‌شوند.</p></article>
+    <article class="khb-metric-card"><span>عملیات</span><strong>Sync Ready</strong><p>صف خروجی و همگام‌سازی مرکزی برای اتصال امن.</p></article>
+</section>
+
+<section class="khb-card-grid">
+    <AuthorizeView Roles="SuperAdmin,Admin">
+        <Authorized>
+            <a class="khb-dashboard-card" href="/local-admin/users"><i>👥</i><b>کاربران و نقش‌ها</b><span>ساخت حساب، تخصیص نقش، قفل/فعال‌سازی و ریست رمز.</span></a>
+            <a class="khb-dashboard-card" href="/local-admin/settings"><i>⚙</i><b>تنظیمات سامانه</b><span>آدرس‌های اصلی، تم پیش‌فرض، اتصال‌ها و تنظیمات محلی.</span></a>
+        </Authorized>
+    </AuthorizeView>
+    <a class="khb-dashboard-card" href="/local-admin/woocommerce-settings"><i>🔌</i><b>تست اتصال ووکامرس</b><span>ذخیره تنظیمات، اجرای endpoint دلخواه و مشاهده خروجی خام.</span></a>
+    <a class="khb-dashboard-card" href="/local-admin/woocommerce-import"><i>⇩</i><b>ورود اطلاعات از ووکامرس</b><span>دریافت اطلاعات اولیه سایت اصلی و آماده‌سازی برای MySQL.</span></a>
+    <a class="khb-dashboard-card" href="/local-admin/catalog"><i>◈</i><b>کاتالوگ کالا</b><span>مدیریت ساختار کالاها، برند، دسته‌بندی و وضعیت فروش.</span></a>
+    <a class="khb-dashboard-card" href="/local-admin/pricing"><i>٪</i><b>فرآیند قیمت‌گذاری</b><span>پیشنهاد قیمت، تایید مدیر و کنترل قیمت خرید.</span></a>
+    <a class="khb-dashboard-card" href="/local-admin/inventory"><i>▣</i><b>فرآیند انبار</b><span>ثبت پیشنهاد موجودی، اصلاح کسری و کنترل وضعیت انبار.</span></a>
+    <a class="khb-dashboard-card" href="/local-admin/orders"><i>☰</i><b>سفارش‌ها</b><span>پیگیری سفارش، وضعیت پرداخت و آماده‌سازی ارسال.</span></a>
+    <a class="khb-dashboard-card" href="/local-admin/barook-payment"><i>↗</i><b>پرداخت باروک</b><span>ساخت جلسه پرداخت، ارسال لینک، تایید پرداخت و ثبت نتیجه.</span></a>
+    <a class="khb-dashboard-card" href="/local-admin/accounting"><i>¤</i><b>حسابداری</b><span>رسیدهای دستی، سفارش‌های پرداختی و گزارش مالی.</span></a>
+    <a class="khb-dashboard-card" href="/local-admin/sync-outbox"><i>⟳</i><b>صف خروجی</b><span>بررسی پیام‌های آماده ارسال به ووکامرس توسط عامل مرکزی.</span></a>
+</section>

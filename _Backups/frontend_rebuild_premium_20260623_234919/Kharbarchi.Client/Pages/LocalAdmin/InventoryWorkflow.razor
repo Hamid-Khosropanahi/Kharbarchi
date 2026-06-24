@@ -1,0 +1,9 @@
+@page "/local-admin/inventory"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = KharbarchiRoles.InventoryProposers)]
+@using Kharbarchi.Shared.Security
+
+<PageTitle>فرآیند انبار</PageTitle>
+<section class="khb-page" dir="rtl">
+    <div class="khb-hero"><span class="khb-eyebrow">انبار</span><h1>فرآیند انبار</h1><p>ثبت پیشنهاد موجودی، کسری، افزایش موجودی و اصلاح انبار بدون نمایش اطلاعات قیمت برای نقش انباردار.</p><div class="khb-actions"><button class="khb-primary-btn">ثبت تغییر موجودی</button><button class="khb-secondary-btn">گزارش موجودی</button></div></div>
+    <div class="khb-panel"><h2>کنترل دسترسی</h2><p>انباردار فقط اطلاعات موجودی را می‌بیند و به قیمت خرید یا فروش دسترسی ندارد.</p></div>
+</section>

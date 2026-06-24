@@ -1,0 +1,46 @@
+﻿@* MainHeader.razor *@
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+<nav class="whb-header whb-scroll-stick whb-sticky-real whb-sticky-prepared">
+    <div class="whb-main-header">
+        <TopBar />
+        <GeneralHeader />
+        <HeaderBottom />
+    </div>
+</nav>
+
+@code {
+    // 1. Create a reference for the module
+    private IJSObjectReference? _rotateModule;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                // 2. Import the file as a Module (Note the "./" path)
+                _rotateModule = await JS.InvokeAsync<IJSObjectReference>("import", "./JS/Rotate.js");
+
+                // 3. Call the exported function from the module
+                await _rotateModule.InvokeVoidAsync("init3DLogo");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"JS Load Error: {ex.Message}");
+            }
+        }
+    }
+
+    // 4. Cleanup when the component is destroyed (Changing pages)
+    public async ValueTask DisposeAsync()
+    {
+        if (_rotateModule is not null)
+        {
+            // Optional: Call a stop function in JS if you add one (see Step 3 below)
+            // await _rotateModule.InvokeVoidAsync("stopAnimation");
+
+            await _rotateModule.DisposeAsync();
+        }
+    }
+}

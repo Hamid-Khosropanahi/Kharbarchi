@@ -1,0 +1,139 @@
+@inherits LayoutComponentBase
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<div class="khb-app-shell" dir="rtl">
+    <div class="khb-bg-glow khb-bg-glow-a"></div>
+    <div class="khb-bg-glow khb-bg-glow-b"></div>
+    <div class="khb-bg-grid"></div>
+
+    <aside class="khb-sidebar" id="khb-sidebar">
+        <a class="khb-brand" href="/local-admin" aria-label="پنل مدیریت خواربارچی">
+            <span class="khb-brand-mark"><img src="Logo/LOGO.svg" alt="خواربارچی" /></span>
+            <span class="khb-brand-copy">
+                <b>خواربارچی</b>
+                <small>پنل مدیریت داخلی</small>
+            </span>
+        </a>
+
+        <nav class="khb-nav" aria-label="منوی مدیریت">
+            <div class="khb-nav-section">اصلی</div>
+            <NavLink class="khb-nav-item" href="/local-admin" Match="NavLinkMatch.All"><span>⌘</span><b>داشبورد</b></NavLink>
+            <NavLink class="khb-nav-item" href="/local-admin/woocommerce-settings"><span>⚙</span><b>تست اتصال ووکامرس</b></NavLink>
+            <NavLink class="khb-nav-item" href="/local-admin/woocommerce-import"><span>⇩</span><b>ورود از ووکامرس</b></NavLink>
+
+            <AuthorizeView Roles="SuperAdmin,Admin">
+                <Authorized>
+                    <div class="khb-nav-section">مدیر کل</div>
+                    <NavLink class="khb-nav-item" href="/local-admin/users"><span>👥</span><b>کاربران و نقش‌ها</b></NavLink>
+                    <NavLink class="khb-nav-item" href="/local-admin/settings"><span>✦</span><b>تنظیمات سامانه</b></NavLink>
+                </Authorized>
+            </AuthorizeView>
+
+            <AuthorizeView Roles="SuperAdmin,Admin,PricingManager,PricingEmployee,WarehouseEmployee,SalesManager">
+                <Authorized>
+                    <div class="khb-nav-section">کالا و عملیات</div>
+                    <NavLink class="khb-nav-item" href="/local-admin/catalog"><span>◈</span><b>کاتالوگ کالا</b></NavLink>
+                    <NavLink class="khb-nav-item" href="/local-admin/pricing"><span>٪</span><b>فرآیند قیمت‌گذاری</b></NavLink>
+                    <NavLink class="khb-nav-item" href="/local-admin/inventory"><span>▣</span><b>فرآیند انبار</b></NavLink>
+                </Authorized>
+            </AuthorizeView>
+
+            <AuthorizeView Roles="SuperAdmin,Admin,PricingManager,SalesManager,ShippingOrderManager,Accountant">
+                <Authorized>
+                    <div class="khb-nav-section">سفارش و مالی</div>
+                    <NavLink class="khb-nav-item" href="/local-admin/orders"><span>☰</span><b>سفارش‌ها</b></NavLink>
+                    <NavLink class="khb-nav-item" href="/local-admin/barook-payment"><span>↗</span><b>پرداخت باروک</b></NavLink>
+                    <NavLink class="khb-nav-item" href="/local-admin/accounting"><span>¤</span><b>حسابداری</b></NavLink>
+                </Authorized>
+            </AuthorizeView>
+
+            <AuthorizeView Roles="SuperAdmin,Admin,CentralSyncAgent">
+                <Authorized>
+                    <div class="khb-nav-section">همگام‌سازی</div>
+                    <NavLink class="khb-nav-item" href="/local-admin/sync-outbox"><span>⟳</span><b>صف خروجی</b></NavLink>
+                </Authorized>
+            </AuthorizeView>
+        </nav>
+
+        <div class="khb-sidebar-footer">
+            <a class="khb-store-link" href="https://localhost:7030" target="_blank" rel="noopener">
+                <span>مشاهده فروشگاه قدیمی</span>
+                <b>↗</b>
+            </a>
+        </div>
+    </aside>
+
+    <section class="khb-main-panel">
+        <header class="khb-topbar">
+            <div class="khb-topbar-title">
+                <button class="khb-icon-btn khb-mobile-menu" @onclick="ToggleSidebar" title="منو">☰</button>
+                <div>
+                    <strong>سیستم مدیریت خواربارچی</strong>
+                    <small>عملیات داخلی، همگام‌سازی و کنترل دسترسی</small>
+                </div>
+            </div>
+
+            <div class="khb-topbar-actions">
+                <button class="khb-chip-btn" @onclick="ToggleTheme" title="تغییر تم">
+                    <span>☾</span>
+                    <b>تاریک / روشن</b>
+                </button>
+                <a class="khb-chip-btn" href="https://localhost:7030" target="_blank" rel="noopener"><span>🛒</span><b>فروشگاه قدیمی</b></a>
+                <AuthorizeView Context="authContext">
+                    <Authorized>
+                        <div class="khb-user-pill">
+                            <span>@GetInitial(authContext.User)</span>
+                            <div><b>@GetDisplayName(authContext.User)</b><small>@GetPrimaryRole(authContext.User)</small></div>
+                        </div>
+                    </Authorized>
+                    <NotAuthorized>
+                        <a class="khb-btn khb-btn-primary" href="/login">ورود</a>
+                    </NotAuthorized>
+                </AuthorizeView>
+            </div>
+        </header>
+
+        <main class="khb-content">
+            @Body
+        </main>
+    </section>
+</div>
+
+@code {
+    private async Task ToggleTheme() => await JS.InvokeVoidAsync("khbPremium.toggleTheme");
+    private async Task ToggleSidebar() => await JS.InvokeVoidAsync("khbPremium.toggleSidebar");
+
+    private static string GetDisplayName(ClaimsPrincipal user)
+    {
+        return user.FindFirst("name")?.Value
+            ?? user.FindFirst(ClaimTypes.Name)?.Value
+            ?? user.Identity?.Name
+            ?? "کاربر";
+    }
+
+    private static string GetInitial(ClaimsPrincipal user)
+    {
+        var name = GetDisplayName(user).Trim();
+        return string.IsNullOrWhiteSpace(name) ? "ک" : name[..1];
+    }
+
+    private static string GetPrimaryRole(ClaimsPrincipal user)
+    {
+        var roles = new[]
+        {
+            ("SuperAdmin", "مدیر کل"), ("Admin", "مدیر"), ("PricingManager", "مدیر قیمت‌گذاری"),
+            ("PricingEmployee", "کارشناس قیمت‌گذاری"), ("WarehouseEmployee", "انباردار"),
+            ("SalesManager", "مدیر فروش"), ("ShippingOrderManager", "مسئول سفارش"),
+            ("Accountant", "حسابدار"), ("CentralSyncAgent", "عامل همگام‌سازی"), ("GatewayAdmin", "کاربر درگاه")
+        };
+
+        foreach (var role in roles)
+        {
+            if (user.IsInRole(role.Item1)) return role.Item2;
+        }
+        return "کاربر سیستم";
+    }
+}

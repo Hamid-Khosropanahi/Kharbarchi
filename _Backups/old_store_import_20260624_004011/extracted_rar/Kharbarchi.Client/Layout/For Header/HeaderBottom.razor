@@ -1,0 +1,54 @@
+﻿@using Kharbarchi.Client.Model.Header
+<div class="whb-row whb-header-bottom whb-sticky-row whb-with-bg whb-without-border whb-color-light whb-hidden-mobile whb-flex-equal-sides">
+    <div class="container">
+        <div class="whb-flex-row whb-header-bottom-inner">
+            <div class="whb-column whb-col-left whb-column11 whb-visible-lg">
+                <Menu NavClass="wd-header-nav wd-header-secondary-nav whb-12h0h9459wa7mu5h8ran text-right"
+                      AriaLabel="منوی اصلی راست"
+                      MenuId="menu-main-right"
+                      MenuClass="wd-style-default wd-gap-s wd-offsets-calculated"
+                      MenuItems="mainRightMenuItems" />
+            </div>
+            <div class="whb-column whb-col-center whb-column12 whb-visible-lg whb-empty-column">
+            </div>
+            <div class="whb-column whb-col-right whb-column13 whb-visible-lg">
+                <Menu NavClass="wd-header-nav wd-header-secondary-nav whb-7owsphvfa2xjclaxkj3r text-left"
+                      AriaLabel="منوی چپ"
+                      MenuId="menu-left"
+                      MenuClass="wd-style-default wd-gap-l"
+                      MenuItems="leftMenuItems" />
+            </div>
+            <div class="whb-column whb-col-mobile whb-column_mobile5 whb-hidden-lg whb-empty-column">
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<MenuItem> mainRightMenuItems = new List<MenuItem>
+{
+        new MenuItem { Id = 19, Title = "صفحه اصلی", Url = "./", CssClass = "menu-item-type-post_type menu-item-object-page menu-item-home current-menu-item page_item page-item-13 current_page_item" },
+        new MenuItem {
+            Id = 24,
+            Title = "فروشگاه",
+            Url = "./shop/",
+            CssClass = "menu-item-type-post_type menu-item-object-page menu-item-has-children",
+            Children = new List<MenuItem>
+{
+                new MenuItem { Id = 23, Title = "سبد خرید", Url = "./cart/" },
+                new MenuItem { Id = 22, Title = "حساب کاربری", Url = "./my-account/" },
+                new MenuItem { Id = 21, Title = "پرداخت", Url = "./checkout/" }
+            }
+        }
+    };
+
+    private List<MenuItem> leftMenuItems = new List<MenuItem>
+{
+        new MenuItem { Id = 282, Title = "بلاگ", Url = "./mag/" },
+        new MenuItem {
+            Id = 283,
+            Title = "حساب کاربری",
+            Url = "./my-account/",
+          Children = new List<MenuItem>{}}
+    };
+}

@@ -1,0 +1,4 @@
+@page "/products"
+<PageTitle>محصولات</PageTitle>
+<section class="store-section"><h1>محصولات</h1><div class="store-products">@foreach(var p in products){<article><span>@p.Icon</span><h2>@p.Name</h2><p>@p.Text</p></article>}</div></section>
+@code { private readonly (string Icon,string Name,string Text)[] products = [("◌","حبوبات بسته‌بندی","محصولات آماده فروش با بسته‌بندی خواربارچی."),("▣","کارتن عمده","فروش عمده برای مغازه‌داران و همکاران."),("✦","کالای منتخب","کیفیت کنترل‌شده برای سفارش‌های سازمانی.")]; }

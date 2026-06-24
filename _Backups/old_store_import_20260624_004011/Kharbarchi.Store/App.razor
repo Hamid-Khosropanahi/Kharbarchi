@@ -1,0 +1,11 @@
+<Router AppAssembly="@typeof(App).Assembly">
+    <Found Context="routeData">
+        <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+        <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+    </Found>
+    <NotFound>
+        <LayoutView Layout="@typeof(MainLayout)">
+            <section class="store-hero compact"><h1>صفحه پیدا نشد</h1><p>مسیر وارد شده در فروشگاه قدیمی موجود نیست.</p></section>
+        </LayoutView>
+    </NotFound>
+</Router>

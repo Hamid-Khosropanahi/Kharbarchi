@@ -1,0 +1,36 @@
+﻿@namespace Kharbarchi.Client.Components.Header
+@using Kharbarchi.Client.Model
+@using Kharbarchi.Client.Model.Header
+
+<div class="wd-header-my-account wd-event-hover wd-with-username wd-design-1 wd-account-style-icon whb-y44vgu0l4o7ai2qgq2hp">
+    <a href="@AccountUrl" title="حساب کاربری من">
+        <span class="bi bi-person fs-4"></span>
+        <span class="wd-tools-text">
+            سلام، @Username
+        </span>
+    </a>
+
+    <div class="wd-dropdown wd-dropdown-menu wd-dropdown-my-account wd-design-default color-scheme-dark">
+        <ul class="wd-sub-menu">
+            @foreach (var link in AccountLinks)
+            {
+                <li class="Hd-MyAccount-navigation-link Hd-MyAccount-navigation-link--@link.Icon">
+                    <a href="@link.Url">
+                        <span>@link.Title</span>
+                    </a>
+                </li>
+            }
+        </ul>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public string Username { get; set; } = "کاربر";
+
+    [Parameter]
+    public string AccountUrl { get; set; } = "./my-account/";
+
+    [Parameter]
+    public List<UserAccountLink> AccountLinks { get; set; } = new();
+}

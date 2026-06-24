@@ -1,0 +1,12 @@
+<a class="khb-admin-tile" href="@Href">
+    <span class="khb-tile-badge">@Badge</span>
+    <strong>@Title</strong>
+    <p>@Text</p>
+</a>
+
+@code {
+    [Parameter] public string Title { get; set; } = string.Empty;
+    [Parameter] public string Text { get; set; } = string.Empty;
+    [Parameter] public string Href { get; set; } = string.Empty;
+    [Parameter] public string Badge { get; set; } = string.Empty;
+}
