@@ -11,6 +11,97 @@ namespace Kharbarchi.Server.Controllers;
 [Route("api/product-csv")]
 public sealed class ProductCsvImportController : ControllerBase
 {
+    [HttpGet("workflow-table")]
+    public async Task<IActionResult> GetWorkflowTable(
+    [FromQuery] string? kind,
+    [FromQuery] int page = 1,
+    [FromQuery] int pageSize = 50,
+    [FromQuery] string? search = null,
+    CancellationToken cancellationToken = default)
+    {
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 10, 500);
+        var offset = (page - 1) * pageSize;
+
+        var tableName = (kind ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "source" => "KHB_Source_Product",
+            "category" => "KHB_Category_Map",
+            "commodity" => "KHB_Commodity",
+            "package" => "KHB_Package_Type",
+            "product" => "KHB_Product_Final",
+            "queue" => "KHB_Product_Update_Queue",
+            _ => null
+        };
+
+        if (tableName is null)
+        {
+            return BadRequest(new { error = "Invalid workflow table kind." });
+        }
+
+        await using var connection = new MySqlConnection(GetConnectionString());
+        await connection.OpenAsync(cancellationToken);
+        await EnsureProductManagementTablesAsync(connection, cancellationToken);
+
+        long total;
+        await using (var count = connection.CreateCommand())
+        {
+            count.CommandText = $"SELECT COUNT(*) FROM `{tableName}`;";
+            total = Convert.ToInt64(await count.ExecuteScalarAsync(cancellationToken), CultureInfo.InvariantCulture);
+        }
+
+        var rows = new List<Dictionary<string, string?>>();
+
+        await using (var command = connection.CreateCommand())
+        {
+            command.CommandText = $"SELECT * FROM `{tableName}` ORDER BY `Id` DESC LIMIT @Take OFFSET @Skip;";
+            command.Parameters.AddWithValue("@Take", pageSize);
+            command.Parameters.AddWithValue("@Skip", offset);
+
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var row = new Dictionary<string, string?>();
+
+                for (var i = 0; i < reader.FieldCount; i++)
+                {
+                    var name = reader.GetName(i);
+
+                    if (reader.IsDBNull(i))
+                    {
+                        row[name] = null;
+                        continue;
+                    }
+
+                    var value = reader.GetValue(i);
+
+                    row[name] = value switch
+                    {
+                        DateTime date => date.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture),
+                        decimal number => number.ToString("N0", CultureInfo.InvariantCulture),
+                        double number => number.ToString("N0", CultureInfo.InvariantCulture),
+                        float number => number.ToString("N0", CultureInfo.InvariantCulture),
+                        long number => number.ToString("N0", CultureInfo.InvariantCulture),
+                        int number => number.ToString("N0", CultureInfo.InvariantCulture),
+                        _ => value.ToString()
+                    };
+                }
+
+                rows.Add(row);
+            }
+        }
+
+        return Ok(new
+        {
+            kind,
+            tableName,
+            page,
+            pageSize,
+            total,
+            items = rows
+        });
+    }
     private readonly IConfiguration _configuration;
     private readonly ILogger<ProductCsvImportController> _logger;
 
@@ -262,17 +353,19 @@ ON DUPLICATE KEY UPDATE
         [FromQuery] string? tableName,
         [FromQuery] string? priceUnit = "rial",
         [FromQuery] bool clearGeneratedBeforeProcess = true,
+        [FromQuery] bool? clearTargets = null,
         CancellationToken cancellationToken = default)
     {
         var safeTableName = NormalizeTableName(tableName);
         var normalizedPriceUnit = NormalizePriceUnit(priceUnit);
+        var shouldClearGeneratedTables = clearTargets ?? clearGeneratedBeforeProcess;
 
         await using var connection = new MySqlConnection(GetConnectionString());
         await connection.OpenAsync(cancellationToken);
 
         await EnsureAllProductTableAsync(connection, safeTableName, cancellationToken);
         await EnsureProductManagementTablesAsync(connection, cancellationToken);
-        if (clearGeneratedBeforeProcess)
+        if (shouldClearGeneratedTables)
         {
             await ResetGeneratedProductTablesAsync(connection, cancellationToken);
         }
@@ -364,7 +457,7 @@ ORDER BY Id;";
             tableName = safeTableName,
             inputPriceUnit = normalizedPriceUnit,
             outputPriceUnit = "toman",
-            generatedTablesWereCleared = clearGeneratedBeforeProcess,
+            generatedTablesWereCleared = shouldClearGeneratedTables,
             sourceRows = rows.Count,
             groupsTouched = groups,
             saleProductsTouched = products,
@@ -1477,11 +1570,11 @@ CREATE TABLE IF NOT EXISTS KHB_Product_Update_Queue (
         await EnsureColumnAsync(connection, "khb_product_main_groups", "MainProductSlug", "VARCHAR(500) NULL", cancellationToken);
         await EnsureColumnAsync(connection, "khb_product_main_groups", "CategoryName", "VARCHAR(500) NULL", cancellationToken);
         await EnsureColumnAsync(connection, "khb_product_main_groups", "CategorySlug", "VARCHAR(500) NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "khb_product_main_groups", "EnTaxonomic", "VARCHAR(500) NULL", cancellationToken);
         await EnsureColumnAsync(connection, "khb_product_main_groups", "Description", "LONGTEXT NULL", cancellationToken);
         await EnsureColumnAsync(connection, "khb_product_main_groups", "ImageUrl", "LONGTEXT NULL", cancellationToken);
         await EnsureColumnAsync(connection, "khb_product_main_groups", "CreatedAtUtc", "DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)", cancellationToken);
         await EnsureColumnAsync(connection, "khb_product_main_groups", "UpdatedAtUtc", "DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)", cancellationToken);
-
         await EnsureColumnAsync(connection, "khb_sale_products", "MainGroupId", "BIGINT NULL", cancellationToken);
         await EnsureColumnAsync(connection, "khb_sale_products", "SourceRowHash", "CHAR(64) NULL", cancellationToken);
         await EnsureColumnAsync(connection, "khb_sale_products", "WooProductId", "BIGINT NULL", cancellationToken);
@@ -1512,8 +1605,52 @@ CREATE TABLE IF NOT EXISTS KHB_Product_Update_Queue (
         await EnsureColumnAsync(connection, "khb_sale_products", "RawJson", "LONGTEXT NULL", cancellationToken);
         await EnsureColumnAsync(connection, "khb_sale_products", "CreatedAtUtc", "DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)", cancellationToken);
         await EnsureColumnAsync(connection, "khb_sale_products", "UpdatedAtUtc", "DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)", cancellationToken);
-
-        await CopyColumnIfExistsAsync(connection, "khb_sale_products", "ProductSku", "SKU", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Source_Product", "SourceKey", "CHAR(64) NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Source_Product", "SourceRowId", "BIGINT NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Source_Product", "ProductName", "VARCHAR(700) NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Source_Product", "ProductEnglishName", "VARCHAR(700) NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Source_Product", "MainProductName", "VARCHAR(500) NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Source_Product", "CategoryName", "VARCHAR(500) NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Source_Product", "CategorySlug", "VARCHAR(500) NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Source_Product", "BrandName", "VARCHAR(300) NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Source_Product", "BrandEnglishName", "VARCHAR(300) NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Source_Product", "PackageOne", "VARCHAR(300) NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Source_Product", "UnitWeightKg", "DECIMAL(18,6) NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Source_Product", "KgCashPrice", "DECIMAL(18,2) NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Source_Product", "KgCreditPrice", "DECIMAL(18,2) NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Source_Product", "RawJson", "LONGTEXT NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Source_Product", "CreatedAtUtc", "DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Source_Product", "UpdatedAtUtc", "DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Category_Map", "SourceKey", "VARCHAR(500) NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Category_Map", "CategoryName", "VARCHAR(500) NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Category_Map", "CategorySlug", "VARCHAR(500) NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Category_Map", "WooCategoryId", "BIGINT NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Category_Map", "CreatedAtUtc", "DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Category_Map", "UpdatedAtUtc", "DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Commodity", "SourceKey", "VARCHAR(500) NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Commodity", "CommodityName", "VARCHAR(500) NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Commodity", "CommoditySlug", "VARCHAR(500) NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Commodity", "WooCommodityId", "BIGINT NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Commodity", "CreatedAtUtc", "DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Commodity", "UpdatedAtUtc", "DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Package_Type", "SourceKey", "VARCHAR(500) NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Package_Type", "PackageGroup", "VARCHAR(50) NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Package_Type", "PackageCode", "VARCHAR(50) NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Package_Type", "PackageTitle", "VARCHAR(300) NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Package_Type", "UnitWeightKg", "DECIMAL(18,6) NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Package_Type", "PacksPerCarton", "INT NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Package_Type", "PackagingPricePerPack", "DECIMAL(18,2) NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Package_Type", "CreatedAtUtc", "DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Package_Type", "UpdatedAtUtc", "DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Product_Final", "SourceKey", "CHAR(64) NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Product_Final", "MainGroupId", "BIGINT NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Product_Final", "CategorySourceKey", "VARCHAR(500) NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Product_Final", "CommoditySourceKey", "VARCHAR(500) NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Product_Final", "PackageSourceKey", "VARCHAR(500) NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Product_Final", "ProductName", "VARCHAR(700) NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Product_Final", "ProductEnglishName", "VARCHAR(700) NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Product_Final", "ProductSlug", "VARCHAR(700) NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Product_Final", "SKU", "VARCHAR(191) NULL", cancellationToken);
         await EnsureColumnAsync(connection, "KHB_Product_Final", "PackageGroup", "VARCHAR(50) NULL", cancellationToken);
         await EnsureColumnAsync(connection, "KHB_Product_Final", "PackageCode", "VARCHAR(50) NULL", cancellationToken);
         await EnsureColumnAsync(connection, "KHB_Product_Final", "UnitWeightKg", "DECIMAL(18,6) NULL", cancellationToken);
@@ -1521,6 +1658,27 @@ CREATE TABLE IF NOT EXISTS KHB_Product_Update_Queue (
         await EnsureColumnAsync(connection, "KHB_Product_Final", "PackagingPricePerPack", "DECIMAL(18,2) NULL", cancellationToken);
         await EnsureColumnAsync(connection, "KHB_Product_Final", "KgCashPrice", "DECIMAL(18,2) NULL", cancellationToken);
         await EnsureColumnAsync(connection, "KHB_Product_Final", "KgCreditPrice", "DECIMAL(18,2) NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Product_Final", "SaleCashPrice", "DECIMAL(18,2) NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Product_Final", "SaleCreditPrice", "DECIMAL(18,2) NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Product_Final", "BuyCashPrice", "DECIMAL(18,2) NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Product_Final", "BuyCreditPrice", "DECIMAL(18,2) NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Product_Final", "Status", "VARCHAR(100) NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Product_Final", "CatalogVisibility", "VARCHAR(50) NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Product_Final", "WooPayloadJson", "LONGTEXT NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Product_Final", "CreatedAtUtc", "DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Product_Final", "UpdatedAtUtc", "DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Product_Update_Queue", "SourceKey", "CHAR(64) NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Product_Update_Queue", "QueueStatus", "VARCHAR(50) NOT NULL DEFAULT 'pending'", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Product_Update_Queue", "ActionType", "VARCHAR(50) NOT NULL DEFAULT 'upsert'", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Product_Update_Queue", "SKU", "VARCHAR(191) NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Product_Update_Queue", "ProductSlug", "VARCHAR(700) NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Product_Update_Queue", "WooProductId", "BIGINT NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Product_Update_Queue", "WooPayloadJson", "LONGTEXT NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Product_Update_Queue", "LastError", "LONGTEXT NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Product_Update_Queue", "CreatedAtUtc", "DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)", cancellationToken);
+        await EnsureColumnAsync(connection, "KHB_Product_Update_Queue", "UpdatedAtUtc", "DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)", cancellationToken);
+
+        await CopyColumnIfExistsAsync(connection, "khb_sale_products", "ProductSku", "SKU", cancellationToken);
         await CopyColumnIfExistsAsync(connection, "khb_sale_products", "Slug", "ProductSlug", cancellationToken);
         await CopyColumnIfExistsAsync(connection, "khb_product_main_groups", "Name", "MainProductName", cancellationToken);
         await CopyColumnIfExistsAsync(connection, "khb_product_main_groups", "Slug", "MainProductSlug", cancellationToken);

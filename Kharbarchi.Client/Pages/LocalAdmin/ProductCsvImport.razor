@@ -106,7 +106,62 @@
                 <button class="khb-btn" @onclick="SearchSourceRows" disabled="@busy">جستجو</button>
             </div>
         </div>
+        <section class="khb-card">
+            <div class="khb-workflow-tabs">
+                <button class="khb-btn @(activeWorkflowTab == "source" ? "primary" : "")" @onclick="@(() => SelectWorkflowTab("source"))">Source</button>
+                <button class="khb-btn @(activeWorkflowTab == "category" ? "primary" : "")" @onclick="@(() => SelectWorkflowTab("category"))">Categories</button>
+                <button class="khb-btn @(activeWorkflowTab == "commodity" ? "primary" : "")" @onclick="@(() => SelectWorkflowTab("commodity"))">Commodities</button>
+                <button class="khb-btn @(activeWorkflowTab == "package" ? "primary" : "")" @onclick="@(() => SelectWorkflowTab("package"))">Packages</button>
+                <button class="khb-btn @(activeWorkflowTab == "product" ? "primary" : "")" @onclick="@(() => SelectWorkflowTab("product"))">Final Products</button>
+                <button class="khb-btn @(activeWorkflowTab == "queue" ? "primary" : "")" @onclick="@(() => SelectWorkflowTab("queue"))">Woo Queue</button>
+            </div>
 
+            <div class="khb-toolbar">
+                <div>
+                    <h2>@WorkflowTabTitle</h2>
+                    <p class="khb-muted">Total: @workflowTotalRows</p>
+                </div>
+                <div class="khb-inline-controls">
+                    <select @bind="workflowPageSize">
+                        <option value="20">20</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                        <option value="200">200</option>
+                    </select>
+                    <button class="khb-btn" @onclick="LoadWorkflowTab" disabled="@busy">Refresh</button>
+                </div>
+            </div>
+
+            <div class="khb-table-wrap">
+                <table class="khb-table khb-resizable-table">
+                    <thead>
+                        <tr>
+                            @foreach (var column in workflowColumns)
+                            {
+                                <th class="khb-resize-col">@column</th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in workflowRows)
+                        {
+                            <tr>
+                                @foreach (var column in workflowColumns)
+                                {
+                                    <td class="ltr">@GetWorkflowCell(row, column)</td>
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="khb-pagination">
+                <button class="khb-btn" @onclick="PrevWorkflowPage" disabled="@(busy || workflowPage <= 1)">Prev</button>
+                <span>Page @(workflowPage) / @WorkflowTotalPages</span>
+                <button class="khb-btn" @onclick="NextWorkflowPage" disabled="@(busy || workflowPage >= WorkflowTotalPages)">Next</button>
+            </div>
+        </section>
         <div class="khb-table-wrap tall">
             <table class="khb-table khb-resizable-table source-table">
                 <thead>
@@ -337,10 +392,12 @@
         await Run(async () =>
         {
             var clearOutputValue = clearGeneratedBeforeProcess.ToString().ToLowerInvariant();
-            using var response = await Api.PostAsync($"api/product-csv/process-all-product-with-process?tableName={Uri.EscapeDataString(tableName)}&priceUnit={Uri.EscapeDataString(priceUnit)}&clearGeneratedBeforeProcess={clearOutputValue}", null);
+            using var response = await Api.PostAsync($"api/product-csv/process-all-product-with-process?tableName={Uri.EscapeDataString(tableName)}&priceUnit={Uri.EscapeDataString(priceUnit)}&clearTargets={clearOutputValue}", null);
             message = await ReadResponse(response);
             productPage = 1;
             await LoadProducts();
+            workflowPage = 1;
+            await LoadWorkflowTab();
         });
     }
 
@@ -451,13 +508,13 @@
             ? "ریال - هنگام پردازش به تومان تقسیم بر ۱۰ می‌شود"
             : "تومان - بدون تبدیل استفاده می‌شود";
 
-    private static string FormatMoney(long? value) =>
-        value.HasValue ? value.Value.ToString("N0") : "-";
+    private static string FormatMoney(decimal? value) =>
+      value.HasValue ? decimal.Truncate(value.Value).ToString("N0") : "-";
 
-    private static string FormatWholeNumber(long? value) =>
-        value.HasValue ? value.Value.ToString("N0") : string.Empty;
+    private static string FormatWholeNumber(decimal? value) =>
+        value.HasValue ? decimal.Truncate(value.Value).ToString("N0") : string.Empty;
 
-    private static long? ParseWholeNumber(object? value)
+    private static decimal? ParseWholeNumber(object? value)
     {
         var text = value?.ToString();
 
@@ -479,9 +536,25 @@
             .Replace("۶", "6")
             .Replace("۷", "7")
             .Replace("۸", "8")
-            .Replace("۹", "9");
+            .Replace("۹", "9")
+            .Replace("٠", "0")
+            .Replace("١", "1")
+            .Replace("٢", "2")
+            .Replace("٣", "3")
+            .Replace("٤", "4")
+            .Replace("٥", "5")
+            .Replace("٦", "6")
+            .Replace("٧", "7")
+            .Replace("٨", "8")
+            .Replace("٩", "9");
 
-        return long.TryParse(text, out var number) ? number : null;
+        return decimal.TryParse(
+            text,
+            System.Globalization.NumberStyles.Number,
+            System.Globalization.CultureInfo.InvariantCulture,
+            out var number)
+            ? decimal.Truncate(number)
+            : null;
     }
     private sealed class SourceRowsResult
     {
@@ -517,11 +590,11 @@
         public string? PackageName { get; set; }
         public decimal? UnitWeight { get; set; }
         public int? CartonQuantity { get; set; }
-        public long? PackagingPricePerPack { get; set; }
-        public long? KgCashPrice { get; set; }
-        public long? KgCreditPrice { get; set; }
-        public long? PurchaseKgCashPrice { get; set; }
-        public long? PurchaseKgCreditPrice { get; set; }
+        public decimal? PackagingPricePerPack { get; set; }
+        public decimal? KgCashPrice { get; set; }
+        public decimal? KgCreditPrice { get; set; }
+        public decimal? PurchaseKgCashPrice { get; set; }
+        public decimal? PurchaseKgCreditPrice { get; set; }
         public string? ShortDescription { get; set; }
         public string? FullDescription { get; set; }
         public string? ImageUrl { get; set; }
@@ -541,16 +614,99 @@
         public string? ProductSlug { get; set; }
         public string? PackageName { get; set; }
         public int? CartonQuantity { get; set; }
-        public long? PackagingPricePerPack { get; set; }
-        public long? KgPriceCash { get; set; }
-        public long? KgPriceInstallment { get; set; }
-        public long? SalePriceCash { get; set; }
-        public long? SalePriceInstallment { get; set; }
-        public long? PurchasePriceCash { get; set; }
-        public long? PurchasePriceInstallment { get; set; }
+        public decimal? PackagingPricePerPack { get; set; }
+        public decimal? KgPriceCash { get; set; }
+        public decimal? KgPriceInstallment { get; set; }
+        public decimal? SalePriceCash { get; set; }
+        public decimal? SalePriceInstallment { get; set; }
+        public decimal? PurchasePriceCash { get; set; }
+        public decimal? PurchasePriceInstallment { get; set; }
         public string? Status { get; set; }
         public string? ImageUrl { get; set; }
         public string? UpdatedAtUtc { get; set; }
     }
+    private string activeWorkflowTab = "source";
+    private int workflowPage = 1;
+    private int workflowPageSize = 50;
+    private long workflowTotalRows;
+    private List<Dictionary<string, string?>> workflowRows = new();
+    private List<string> workflowColumns = new();
 
+    private int WorkflowTotalPages => Math.Max(1, (int)Math.Ceiling(workflowTotalRows / (double)workflowPageSize));
+
+    private string WorkflowTabTitle => activeWorkflowTab switch
+    {
+        "source" => "KHB_Source_Product",
+        "category" => "KHB_Category_Map",
+        "commodity" => "KHB_Commodity",
+        "package" => "KHB_Package_Type",
+        "product" => "KHB_Product_Final",
+        "queue" => "KHB_Product_Update_Queue",
+        _ => "Workflow Table"
+    };
+
+    private async Task SelectWorkflowTab(string tab)
+    {
+        activeWorkflowTab = tab;
+        workflowPage = 1;
+        await LoadWorkflowTab();
+    }
+
+    private async Task LoadWorkflowTab()
+    {
+        await Run(async () =>
+        {
+            var url =
+                $"api/product-csv/workflow-table?kind={Uri.EscapeDataString(activeWorkflowTab)}&page={workflowPage}&pageSize={workflowPageSize}";
+
+            var result = await Api.GetFromJsonAsync<WorkflowTableResult>(url);
+
+            workflowRows = result?.Items ?? new();
+            workflowTotalRows = result?.Total ?? 0;
+
+            workflowColumns = workflowRows
+                .SelectMany(x => x.Keys)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }, showOk: false);
+    }
+
+    private async Task PrevWorkflowPage()
+    {
+        if (workflowPage <= 1)
+        {
+            return;
+        }
+
+        workflowPage--;
+        await LoadWorkflowTab();
+    }
+
+    private async Task NextWorkflowPage()
+    {
+        if (workflowPage >= WorkflowTotalPages)
+        {
+            return;
+        }
+
+        workflowPage++;
+        await LoadWorkflowTab();
+    }
+
+    private static string GetWorkflowCell(Dictionary<string, string?> row, string column)
+    {
+        return row.TryGetValue(column, out var value) && !string.IsNullOrWhiteSpace(value)
+            ? value
+            : "-";
+    }
+
+    private sealed class WorkflowTableResult
+    {
+        public string? Kind { get; set; }
+        public string? TableName { get; set; }
+        public int Page { get; set; }
+        public int PageSize { get; set; }
+        public long Total { get; set; }
+        public List<Dictionary<string, string?>> Items { get; set; } = new();
+    }
 }

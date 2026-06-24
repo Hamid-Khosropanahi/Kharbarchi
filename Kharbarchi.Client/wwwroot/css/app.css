@@ -959,3 +959,36 @@ input, select {
     }
 }
 
+.khb-workflow-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 18px;
+}
+
+    .khb-workflow-tabs .khb-btn {
+        min-width: 130px;
+    }
+
+.khb-resizable-table th {
+    resize: horizontal;
+    overflow: auto;
+    min-width: 130px;
+    max-width: 520px;
+    white-space: nowrap;
+}
+
+.khb-resizable-table td {
+    white-space: nowrap;
+}
+
+.khb-resizable-table {
+    width: max-content;
+    min-width: 100%;
+}
+
+.khb-table-wrap {
+    width: 100%;
+    overflow: auto;
+}
