@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -1129,10 +1129,10 @@ ON DUPLICATE KEY UPDATE ProductName = VALUES(ProductName), ProductEnglishName = 
 
         await ExecuteUpsertAsync(connection, @"
 INSERT INTO KHB_Product_Update_Queue
-(SourceKey, EntityType, QueueStatus, ActionType, SKU, ProductSlug, WooPayloadJson, CreatedAtUtc, UpdatedAtUtc)
+(SourceKey, QueueStatus, ActionType, SKU, ProductSlug, WooPayloadJson, CreatedAtUtc, UpdatedAtUtc)
 VALUES
-(@SourceKey, 'product', 'pending', 'upsert', @SKU, @ProductSlug, @WooPayloadJson, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6))
-ON DUPLICATE KEY UPDATE EntityType = 'product', QueueStatus = 'pending', SKU = VALUES(SKU), ProductSlug = VALUES(ProductSlug), WooPayloadJson = VALUES(WooPayloadJson), UpdatedAtUtc = UTC_TIMESTAMP(6);",
+(@SourceKey, 'pending', 'upsert', @SKU, @ProductSlug, @WooPayloadJson, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6))
+ON DUPLICATE KEY UPDATE QueueStatus = 'pending', SKU = VALUES(SKU), ProductSlug = VALUES(ProductSlug), WooPayloadJson = VALUES(WooPayloadJson), UpdatedAtUtc = UTC_TIMESTAMP(6);",
             cancellationToken,
             ("@SourceKey", product.SourceRowHash),
             ("@SKU", product.Sku),
@@ -1141,20 +1141,18 @@ ON DUPLICATE KEY UPDATE EntityType = 'product', QueueStatus = 'pending', SKU = V
     }
 
 
-        private static async Task ResetGeneratedProductTablesAsync(MySqlConnection connection, CancellationToken cancellationToken)
+    private static async Task ResetGeneratedProductTablesAsync(MySqlConnection connection, CancellationToken cancellationToken)
     {
         await ExecuteAsync(connection, "SET FOREIGN_KEY_CHECKS = 0;", cancellationToken);
-        await ExecuteAsync(connection, "DROP TABLE IF EXISTS KHB_Product_Update_Queue;", cancellationToken);
-        await ExecuteAsync(connection, "DROP TABLE IF EXISTS KHB_Product_Final;", cancellationToken);
-        await ExecuteAsync(connection, "DROP TABLE IF EXISTS KHB_Package_Type;", cancellationToken);
-        await ExecuteAsync(connection, "DROP TABLE IF EXISTS KHB_Commodity;", cancellationToken);
-        await ExecuteAsync(connection, "DROP TABLE IF EXISTS KHB_Category_Map;", cancellationToken);
-        await ExecuteAsync(connection, "DROP TABLE IF EXISTS KHB_Source_Product;", cancellationToken);
-        await ExecuteAsync(connection, "DROP TABLE IF EXISTS khb_sale_products;", cancellationToken);
-        await ExecuteAsync(connection, "DROP TABLE IF EXISTS khb_product_main_groups;", cancellationToken);
+        await ExecuteAsync(connection, "TRUNCATE TABLE KHB_Product_Update_Queue;", cancellationToken);
+        await ExecuteAsync(connection, "TRUNCATE TABLE KHB_Product_Final;", cancellationToken);
+        await ExecuteAsync(connection, "TRUNCATE TABLE KHB_Package_Type;", cancellationToken);
+        await ExecuteAsync(connection, "TRUNCATE TABLE KHB_Commodity;", cancellationToken);
+        await ExecuteAsync(connection, "TRUNCATE TABLE KHB_Category_Map;", cancellationToken);
+        await ExecuteAsync(connection, "TRUNCATE TABLE KHB_Source_Product;", cancellationToken);
+        await ExecuteAsync(connection, "TRUNCATE TABLE khb_sale_products;", cancellationToken);
+        await ExecuteAsync(connection, "TRUNCATE TABLE khb_product_main_groups;", cancellationToken);
         await ExecuteAsync(connection, "SET FOREIGN_KEY_CHECKS = 1;", cancellationToken);
-
-        await EnsureProductManagementTablesAsync(connection, cancellationToken);
     }
 
     private static async Task ExecuteUpsertAsync(MySqlConnection connection, string sql, CancellationToken cancellationToken, params (string Name, object? Value)[] parameters)
@@ -1509,7 +1507,6 @@ CREATE TABLE IF NOT EXISTS KHB_Product_Final (
 CREATE TABLE IF NOT EXISTS KHB_Product_Update_Queue (
     Id BIGINT NOT NULL AUTO_INCREMENT,
     SourceKey CHAR(64) NOT NULL,
-    EntityType VARCHAR(80) NOT NULL DEFAULT 'product',
     QueueStatus VARCHAR(50) NOT NULL DEFAULT 'pending',
     ActionType VARCHAR(50) NOT NULL DEFAULT 'upsert',
     SKU VARCHAR(191) NULL,
@@ -1687,7 +1684,6 @@ CREATE TABLE IF NOT EXISTS KHB_Product_Update_Queue (
 
         // Columns used by UpsertWorkflowTablesAsync for WooCommerce sync queue.
         await EnsureColumnAsync(connection, "KHB_Product_Update_Queue", "SourceKey", "CHAR(64) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "KHB_Product_Update_Queue", "EntityType", "VARCHAR(80) NOT NULL DEFAULT 'product'", cancellationToken);
         await EnsureColumnAsync(connection, "KHB_Product_Update_Queue", "QueueStatus", "VARCHAR(50) NOT NULL DEFAULT 'pending'", cancellationToken);
         await EnsureColumnAsync(connection, "KHB_Product_Update_Queue", "ActionType", "VARCHAR(50) NOT NULL DEFAULT 'upsert'", cancellationToken);
         await EnsureColumnAsync(connection, "KHB_Product_Update_Queue", "SKU", "VARCHAR(191) NULL", cancellationToken);
@@ -2463,4 +2459,3 @@ WHERE TABLE_SCHEMA = DATABASE()
         }
     }
 }
-
