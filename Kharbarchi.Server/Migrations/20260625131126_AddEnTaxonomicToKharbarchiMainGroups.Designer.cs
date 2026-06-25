@@ -3,6 +3,7 @@ using System;
 using Kharbarchi.Server.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Kharbarchi.Server.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260625131126_AddEnTaxonomicToKharbarchiMainGroups")]
+    partial class AddEnTaxonomicToKharbarchiMainGroups
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1434,77 +1437,77 @@ namespace Kharbarchi.Server.Migrations
                         new
                         {
                             Id = "f517b79d-1fc4-4800-bcb8-ee0ca67dce1e",
-                            ConcurrencyStamp = "9a8fbf6f-d0c2-436a-9f35-452d761ed594",
+                            ConcurrencyStamp = "d04ad4e3-a96f-4e0e-8692-c7499df30081",
                             Name = "Admin",
                             NormalizedName = "ADMIN"
                         },
                         new
                         {
                             Id = "4f43b487-3f8e-426d-9a46-048c7d07f7f9",
-                            ConcurrencyStamp = "77a2d31b-1d2a-40ee-8922-a200fa2112ad",
+                            ConcurrencyStamp = "acde0a9b-8b59-44b2-96de-7b0d1fd5012b",
                             Name = "SuperAdmin",
                             NormalizedName = "SUPERADMIN"
                         },
                         new
                         {
                             Id = "b1477f6c-54ef-48d0-b24c-756b3a83b1a1",
-                            ConcurrencyStamp = "b1c50a24-2662-4e1c-ae24-81dc5379b09d",
+                            ConcurrencyStamp = "475714cc-b37b-44a6-95c0-64adc70893b8",
                             Name = "PricingManager",
                             NormalizedName = "PRICINGMANAGER"
                         },
                         new
                         {
                             Id = "5f36c2f9-330a-492c-8ebf-65141782f2bb",
-                            ConcurrencyStamp = "8f11bd20-0686-404e-a8bd-972f529a734b",
+                            ConcurrencyStamp = "788c3560-430b-4e38-bc25-05d997b9bff5",
                             Name = "PricingEmployee",
                             NormalizedName = "PRICINGEMPLOYEE"
                         },
                         new
                         {
                             Id = "e5ac8272-7f9f-47c0-8e21-040fe3d242ed",
-                            ConcurrencyStamp = "bcd93de1-7b57-4807-923a-3027dfaa4204",
+                            ConcurrencyStamp = "8fa90c3e-bd96-4868-8b9b-812d27a48d18",
                             Name = "WarehouseEmployee",
                             NormalizedName = "WAREHOUSEEMPLOYEE"
                         },
                         new
                         {
                             Id = "9ab3d5a7-6722-42f7-9f3a-98bb62c44d1c",
-                            ConcurrencyStamp = "6ff280c3-a24e-4c13-9f7b-b0db96d608b3",
+                            ConcurrencyStamp = "83a3a20b-7ac3-4a8a-96fb-3fd21f08e1bc",
                             Name = "CentralSyncAgent",
                             NormalizedName = "CENTRALSYNCAGENT"
                         },
                         new
                         {
                             Id = "6240e185-5c3a-410b-99d3-9767571fdf24",
-                            ConcurrencyStamp = "3bde4074-a6da-40d1-8a77-0afad83243f8",
+                            ConcurrencyStamp = "8d392996-b6d2-4b25-a75b-904acfb4473b",
                             Name = "Customer",
                             NormalizedName = "CUSTOMER"
                         },
                         new
                         {
                             Id = "67320cb2-92a2-4de7-971b-7e9e80244f4b",
-                            ConcurrencyStamp = "e6d026c9-fa74-4b41-bf56-0553e18cf822",
+                            ConcurrencyStamp = "fe730751-e39f-4c6e-89be-c8a0f8e56939",
                             Name = "GatewayAdmin",
                             NormalizedName = "GATEWAYADMIN"
                         },
                         new
                         {
                             Id = "0c5e0418-46b3-4c6e-887e-0c182171ab11",
-                            ConcurrencyStamp = "215157e4-72b1-42a6-9cd4-c6a3dcc6b93b",
+                            ConcurrencyStamp = "df906d52-dc14-483e-b017-7ef5f7623098",
                             Name = "SalesManager",
                             NormalizedName = "SALESMANAGER"
                         },
                         new
                         {
                             Id = "e572b070-82bd-47f0-b486-cc1b644b2d9e",
-                            ConcurrencyStamp = "b1e46921-b59f-4923-beaf-6331633f4537",
+                            ConcurrencyStamp = "46fe2abe-25a1-4ba1-ac62-63153a02b453",
                             Name = "ShippingOrderManager",
                             NormalizedName = "SHIPPINGORDERMANAGER"
                         },
                         new
                         {
                             Id = "e8d1a7c0-7763-4fc8-b2fa-1e0df03b8b52",
-                            ConcurrencyStamp = "7d0aeabf-7140-431b-9549-2f4ea5c0d3c8",
+                            ConcurrencyStamp = "81504505-c556-472f-9527-f1be2d80b349",
                             Name = "Accountant",
                             NormalizedName = "ACCOUNTANT"
                         });

@@ -1,4 +1,4 @@
-﻿@page "/local-admin/product-csv-import"
+@page "/local-admin/product-csv-import"
 @using System.Net.Http.Json
 @using Microsoft.AspNetCore.Components.Forms
 @inject IHttpClientFactory ClientFactory
@@ -73,6 +73,8 @@
             <button class="khb-btn" @onclick="LoadSourceRows" disabled="@busy">نمایش جدول واردشده</button>
             <button class="khb-btn accent" @onclick="ProcessTable" disabled="@busy">ساخت جداول اصلی</button>
             <button class="khb-btn" @onclick="LoadProducts" disabled="@busy">نمایش محصولات نهایی</button>
+            <button class="khb-btn primary" @onclick="SyncWooCommerceAll" disabled="@busy">ارسال همه به WooCommerce</button>
+            <button class="khb-btn" @onclick="SyncWooCommerceProducts" disabled="@busy">ارسال فقط محصولات</button>
         </div>
     </section>
 
@@ -396,6 +398,30 @@
             message = await ReadResponse(response);
             productPage = 1;
             await LoadProducts();
+            workflowPage = 1;
+            await LoadWorkflowTab();
+        });
+    }
+
+    private async Task SyncWooCommerceAll()
+    {
+        await Run(async () =>
+        {
+            using var response = await Api.PostAsync("api/product-csv/woocommerce/sync-all", null);
+            message = await ReadResponse(response);
+            activeWorkflowTab = "queue";
+            workflowPage = 1;
+            await LoadWorkflowTab();
+        });
+    }
+
+    private async Task SyncWooCommerceProducts()
+    {
+        await Run(async () =>
+        {
+            using var response = await Api.PostAsync("api/product-csv/woocommerce/sync-products", null);
+            message = await ReadResponse(response);
+            activeWorkflowTab = "queue";
             workflowPage = 1;
             await LoadWorkflowTab();
         });
