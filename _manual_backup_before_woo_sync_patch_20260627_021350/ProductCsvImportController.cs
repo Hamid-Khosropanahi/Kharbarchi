@@ -824,37 +824,6 @@ LIMIT @Take OFFSET @Skip;";
         return Ok(result);
     }
 
-
-    [HttpPost("woocommerce/sync-products-batch")]
-    public async Task<IActionResult> SyncWooCommerceProductsBatch([FromQuery] int take = 1, CancellationToken cancellationToken = default)
-    {
-        take = Math.Clamp(take, 1, 50);
-
-        await using var connection = new MySqlConnection(GetConnectionString());
-        await connection.OpenAsync(cancellationToken);
-        await EnsureProductManagementTablesAsync(connection, cancellationToken);
-
-        var options = GetWooCommerceOptions();
-        using var httpClient = CreateWooCommerceHttpClient(options);
-        var result = new WooSyncResult();
-
-        await SyncWooProductsAsync(connection, httpClient, options, result, cancellationToken, take, pendingOnly: true);
-        var progress = await GetWooProductSyncProgressAsync(connection, cancellationToken);
-        result.FinishedAtUtc = DateTime.UtcNow;
-
-        return Ok(new
-        {
-            result.ProductsSynced,
-            result.ProductsFailed,
-            result.Errors,
-            progress.Total,
-            progress.Synced,
-            progress.Failed,
-            progress.Pending,
-            progress.Percent
-        });
-    }
-
     [HttpGet("woocommerce/sync-status")]
     public async Task<IActionResult> WooCommerceSyncStatus(CancellationToken cancellationToken = default)
     {
@@ -911,13 +880,10 @@ ORDER BY Id;";
                 var payload = new JsonObject
                 {
                     ["name"] = name,
-                    ["slug"] = slug,
-                    ["english_name"] = slug
+                    ["slug"] = slug
                 };
 
-                // Use the plugin endpoint so product_cat and its import meta are normalized in one place.
-                var wooId = await PostKharbarchiEndpointAsync(httpClient, options, "/wp-json/khb/v1/category/upsert", row.WooCategoryId, payload, cancellationToken);
-
+                var wooId = await UpsertWooCommerceObjectAsync(httpClient, options, "/wp-json/wc/v3/products/categories", row.WooCategoryId, slug, payload, cancellationToken);
                 await ExecuteUpsertAsync(connection, "UPDATE KHB_Category_Map SET WooCategoryId = @WooCategoryId, UpdatedAtUtc = UTC_TIMESTAMP(6) WHERE Id = @Id;", cancellationToken,
                     ("@WooCategoryId", wooId),
                     ("@Id", row.Id));
@@ -937,19 +903,9 @@ ORDER BY Id;";
         await using (var command = connection.CreateCommand())
         {
             command.CommandText = @"
-SELECT
-    c.Id,
-    c.SourceKey,
-    c.CommodityName,
-    c.CommoditySlug,
-    c.WooCommodityId,
-    MAX(cat.WooCategoryId) AS WooCategoryId,
-    MAX(cat.CategorySlug) AS CategorySlug,
-    MAX(cat.CategoryName) AS CategoryName
+SELECT c.Id, c.SourceKey, c.CommodityName, c.CommoditySlug, c.WooCommodityId, cm.WooCategoryId
 FROM KHB_Commodity c
-LEFT JOIN KHB_Product_Final p ON p.CommoditySourceKey = c.SourceKey
-LEFT JOIN KHB_Category_Map cat ON cat.SourceKey = p.CategorySourceKey
-GROUP BY c.Id, c.SourceKey, c.CommodityName, c.CommoditySlug, c.WooCommodityId
+LEFT JOIN KHB_Category_Map cm ON cm.SourceKey = REPLACE(c.SourceKey, 'commodity:', 'cat:')
 ORDER BY c.Id;";
             await using var reader = await command.ExecuteReaderAsync(cancellationToken);
             while (await reader.ReadAsync(cancellationToken))
@@ -960,9 +916,7 @@ ORDER BY c.Id;";
                     ReadString(reader, 2),
                     ReadString(reader, 3),
                     ReadNullableLong(reader, 4),
-                    ReadNullableLong(reader, 5),
-                    ReadString(reader, 6),
-                    ReadString(reader, 7)));
+                    ReadNullableLong(reader, 5)));
             }
         }
 
@@ -970,15 +924,16 @@ ORDER BY c.Id;";
         {
             try
             {
-                var commoditySlug = BuildEnglishSlug(FirstNotEmpty(row.CommoditySlug, row.CommodityName, row.SourceKey));
                 var payload = new JsonObject
                 {
-                    ["source_key"] = row.SourceKey,
+                    ["sourceKey"] = row.SourceKey,
                     ["name"] = FirstNotEmpty(row.CommodityName, row.CommoditySlug, row.SourceKey),
-                    ["slug"] = commoditySlug,
-                    ["english_name"] = commoditySlug,
-                    ["category_slug"] = BuildEnglishSlug(FirstNotEmpty(row.CategorySlug, row.CategoryName))
+                    ["slug"] = BuildEnglishSlug(FirstNotEmpty(row.CommoditySlug, row.CommodityName, row.SourceKey))
                 };
+                if (row.WooCategoryId.HasValue)
+                {
+                    payload["wooCategoryId"] = row.WooCategoryId.Value;
+                }
 
                 var wooId = await PostKharbarchiEndpointAsync(httpClient, options, "/wp-json/khb/v1/commodity/upsert", row.WooCommodityId, payload, cancellationToken);
                 await ExecuteUpsertAsync(connection, "UPDATE KHB_Commodity SET WooCommodityId = @WooCommodityId, UpdatedAtUtc = UTC_TIMESTAMP(6) WHERE Id = @Id;", cancellationToken,
@@ -1022,21 +977,27 @@ ORDER BY Id;";
         {
             try
             {
-                var group = NormalizePackageGroup(row.PackageGroup, row.PackageCode);
-                var code = FirstNotEmpty(row.PackageCode, row.SourceKey);
-                var title = FirstNotEmpty(row.PackageTitle, row.PackageCode, row.SourceKey);
                 var payload = new JsonObject
                 {
-                    ["source_key"] = row.SourceKey,
-                    ["title"] = title,
-                    ["package_code"] = code,
-                    ["package_group"] = group,
-                    ["unit_weight"] = ToMetaDecimal(row.UnitWeightKg),
-                    ["default_carton_count"] = row.PacksPerCarton ?? 0,
-                    ["image_tag"] = BuildImageTag(row.PackageTitle, group, row.UnitWeightKg)
+                    ["sourceKey"] = row.SourceKey,
+                    ["packageGroup"] = row.PackageGroup,
+                    ["packageCode"] = row.PackageCode,
+                    ["packageTitle"] = row.PackageTitle
                 };
+                if (row.UnitWeightKg.HasValue)
+                {
+                    payload["unitWeightKg"] = row.UnitWeightKg.Value;
+                }
+                if (row.PacksPerCarton.HasValue)
+                {
+                    payload["packsPerCarton"] = row.PacksPerCarton.Value;
+                }
+                if (row.PackagingPricePerPack.HasValue)
+                {
+                    payload["packagingPricePerPack"] = row.PackagingPricePerPack.Value;
+                }
 
-                await PostKharbarchiEndpointAsync(httpClient, options, "/wp-json/khb/v1/package/upsert", null, payload, cancellationToken);
+                var wooId = await PostKharbarchiEndpointAsync(httpClient, options, "/wp-json/khb/v1/package/upsert", null, payload, cancellationToken);
                 result.PackagesSynced++;
             }
             catch (Exception ex)
@@ -1047,24 +1008,12 @@ ORDER BY Id;";
         }
     }
 
-    private async Task SyncWooProductsAsync(
-        MySqlConnection connection,
-        HttpClient httpClient,
-        WooCommerceOptions options,
-        WooSyncResult result,
-        CancellationToken cancellationToken,
-        int? take = null,
-        bool pendingOnly = false)
+    private async Task SyncWooProductsAsync(MySqlConnection connection, HttpClient httpClient, WooCommerceOptions options, WooSyncResult result, CancellationToken cancellationToken)
     {
         var rows = new List<WooProductRow>();
         await using (var command = connection.CreateCommand())
         {
-            var where = pendingOnly
-                ? "\nWHERE COALESCE(q.QueueStatus, 'pending') IN ('pending', 'failed')"
-                : string.Empty;
-            var limit = take.HasValue ? "\nLIMIT @Take" : string.Empty;
-
-            command.CommandText = $@"
+            command.CommandText = @"
 SELECT
     p.Id,
     p.SourceKey,
@@ -1076,48 +1025,13 @@ SELECT
     p.CommoditySourceKey,
     p.PackageSourceKey,
     c.WooCategoryId,
-    c.CategoryName,
-    c.CategorySlug,
     cm.WooCommodityId,
-    cm.CommodityName,
-    cm.CommoditySlug,
-    q.WooProductId AS QueueWooProductId,
-    p.ProductName,
-    p.ProductEnglishName,
-    p.PackageGroup,
-    p.PackageCode,
-    COALESCE(pk.PackageTitle, sp.PackageName, p.PackageCode) AS PackageTitle,
-    p.UnitWeightKg,
-    p.PacksPerCarton,
-    p.PackagingPricePerPack,
-    p.KgCashPrice,
-    p.KgCreditPrice,
-    p.SaleCashPrice,
-    p.SaleCreditPrice,
-    p.BuyCashPrice,
-    p.BuyCreditPrice,
-    p.Status,
-    p.CatalogVisibility,
-    sp.BrandName,
-    sp.BrandEnglishName,
-    sp.ShortDescription,
-    sp.FullDescription,
-    sp.ImageUrl,
-    sp.GalleryJson
+    q.WooProductId AS QueueWooProductId
 FROM KHB_Product_Final p
 LEFT JOIN KHB_Category_Map c ON c.SourceKey = p.CategorySourceKey
 LEFT JOIN KHB_Commodity cm ON cm.SourceKey = p.CommoditySourceKey
-LEFT JOIN KHB_Package_Type pk ON pk.SourceKey = p.PackageSourceKey
 LEFT JOIN KHB_Product_Update_Queue q ON q.SourceKey = p.SourceKey
-LEFT JOIN khb_sale_products sp ON sp.SourceRowHash = p.SourceKey
-{where}
-ORDER BY p.Id{limit};";
-
-            if (take.HasValue)
-            {
-                Add(command, "@Take", Math.Clamp(take.Value, 1, 50));
-            }
-
+ORDER BY p.Id;";
             await using var reader = await command.ExecuteReaderAsync(cancellationToken);
             while (await reader.ReadAsync(cancellationToken))
             {
@@ -1132,34 +1046,8 @@ ORDER BY p.Id{limit};";
                     ReadString(reader, 7),
                     ReadString(reader, 8),
                     ReadNullableLong(reader, 9),
-                    ReadString(reader, 10),
-                    ReadString(reader, 11),
-                    ReadNullableLong(reader, 12),
-                    ReadString(reader, 13),
-                    ReadString(reader, 14),
-                    ReadNullableLong(reader, 15),
-                    ReadString(reader, 16),
-                    ReadString(reader, 17),
-                    ReadString(reader, 18),
-                    ReadString(reader, 19),
-                    ReadString(reader, 20),
-                    ReadNullableDecimal(reader, 21),
-                    ReadNullableInt(reader, 22),
-                    ReadNullableDecimal(reader, 23),
-                    ReadNullableDecimal(reader, 24),
-                    ReadNullableDecimal(reader, 25),
-                    ReadNullableDecimal(reader, 26),
-                    ReadNullableDecimal(reader, 27),
-                    ReadNullableDecimal(reader, 28),
-                    ReadNullableDecimal(reader, 29),
-                    ReadString(reader, 30),
-                    ReadString(reader, 31),
-                    ReadString(reader, 32),
-                    ReadString(reader, 33),
-                    ReadString(reader, 34),
-                    ReadString(reader, 35),
-                    ReadString(reader, 36),
-                    ReadString(reader, 37)));
+                    ReadNullableLong(reader, 10),
+                    ReadNullableLong(reader, 11)));
             }
         }
 
@@ -1169,8 +1057,6 @@ ORDER BY p.Id{limit};";
             {
                 var payload = BuildWooProductPayload(row);
                 var wooId = await UpsertWooProductAsync(httpClient, options, row, payload, cancellationToken);
-
-                await LinkWooProductRelationsAsync(httpClient, options, row, wooId, cancellationToken);
 
                 await ExecuteUpsertAsync(connection, @"
 UPDATE KHB_Product_Final
@@ -1192,7 +1078,7 @@ WHERE SourceKey = @SourceKey;", cancellationToken,
             {
                 await ExecuteUpsertAsync(connection, @"
 UPDATE KHB_Product_Update_Queue
-SET EntityType = 'product', QueueStatus = 'failed', LastError = @LastError, UpdatedAtUtc = UTC_TIMESTAMP(6)
+SET QueueStatus = 'failed', LastError = @LastError, UpdatedAtUtc = UTC_TIMESTAMP(6)
 WHERE SourceKey = @SourceKey;", cancellationToken,
                     ("@LastError", ex.Message),
                     ("@SourceKey", row.SourceKey));
@@ -1209,29 +1095,6 @@ WHERE SourceKey = @SourceKey;", cancellationToken,
             ? new JsonObject()
             : (JsonNode.Parse(row.WooPayloadJson)?.AsObject() ?? new JsonObject());
 
-        var priceContext = GetWooPriceContext(row);
-        var productStatus = priceContext.ShouldDraft ? "draft" : NormalizeWooStatus(row.Status);
-        var catalogVisibility = productStatus == "publish" ? FirstNotEmpty(row.CatalogVisibility, "visible") : "hidden";
-
-        node["name"] = FirstNotEmpty(row.ProductName, row.ProductEnglishName, row.Sku, row.SourceKey);
-        node["slug"] = BuildEnglishSlug(FirstNotEmpty(row.ProductSlug, row.Sku, row.SourceKey));
-        node["sku"] = row.Sku ?? string.Empty;
-        node["type"] = "simple";
-        node["status"] = productStatus;
-        node["catalog_visibility"] = catalogVisibility;
-        node["regular_price"] = ToWooPrice(row.SaleCreditPrice);
-        node["sale_price"] = string.Empty;
-        node["manage_stock"] = false;
-
-        if (!string.IsNullOrWhiteSpace(row.ShortDescription))
-        {
-            node["short_description"] = row.ShortDescription;
-        }
-        if (!string.IsNullOrWhiteSpace(row.FullDescription))
-        {
-            node["description"] = row.FullDescription;
-        }
-
         if (row.WooCategoryId.HasValue && row.WooCategoryId.Value > 0)
         {
             var categories = new JsonArray();
@@ -1239,34 +1102,13 @@ WHERE SourceKey = @SourceKey;", cancellationToken,
             node["categories"] = categories;
         }
 
-        var images = BuildWooImages(row.ImageUrl, row.GalleryJson);
-        if (images.Count > 0)
-        {
-            node["images"] = images;
-        }
-
-        node["attributes"] = BuildWooAttributes(row, priceContext);
-
         var meta = node["meta_data"] as JsonArray ?? new JsonArray();
-        UpsertProductMetaArray(meta, row, priceContext);
+        AddMeta(meta, "_kharbarchi_category_source_key", row.CategorySourceKey);
+        AddMeta(meta, "_kharbarchi_commodity_source_key", row.CommoditySourceKey);
+        AddMeta(meta, "_kharbarchi_package_source_key", row.PackageSourceKey);
+        AddMeta(meta, "_kharbarchi_woo_commodity_id", row.WooCommodityId?.ToString(CultureInfo.InvariantCulture));
         node["meta_data"] = meta;
-
         return node;
-    }
-
-    private async Task LinkWooProductRelationsAsync(HttpClient httpClient, WooCommerceOptions options, WooProductRow row, long wooProductId, CancellationToken cancellationToken)
-    {
-        var priceContext = GetWooPriceContext(row);
-        var payload = new JsonObject
-        {
-            ["product_id"] = wooProductId,
-            ["category_slug"] = BuildEnglishSlug(FirstNotEmpty(row.CategorySlug, row.CategoryName)),
-            ["commodity_slug"] = BuildEnglishSlug(FirstNotEmpty(row.CommoditySlug, row.CommodityName)),
-            ["package_code"] = row.PackageCode ?? string.Empty,
-            ["meta"] = BuildProductLinkMeta(row, priceContext)
-        };
-
-        await SendWooJsonAsync(httpClient, options, HttpMethod.Post, "/wp-json/khb/v1/product/link", payload, cancellationToken);
     }
 
     private async Task<long> UpsertWooProductAsync(HttpClient httpClient, WooCommerceOptions options, WooProductRow row, JsonObject payload, CancellationToken cancellationToken)
@@ -1407,388 +1249,15 @@ WHERE SourceKey = @SourceKey;", cancellationToken,
 
     private static void AddMeta(JsonArray meta, string key, string? value)
     {
-        SetMeta(meta, key, value);
+        if (string.IsNullOrWhiteSpace(value)) return;
+        meta.Add(new JsonObject { ["key"] = key, ["value"] = value });
     }
-
-    private static void SetMeta(JsonArray meta, string key, object? value, bool keepEmpty = false)
-    {
-        var text = ConvertMetaValue(value);
-        if (string.IsNullOrWhiteSpace(text) && !keepEmpty)
-        {
-            RemoveMeta(meta, key);
-            return;
-        }
-
-        RemoveMeta(meta, key);
-        meta.Add(new JsonObject
-        {
-            ["key"] = key,
-            ["value"] = text ?? string.Empty
-        });
-    }
-
-    private static void RemoveMeta(JsonArray meta, string key)
-    {
-        for (var i = meta.Count - 1; i >= 0; i--)
-        {
-            if (meta[i] is not JsonObject item || !item.TryGetPropertyValue("key", out var keyNode))
-            {
-                continue;
-            }
-
-            var existing = keyNode?.GetValue<string>();
-            if (string.Equals(existing, key, StringComparison.Ordinal))
-            {
-                meta.RemoveAt(i);
-            }
-        }
-    }
-
-    private static string? ConvertMetaValue(object? value)
-    {
-        return value switch
-        {
-            null => null,
-            decimal d => ToMetaDecimal(d),
-            int i => i.ToString(CultureInfo.InvariantCulture),
-            long l => l.ToString(CultureInfo.InvariantCulture),
-            bool b => b ? "1" : "0",
-            _ => Convert.ToString(value, CultureInfo.InvariantCulture)
-        };
-    }
-
-    private static void SetObjectMeta(JsonObject meta, string key, object? value, bool keepEmpty = false)
-    {
-        var text = ConvertMetaValue(value);
-        if (string.IsNullOrWhiteSpace(text) && !keepEmpty)
-        {
-            meta.Remove(key);
-            return;
-        }
-        meta[key] = text ?? string.Empty;
-    }
-
-    private static JsonObject BuildProductLinkMeta(WooProductRow row, WooPriceContext context)
-    {
-        var meta = new JsonObject();
-        FillProductMetaObject(meta, row, context);
-        return meta;
-    }
-
-    private static void UpsertProductMetaArray(JsonArray meta, WooProductRow row, WooPriceContext context)
-    {
-        var obj = new JsonObject();
-        FillProductMetaObject(obj, row, context);
-        foreach (var item in obj)
-        {
-            SetMeta(meta, item.Key, item.Value?.GetValue<string>(), keepEmpty: true);
-        }
-    }
-
-    private static void FillProductMetaObject(JsonObject meta, WooProductRow row, WooPriceContext context)
-    {
-        SetObjectMeta(meta, "_kharbarchi_sale_credit_price", row.SaleCreditPrice);
-        SetObjectMeta(meta, "_kharbarchi_sale_cash_price", row.SaleCashPrice);
-        SetObjectMeta(meta, "_kharbarchi_buy_credit_price", row.BuyCreditPrice);
-        SetObjectMeta(meta, "_kharbarchi_buy_cash_price", row.BuyCashPrice);
-
-        SetObjectMeta(meta, "_kharbarchi_sale_credit_price_per_kg", row.KgCreditPrice);
-        SetObjectMeta(meta, "_kharbarchi_sale_cash_price_per_kg", row.KgCashPrice);
-        SetObjectMeta(meta, "_kharbarchi_buy_credit_price_per_kg", SafePerKg(row.BuyCreditPrice, context.TotalWeight));
-        SetObjectMeta(meta, "_kharbarchi_buy_cash_price_per_kg", SafePerKg(row.BuyCashPrice, context.TotalWeight));
-
-        SetObjectMeta(meta, "_khb_package_code", row.PackageCode);
-        SetObjectMeta(meta, "_khb_package_title", FirstNotEmpty(row.PackageTitle, row.PackageCode));
-        SetObjectMeta(meta, "_khb_package_group", context.PackageGroup);
-        SetObjectMeta(meta, "_khb_unit_weight", row.UnitWeightKg);
-        SetObjectMeta(meta, "_khb_product_carton_count", context.PacksPerCarton);
-        SetObjectMeta(meta, "_khb_bulk_weight_kg", context.BulkWeightKg);
-        SetObjectMeta(meta, "_khb_min_purchase_kg", context.MinPurchaseKg);
-        SetObjectMeta(meta, "_khb_image_tag", BuildImageTag(row.PackageTitle, context.PackageGroup, row.UnitWeightKg));
-
-        SetObjectMeta(meta, "_kharbarchi_min_cartons", 1);
-        SetObjectMeta(meta, "_kharbarchi_max_cartons", 0);
-        SetObjectMeta(meta, "_kharbarchi_carton_step", 1);
-
-        SetObjectMeta(meta, "_kharbarchi_brand_name", row.BrandName);
-        SetObjectMeta(meta, "_kharbarchi_brand_english_name", row.BrandEnglishName);
-        SetObjectMeta(meta, "_kharbarchi_commodity_name", row.CommodityName);
-        SetObjectMeta(meta, "_kharbarchi_commodity_slug", row.CommoditySlug);
-        SetObjectMeta(meta, "_kharbarchi_category_source_key", row.CategorySourceKey);
-        SetObjectMeta(meta, "_kharbarchi_commodity_source_key", row.CommoditySourceKey);
-        SetObjectMeta(meta, "_kharbarchi_package_source_key", row.PackageSourceKey);
-        SetObjectMeta(meta, "_kharbarchi_woo_commodity_id", row.WooCommodityId);
-
-        SetObjectMeta(meta, "_khb_price_source_mode", "final_price");
-        SetObjectMeta(meta, "_khb_source_id", row.SourceKey);
-        SetObjectMeta(meta, "_khb_source_row_number", row.Id);
-        SetObjectMeta(meta, "_khb_need_fix", context.ShouldDraft ? 1 : 0);
-        SetObjectMeta(meta, "_khb_fix_note", context.FixNote);
-        SetObjectMeta(meta, "woodmart_price_unit_of_measure", context.UnitMeasure, keepEmpty: true);
-    }
-
-    private static JsonArray BuildWooAttributes(WooProductRow row, WooPriceContext context)
-    {
-        var attributes = new JsonArray();
-        AddVisibleAttribute(attributes, "برند", row.BrandName);
-        AddVisibleAttribute(attributes, "کالای پایه", row.CommodityName);
-        AddVisibleAttribute(attributes, "بسته‌بندی", FirstNotEmpty(row.PackageTitle, row.PackageCode));
-        AddVisibleAttribute(attributes, "واحد فروش", context.UnitMeasure);
-        AddVisibleAttribute(attributes, context.PackageGroup == "bulk" ? "کیلو خرید" : "تعداد در کارتن", context.QuantityLabel);
-        AddVisibleAttribute(attributes, "قیمت کیلویی فروش", FormatToman(row.KgCreditPrice));
-        AddVisibleAttribute(attributes, "تخفیف نقدی کیلویی", FormatToman(GetCashDiscount(row.KgCreditPrice, row.KgCashPrice)));
-        return attributes;
-    }
-
-    private static void AddVisibleAttribute(JsonArray attributes, string name, string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return;
-        }
-
-        var options = new JsonArray();
-        options.Add(value.Trim());
-        attributes.Add(new JsonObject
-        {
-            ["name"] = name,
-            ["visible"] = true,
-            ["variation"] = false,
-            ["options"] = options
-        });
-    }
-
-    private static JsonArray BuildWooImages(string? imageUrl, string? galleryJson)
-    {
-        var images = new JsonArray();
-        AddImageIfUrl(images, imageUrl);
-
-        if (!string.IsNullOrWhiteSpace(galleryJson))
-        {
-            try
-            {
-                var node = JsonNode.Parse(galleryJson);
-                if (node is JsonArray arr)
-                {
-                    foreach (var item in arr)
-                    {
-                        AddImageIfUrl(images, item?.ToString());
-                    }
-                }
-            }
-            catch
-            {
-                foreach (var part in galleryJson.Split(new[] { ',', ';', '|', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries))
-                {
-                    AddImageIfUrl(images, part.Trim());
-                }
-            }
-        }
-
-        return images;
-    }
-
-    private static void AddImageIfUrl(JsonArray images, string? url)
-    {
-        if (string.IsNullOrWhiteSpace(url))
-        {
-            return;
-        }
-
-        url = url.Trim();
-        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
-        {
-            return;
-        }
-
-        images.Add(new JsonObject { ["src"] = url });
-    }
-
-    private static WooPriceContext GetWooPriceContext(WooProductRow row)
-    {
-        var group = NormalizePackageGroup(row.PackageGroup, row.PackageCode);
-        var unitWeight = row.UnitWeightKg.GetValueOrDefault();
-        var packs = row.PacksPerCarton.GetValueOrDefault();
-        var bulkWeight = 0m;
-        var minPurchase = 0m;
-        var totalWeight = 0m;
-        var quantityLabel = string.Empty;
-        var unitMeasure = group == "bulk" ? "گونی" : "کارتن";
-        var shouldDraft = false;
-        var notes = new List<string>();
-
-        if (!row.SaleCreditPrice.HasValue || row.SaleCreditPrice.Value <= 0)
-        {
-            shouldDraft = true;
-            notes.Add("MISSING_SALE_CREDIT_PRICE");
-        }
-
-        if (row.SaleCashPrice.HasValue && row.SaleCreditPrice.HasValue && row.SaleCashPrice.Value > row.SaleCreditPrice.Value)
-        {
-            shouldDraft = true;
-            notes.Add("CASH_GREATER_THAN_CREDIT");
-        }
-
-        if (string.IsNullOrWhiteSpace(row.CommoditySlug))
-        {
-            shouldDraft = true;
-            notes.Add("MISSING_COMMODITY");
-        }
-
-        if (string.IsNullOrWhiteSpace(row.PackageCode))
-        {
-            shouldDraft = true;
-            notes.Add("MISSING_PACKAGE");
-        }
-
-        if (group == "retail")
-        {
-            if (unitWeight <= 0)
-            {
-                shouldDraft = true;
-                notes.Add("MISSING_UNIT_WEIGHT");
-            }
-            if (packs <= 0)
-            {
-                shouldDraft = true;
-                notes.Add("MISSING_CARTON_COUNT");
-            }
-            if (unitWeight > 0 && packs > 0)
-            {
-                totalWeight = unitWeight * packs;
-                quantityLabel = packs.ToString(CultureInfo.InvariantCulture) + " بسته";
-            }
-        }
-        else if (group == "bulk")
-        {
-            bulkWeight = unitWeight;
-            minPurchase = unitWeight;
-            if (bulkWeight <= 0)
-            {
-                shouldDraft = true;
-                notes.Add("MISSING_BULK_WEIGHT");
-            }
-            totalWeight = bulkWeight;
-            quantityLabel = totalWeight > 0 ? ToMetaDecimal(totalWeight) + " کیلو" : string.Empty;
-        }
-        else
-        {
-            shouldDraft = true;
-            notes.Add("INVALID_PACKAGE_CODE");
-            if (unitWeight > 0)
-            {
-                totalWeight = unitWeight;
-                quantityLabel = ToMetaDecimal(unitWeight) + " کیلو";
-            }
-        }
-
-        return new WooPriceContext(
-            PackageGroup: group,
-            TotalWeight: totalWeight,
-            BulkWeightKg: bulkWeight,
-            MinPurchaseKg: minPurchase,
-            PacksPerCarton: packs,
-            UnitMeasure: unitMeasure,
-            QuantityLabel: quantityLabel,
-            ShouldDraft: shouldDraft,
-            FixNote: string.Join(",", notes.Distinct(StringComparer.Ordinal)));
-    }
-
-    private static string NormalizePackageGroup(string? group, string? code)
-    {
-        group = (group ?? string.Empty).Trim().ToLowerInvariant();
-        code = (code ?? string.Empty).Trim().ToUpperInvariant();
-        if (group is "bulk" or "retail" or "none") return group;
-        if (code is "450" or "900" or "450G" or "900G") return "retail";
-        if (code.StartsWith("B", StringComparison.OrdinalIgnoreCase)) return "bulk";
-        if (code == "NOPKG") return "none";
-        return string.IsNullOrWhiteSpace(group) ? "none" : group;
-    }
-
-    private static string NormalizeWooStatus(string? status)
-    {
-        status = (status ?? string.Empty).Trim().ToLowerInvariant();
-        return status is "publish" or "private" or "draft" or "pending" ? status : "publish";
-    }
-
-    private static string? ToWooPrice(decimal? value)
-    {
-        return value.HasValue && value.Value > 0 ? value.Value.ToString("0", CultureInfo.InvariantCulture) : string.Empty;
-    }
-
-    private static string ToMetaDecimal(decimal? value)
-    {
-        return value.HasValue ? ToMetaDecimal(value.Value) : string.Empty;
-    }
-
-    private static string ToMetaDecimal(decimal value)
-    {
-        var text = value.ToString("0.####", CultureInfo.InvariantCulture);
-        return text == "-0" ? "0" : text;
-    }
-
-    private static decimal? SafePerKg(decimal? finalPrice, decimal totalWeight)
-    {
-        if (!finalPrice.HasValue || finalPrice.Value <= 0 || totalWeight <= 0) return null;
-        return Math.Round(finalPrice.Value / totalWeight, 2);
-    }
-
-    private static decimal? GetCashDiscount(decimal? credit, decimal? cash)
-    {
-        if (!credit.HasValue || !cash.HasValue) return null;
-        var diff = credit.Value - cash.Value;
-        return diff > 0 ? diff : 0;
-    }
-
-    private static string? FormatToman(decimal? value)
-    {
-        return value.HasValue && value.Value > 0
-            ? value.Value.ToString("N0", CultureInfo.InvariantCulture) + " تومان"
-            : null;
-    }
-
-    private static string BuildImageTag(string? packageTitle, string group, decimal? unitWeight)
-    {
-        if (!string.IsNullOrWhiteSpace(packageTitle)) return packageTitle.Trim();
-        if (group == "retail" && unitWeight.HasValue) return (unitWeight.Value * 1000m).ToString("0", CultureInfo.InvariantCulture) + " گرمی";
-        if (group == "bulk") return "فله";
-        return string.Empty;
-    }
-
-    private static async Task<WooProductSyncProgress> GetWooProductSyncProgressAsync(MySqlConnection connection, CancellationToken cancellationToken)
-    {
-        await using var command = connection.CreateCommand();
-        command.CommandText = @"
-SELECT
-    COUNT(*) AS Total,
-    SUM(CASE WHEN QueueStatus = 'synced' THEN 1 ELSE 0 END) AS Synced,
-    SUM(CASE WHEN QueueStatus = 'failed' THEN 1 ELSE 0 END) AS Failed,
-    SUM(CASE WHEN QueueStatus IN ('pending', 'processing') OR QueueStatus IS NULL THEN 1 ELSE 0 END) AS Pending
-FROM KHB_Product_Update_Queue
-WHERE EntityType = 'product'
-   OR ActionType = 'upsert';";
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        if (!await reader.ReadAsync(cancellationToken))
-        {
-            return new WooProductSyncProgress(0, 0, 0, 0, 0);
-        }
-
-        var total = reader.IsDBNull(0) ? 0 : Convert.ToInt32(reader.GetValue(0), CultureInfo.InvariantCulture);
-        var synced = reader.IsDBNull(1) ? 0 : Convert.ToInt32(reader.GetValue(1), CultureInfo.InvariantCulture);
-        var failed = reader.IsDBNull(2) ? 0 : Convert.ToInt32(reader.GetValue(2), CultureInfo.InvariantCulture);
-        var pending = reader.IsDBNull(3) ? 0 : Convert.ToInt32(reader.GetValue(3), CultureInfo.InvariantCulture);
-        var percent = total <= 0 ? 0 : (int)Math.Round((synced + failed) * 100.0 / total);
-        return new WooProductSyncProgress(total, synced, failed, pending, percent);
-    }
-
-    private sealed record WooPriceContext(string PackageGroup, decimal TotalWeight, decimal BulkWeightKg, decimal MinPurchaseKg, int PacksPerCarton, string UnitMeasure, string QuantityLabel, bool ShouldDraft, string FixNote);
-    private sealed record WooProductSyncProgress(int Total, int Synced, int Failed, int Pending, int Percent);
 
     private sealed record WooCommerceOptions(string BaseUrl, string ConsumerKey, string ConsumerSecret, bool VerifySsl, int TimeoutSeconds);
     private sealed record WooCategoryRow(long Id, string SourceKey, string? CategoryName, string? CategorySlug, long? WooCategoryId);
-    private sealed record WooCommodityRow(long Id, string SourceKey, string? CommodityName, string? CommoditySlug, long? WooCommodityId, long? WooCategoryId, string? CategorySlug, string? CategoryName);
+    private sealed record WooCommodityRow(long Id, string SourceKey, string? CommodityName, string? CommoditySlug, long? WooCommodityId, long? WooCategoryId);
     private sealed record WooPackageRow(long Id, string SourceKey, string? PackageGroup, string? PackageCode, string? PackageTitle, decimal? UnitWeightKg, int? PacksPerCarton, decimal? PackagingPricePerPack);
-    private sealed record WooProductRow(long Id, string SourceKey, long? WooProductId, string? Sku, string? ProductSlug, string? WooPayloadJson, string? CategorySourceKey, string? CommoditySourceKey, string? PackageSourceKey, long? WooCategoryId, string? CategoryName, string? CategorySlug, long? WooCommodityId, string? CommodityName, string? CommoditySlug, long? QueueWooProductId, string? ProductName, string? ProductEnglishName, string? PackageGroup, string? PackageCode, string? PackageTitle, decimal? UnitWeightKg, int? PacksPerCarton, decimal? PackagingPricePerPack, decimal? KgCashPrice, decimal? KgCreditPrice, decimal? SaleCashPrice, decimal? SaleCreditPrice, decimal? BuyCashPrice, decimal? BuyCreditPrice, string? Status, string? CatalogVisibility, string? BrandName, string? BrandEnglishName, string? ShortDescription, string? FullDescription, string? ImageUrl, string? GalleryJson);
+    private sealed record WooProductRow(long Id, string SourceKey, long? WooProductId, string? Sku, string? ProductSlug, string? WooPayloadJson, string? CategorySourceKey, string? CommoditySourceKey, string? PackageSourceKey, long? WooCategoryId, long? WooCommodityId, long? QueueWooProductId);
 
     private sealed class WooSyncResult
     {
@@ -2164,12 +1633,21 @@ ON DUPLICATE KEY UPDATE EntityType = 'product', QueueStatus = 'pending', ActionT
     }
 
 
-    private static async Task ResetGeneratedProductTablesAsync(MySqlConnection connection, CancellationToken cancellationToken)
+    private static async Task ResetGeneratedProductTablesAsync(
+        MySqlConnection connection,
+        CancellationToken cancellationToken)
     {
         await ExecuteAsync(connection, "SET FOREIGN_KEY_CHECKS = 0;", cancellationToken);
+
         try
         {
-            // Schema is migration/Ensure-managed. Reset only data, never DROP tables.
+            /*
+             * IMPORTANT:
+             * Do not DROP these tables here.
+             * Their schema is controlled by EF migrations.
+             * This method must only clear data, not rebuild table structure.
+             */
+
             await TruncateTableIfExistsAsync(connection, "KHB_Product_Update_Queue", cancellationToken);
             await TruncateTableIfExistsAsync(connection, "KHB_Product_Final", cancellationToken);
             await TruncateTableIfExistsAsync(connection, "KHB_Package_Type", cancellationToken);
@@ -2185,7 +1663,10 @@ ON DUPLICATE KEY UPDATE EntityType = 'product', QueueStatus = 'pending', ActionT
         }
     }
 
-    private static async Task TruncateTableIfExistsAsync(MySqlConnection connection, string tableName, CancellationToken cancellationToken)
+    private static async Task TruncateTableIfExistsAsync(
+        MySqlConnection connection,
+        string tableName,
+        CancellationToken cancellationToken)
     {
         if (!await TableExistsAsync(connection, tableName, cancellationToken))
         {
@@ -2193,20 +1674,31 @@ ON DUPLICATE KEY UPDATE EntityType = 'product', QueueStatus = 'pending', ActionT
         }
 
         var safeTableName = tableName.Replace("`", "``", StringComparison.Ordinal);
-        await ExecuteAsync(connection, $"TRUNCATE TABLE `{safeTableName}`;", cancellationToken);
+
+        await ExecuteAsync(
+            connection,
+            $"TRUNCATE TABLE `{safeTableName}`;",
+            cancellationToken);
     }
 
-    private static async Task<bool> TableExistsAsync(MySqlConnection connection, string tableName, CancellationToken cancellationToken)
+    private static async Task<bool> TableExistsAsync(
+        MySqlConnection connection,
+        string tableName,
+        CancellationToken cancellationToken)
     {
         await using var command = connection.CreateCommand();
+
         command.CommandText = @"
 SELECT COUNT(*)
 FROM INFORMATION_SCHEMA.TABLES
 WHERE TABLE_SCHEMA = DATABASE()
   AND TABLE_NAME = @TableName;";
-        Add(command, "@TableName", tableName);
+
+        command.Parameters.Clear();
+        command.Parameters.AddWithValue("@TableName", tableName);
+
         var result = await command.ExecuteScalarAsync(cancellationToken);
-        return Convert.ToInt64(result, CultureInfo.InvariantCulture) > 0;
+        return Convert.ToInt64(result) > 0;
     }
 
     private static async Task ExecuteUpsertAsync(MySqlConnection connection, string sql, CancellationToken cancellationToken, params (string Name, object? Value)[] parameters)
@@ -2681,13 +2173,6 @@ CREATE TABLE IF NOT EXISTS KHB_Product_Update_Queue (
         await EnsureColumnAsync(connection, "KHB_Product_Final", "PackagingPricePerPack", "DECIMAL(18,2) NULL", cancellationToken);
         await EnsureColumnAsync(connection, "KHB_Product_Final", "KgCashPrice", "DECIMAL(18,2) NULL", cancellationToken);
         await EnsureColumnAsync(connection, "KHB_Product_Final", "KgCreditPrice", "DECIMAL(18,2) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "KHB_Product_Final", "WooProductId", "BIGINT NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "KHB_Product_Final", "BrandName", "VARCHAR(300) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "KHB_Product_Final", "BrandEnglishName", "VARCHAR(300) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "KHB_Product_Final", "PackageTitle", "VARCHAR(300) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "KHB_Product_Final", "BulkWeightKg", "DECIMAL(18,6) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "KHB_Product_Final", "MinPurchaseKg", "DECIMAL(18,6) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "KHB_Product_Final", "ImageTag", "VARCHAR(300) NULL", cancellationToken);
         await CopyColumnIfExistsAsync(connection, "khb_sale_products", "Slug", "ProductSlug", cancellationToken);
         await CopyColumnIfExistsAsync(connection, "khb_product_main_groups", "Name", "MainProductName", cancellationToken);
         await CopyColumnIfExistsAsync(connection, "khb_product_main_groups", "Slug", "MainProductSlug", cancellationToken);
@@ -3351,8 +2836,26 @@ WHERE TABLE_SCHEMA = DATABASE()
         {
             var map = new Dictionary<char, char>
             {
-                ['۰'] = '0', ['۱'] = '1', ['۲'] = '2', ['۳'] = '3', ['۴'] = '4', ['۵'] = '5', ['۶'] = '6', ['۷'] = '7', ['۸'] = '8', ['۹'] = '9',
-                ['٠'] = '0', ['١'] = '1', ['٢'] = '2', ['٣'] = '3', ['٤'] = '4', ['٥'] = '5', ['٦'] = '6', ['٧'] = '7', ['٨'] = '8', ['٩'] = '9'
+                ['۰'] = '0',
+                ['۱'] = '1',
+                ['۲'] = '2',
+                ['۳'] = '3',
+                ['۴'] = '4',
+                ['۵'] = '5',
+                ['۶'] = '6',
+                ['۷'] = '7',
+                ['۸'] = '8',
+                ['۹'] = '9',
+                ['٠'] = '0',
+                ['١'] = '1',
+                ['٢'] = '2',
+                ['٣'] = '3',
+                ['٤'] = '4',
+                ['٥'] = '5',
+                ['٦'] = '6',
+                ['٧'] = '7',
+                ['٨'] = '8',
+                ['٩'] = '9'
             };
             var chars = text.Select(ch => map.TryGetValue(ch, out var replacement) ? replacement : ch).ToArray();
             return new string(chars);
