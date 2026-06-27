@@ -2,15 +2,28 @@
 @attribute [Authorize]
 @using Microsoft.AspNetCore.Authorization
 
-<PageTitle>فرآیند قیمت‌گذاری</PageTitle>
+<PageTitle>قیمت‌گذاری خواربارچی</PageTitle>
 
-<section class="khb-page-head">
-    <div><span class="khb-eyebrow">Kharbarchi Operation</span><h1>فرآیند قیمت‌گذاری</h1><p>ثبت پیشنهاد، کنترل قیمت خرید، تایید مدیر و آماده‌سازی قیمت نهایی.</p></div>
-    <a class="khb-btn khb-btn-secondary" href="/local-admin">داشبورد</a>
-</section>
+<section class="khb-control-page" dir="rtl">
+    <header class="khb-control-hero">
+        <div>
+            <span class="khb-eyebrow">Pricing Workflow</span>
+            <h1>مدیریت قیمت نقد، شرایطی و کنترل کیلویی</h1>
+            <p>برای جلوگیری از ورود عدد ناسازگار، قیمت‌گذاری اکنون داخل مرکز کنترل کاتالوگ انجام می‌شود و هر تغییر با وضعیت سبز/زرد/قرمز اعتبارسنجی می‌شود.</p>
+        </div>
+        <div class="khb-control-actions">
+            <a class="khb-btn khb-btn-primary" href="/local-admin/catalog">ورود به مرکز کنترل قیمت</a>
+            <a class="khb-btn khb-btn-ghost" href="/local-admin">داشبورد</a>
+        </div>
+    </header>
 
-<section class="khb-panel khb-panel-elevated khb-coming-soon">
-    <div class="khb-empty-icon">✦</div>
-    <h2>پوسته این بخش آماده است</h2>
-    <p>در گام بعدی، جدول‌ها، فرم‌ها و عملیات واقعی همین ماژول را به APIهای موجود وصل می‌کنیم.</p>
+    <section class="khb-control-card">
+        <h2>قانون اصلی قیمت</h2>
+        <div class="khb-principle-grid">
+            <article><b>قیمت فروش کالا</b><span>همان قیمت شرایطی و قیمت رسمی WooCommerce است.</span></article>
+            <article><b>تخفیف نقدی</b><span>اختلاف قیمت شرایطی و قیمت نقدی است؛ فروش نقدی قیمت اصلی را عوض نمی‌کند.</span></article>
+            <article><b>قیمت کیلویی</b><span>برای کنترل و نمایش استفاده می‌شود، نه محاسبه دوباره قیمت در افزونه.</span></article>
+            <article><b>وضعیت قرمز</b><span>محصول قرمز نباید publish شود.</span></article>
+        </div>
+    </section>
 </section>

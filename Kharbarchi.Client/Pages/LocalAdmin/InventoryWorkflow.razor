@@ -2,15 +2,28 @@
 @attribute [Authorize]
 @using Microsoft.AspNetCore.Authorization
 
-<PageTitle>فرآیند انبار</PageTitle>
+<PageTitle>موجودی خواربارچی</PageTitle>
 
-<section class="khb-page-head">
-    <div><span class="khb-eyebrow">Kharbarchi Operation</span><h1>فرآیند انبار</h1><p>ثبت پیشنهاد موجودی، اصلاح کسری و کنترل موجودی بدون نمایش قیمت برای نقش‌های انبار.</p></div>
-    <a class="khb-btn khb-btn-secondary" href="/local-admin">داشبورد</a>
-</section>
+<section class="khb-control-page" dir="rtl">
+    <header class="khb-control-hero">
+        <div>
+            <span class="khb-eyebrow">Inventory Workflow</span>
+            <h1>مدیریت موجودی ERP و WooCommerce</h1>
+            <p>موجودی از ERP کنترل می‌شود و بعد از تأیید، به WooCommerce ارسال می‌شود. هیچ قیمت خریدی در این بخش نمایش داده نمی‌شود.</p>
+        </div>
+        <div class="khb-control-actions">
+            <a class="khb-btn khb-btn-primary" href="/local-admin/catalog">ورود به مرکز کنترل موجودی</a>
+            <a class="khb-btn khb-btn-ghost" href="/local-admin">داشبورد</a>
+        </div>
+    </header>
 
-<section class="khb-panel khb-panel-elevated khb-coming-soon">
-    <div class="khb-empty-icon">✦</div>
-    <h2>پوسته این بخش آماده است</h2>
-    <p>در گام بعدی، جدول‌ها، فرم‌ها و عملیات واقعی همین ماژول را به APIهای موجود وصل می‌کنیم.</p>
+    <section class="khb-control-card">
+        <h2>قانون اصلی موجودی</h2>
+        <div class="khb-principle-grid">
+            <article><b>منبع اصلی</b><span>ERP منبع اصلی موجودی است.</span></article>
+            <article><b>WooCommerce</b><span>بعد از تأیید، موجودی با API به WooCommerce ارسال می‌شود.</span></article>
+            <article><b>کنترل حداقل</b><span>کالاهای زیر حداقل موجودی در داشبورد هشدار می‌گیرند.</span></article>
+            <article><b>ایمنی</b><span>موجودی منفی پذیرفته نمی‌شود.</span></article>
+        </div>
+    </section>
 </section>

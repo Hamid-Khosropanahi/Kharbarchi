@@ -19,6 +19,7 @@ public sealed class Commodity
     public string? Description { get; set; }
 
     public bool IsActive { get; set; } = true;
+    public long? WooCommerceCommodityId { get; set; }
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
 
     public List<Product> Products { get; set; } = [];

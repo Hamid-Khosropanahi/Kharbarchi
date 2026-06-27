@@ -19,6 +19,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRo
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();
     public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<ProductVariant> ProductVariants => Set<ProductVariant>();
+    public DbSet<ProductWooControlProfile> ProductWooControlProfiles => Set<ProductWooControlProfile>();
     public DbSet<Brand> Brands => Set<Brand>();
     public DbSet<Commodity> Commodities => Set<Commodity>();
     public DbSet<ProductTag> ProductTags => Set<ProductTag>();
@@ -80,6 +81,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRo
             entity.Property(x => x.Slug).HasMaxLength(200).IsRequired();
             entity.Property(x => x.EnglishName).HasMaxLength(120);
             entity.Property(x => x.Description).HasMaxLength(1000);
+            entity.HasIndex(x => x.WooCommerceCommodityId).IsUnique();
         });
 
         modelBuilder.Entity<ProductTag>(entity =>
@@ -135,6 +137,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRo
         {
             entity.ToTable("gnr_Categories");
             entity.HasIndex(x => x.Slug).IsUnique();
+            entity.HasIndex(x => x.WooCommerceCategoryId).IsUnique();
             entity.Property(x => x.Name).HasMaxLength(150).IsRequired();
             entity.Property(x => x.Slug).HasMaxLength(180).IsRequired();
         });
@@ -169,6 +172,11 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRo
                 .WithOne(v => v.Product)
                 .HasForeignKey(v => v.ProductId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(p => p.WooControlProfile)
+                .WithOne(p => p.Product)
+                .HasForeignKey<ProductWooControlProfile>(p => p.ProductId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<ProductVariant>(entity =>
@@ -182,6 +190,47 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRo
             entity.Property(x => x.Price).HasPrecision(18, 2);
             entity.Property(x => x.OldPrice).HasPrecision(18, 2);
             entity.Property(x => x.PurchasePrice).HasPrecision(18, 2);
+        });
+
+        modelBuilder.Entity<ProductWooControlProfile>(entity =>
+        {
+            entity.ToTable("khb_ProductWooControlProfiles");
+            entity.HasIndex(x => x.ProductId).IsUnique();
+            entity.HasIndex(x => x.PriceCheckStatus);
+            entity.HasIndex(x => x.WooSyncStatus);
+            entity.Property(x => x.PriceSourceMode).HasMaxLength(80).IsRequired();
+            entity.Property(x => x.PackageGroup).HasMaxLength(50).IsRequired();
+            entity.Property(x => x.PackageCode).HasMaxLength(80);
+            entity.Property(x => x.PackageTitle).HasMaxLength(300);
+            entity.Property(x => x.ImageTag).HasMaxLength(300);
+            entity.Property(x => x.SaleUnit).HasMaxLength(50).IsRequired();
+            entity.Property(x => x.WoodmartPriceUnitOfMeasure).HasMaxLength(80).IsRequired();
+            entity.Property(x => x.PriceCheckStatus).HasMaxLength(20).IsRequired();
+            entity.Property(x => x.PriceCheckCode).HasMaxLength(120).IsRequired();
+            entity.Property(x => x.PriceCheckNote).HasMaxLength(2000);
+            entity.Property(x => x.WooSyncStatus).HasMaxLength(50).IsRequired();
+            entity.Property(x => x.WooLastError).HasMaxLength(2000);
+            entity.Property(x => x.UnitWeightKg).HasPrecision(18, 6);
+            entity.Property(x => x.BulkWeightKg).HasPrecision(18, 6);
+            entity.Property(x => x.MinPurchaseKg).HasPrecision(18, 6);
+            entity.Property(x => x.SaleCashPrice).HasPrecision(18, 2);
+            entity.Property(x => x.SaleCreditPrice).HasPrecision(18, 2);
+            entity.Property(x => x.BuyCashPrice).HasPrecision(18, 2);
+            entity.Property(x => x.BuyCreditPrice).HasPrecision(18, 2);
+            entity.Property(x => x.SaleCashPricePerKg).HasPrecision(18, 2);
+            entity.Property(x => x.SaleCreditPricePerKg).HasPrecision(18, 2);
+            entity.Property(x => x.BuyCashPricePerKg).HasPrecision(18, 2);
+            entity.Property(x => x.BuyCreditPricePerKg).HasPrecision(18, 2);
+            entity.Property(x => x.ExpectedSaleCreditPrice).HasPrecision(18, 2);
+            entity.Property(x => x.ExpectedSaleCashPrice).HasPrecision(18, 2);
+            entity.Property(x => x.ExpectedBuyCreditPrice).HasPrecision(18, 2);
+            entity.Property(x => x.ExpectedBuyCashPrice).HasPrecision(18, 2);
+            entity.Property(x => x.SaleCreditDiff).HasPrecision(18, 2);
+            entity.Property(x => x.SaleCashDiff).HasPrecision(18, 2);
+            entity.Property(x => x.BuyCreditDiff).HasPrecision(18, 2);
+            entity.Property(x => x.BuyCashDiff).HasPrecision(18, 2);
+            entity.Property(x => x.PriceCheckPercent).HasPrecision(9, 4);
+            entity.Property(x => x.PriceCheckAmount).HasPrecision(18, 2);
         });
 
         modelBuilder.Entity<Customer>(entity =>

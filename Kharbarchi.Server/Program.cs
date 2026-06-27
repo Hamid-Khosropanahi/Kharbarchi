@@ -274,6 +274,9 @@ builder.Services.AddScoped<IdentityDataSeeder>();
 builder.Services.AddScoped<WooCommerceSyncService>();
 builder.Services.AddScoped<SyncOutboxService>();
 builder.Services.AddScoped<WooCommerceImportService>();
+builder.Services.AddScoped<KharbarchiPriceControlService>();
+builder.Services.AddScoped<KharbarchiWooPayloadFactory>();
+builder.Services.AddScoped<KharbarchiWooCatalogSyncService>();
 builder.Services.AddScoped<BarookPaymentService>();
 builder.Services.AddScoped<AccountingReceiptService>();
 

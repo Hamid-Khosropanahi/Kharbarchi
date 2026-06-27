@@ -98,6 +98,38 @@ public sealed class WooCommerceApiClient
         return SendForJsonDocumentAsync(HttpMethod.Post, $"wp-json/wc/v3/orders/{orderId}/notes", payload, cancellationToken);
     }
 
+
+    public Task<JsonDocument> CreateProductAsync(WooProductUpsertPayload payload, CancellationToken cancellationToken)
+    {
+        return SendForJsonDocumentAsync(HttpMethod.Post, "wp-json/wc/v3/products", payload, cancellationToken);
+    }
+
+    public Task<JsonDocument> UpdateProductAsync(long productId, WooProductUpsertPayload payload, CancellationToken cancellationToken)
+    {
+        return SendForJsonDocumentAsync(HttpMethod.Put, $"wp-json/wc/v3/products/{productId}", payload, cancellationToken);
+    }
+
+    public Task<JsonDocument> GetProductCategoriesBySlugAsync(string slug, CancellationToken cancellationToken)
+    {
+        return SendForJsonDocumentAsync(HttpMethod.Get, $"wp-json/wc/v3/products/categories?slug={Uri.EscapeDataString(slug)}&per_page=100", null, cancellationToken);
+    }
+
+    public Task<JsonDocument> CreateProductCategoryAsync(object payload, CancellationToken cancellationToken)
+    {
+        return SendForJsonDocumentAsync(HttpMethod.Post, "wp-json/wc/v3/products/categories", payload, cancellationToken);
+    }
+
+    public Task<JsonDocument> UpdateProductCategoryAsync(long categoryId, object payload, CancellationToken cancellationToken)
+    {
+        return SendForJsonDocumentAsync(HttpMethod.Put, $"wp-json/wc/v3/products/categories/{categoryId}", payload, cancellationToken);
+    }
+
+    public Task<JsonDocument> PostWordPressEndpointAsync(string relativeUrl, object payload, CancellationToken cancellationToken)
+    {
+        var url = relativeUrl.TrimStart('/');
+        return SendForJsonDocumentAsync(HttpMethod.Post, url, payload, cancellationToken);
+    }
+
     private async Task<JsonDocument> SendForJsonDocumentAsync(HttpMethod method, string relativeUrl, object? body, CancellationToken cancellationToken)
     {
         using var request = new HttpRequestMessage(method, relativeUrl);
