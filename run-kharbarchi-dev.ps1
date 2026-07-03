@@ -26,12 +26,12 @@ Start-Sleep -Seconds 3
 
 if ($OpenBrowsers) {
     Start-Process 'https://localhost:7100/swagger'
-    Start-Process 'https://localhost:7029/local-admin'
-    Start-Process 'https://localhost:7030'
+    Start-Process 'https://localhost:3030/local-admin'
+    Start-Process 'https://localhost:3131'
 }
 
 Write-Host ""
 Write-Host "Run order:" -ForegroundColor Yellow
 Write-Host "1) Server API  : https://localhost:7100"
-Write-Host "2) Admin Panel : https://localhost:7029/local-admin"
-Write-Host "3) Store       : https://localhost:7030"
+Write-Host "2) ERP         : https://localhost:3030/local-admin"
+Write-Host "3) Shop        : https://localhost:3131"

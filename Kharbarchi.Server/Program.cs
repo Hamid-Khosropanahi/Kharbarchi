@@ -22,10 +22,10 @@ builder.Services.AddCors(options =>
     options.AddPolicy(KharbarchiLocalClientsCors, policy =>
     {
         policy.WithOrigins(
-                "https://localhost:7029",
-                "http://localhost:5168",
-                "https://localhost:7030",
-                "http://localhost:5169")
+                "https://localhost:3030",
+                "http://localhost:3030",
+                "https://localhost:3131",
+                "http://localhost:3131")
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
@@ -397,7 +397,6 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.Run();
-
 
 
 

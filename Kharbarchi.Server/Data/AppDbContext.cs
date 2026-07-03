@@ -476,16 +476,16 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRo
             new Category { Id = 3, Name = "نخود", Slug = "chickpeas" });
 
         modelBuilder.Entity<IdentityRole>().HasData(
-            new IdentityRole { Id = "f517b79d-1fc4-4800-bcb8-ee0ca67dce1e", Name = KharbarchiRoles.LegacyAdmin, NormalizedName = "ADMIN" },
-            new IdentityRole { Id = "4f43b487-3f8e-426d-9a46-048c7d07f7f9", Name = KharbarchiRoles.SuperAdmin, NormalizedName = "SUPERADMIN" },
-            new IdentityRole { Id = "b1477f6c-54ef-48d0-b24c-756b3a83b1a1", Name = KharbarchiRoles.PricingManager, NormalizedName = "PRICINGMANAGER" },
-            new IdentityRole { Id = "5f36c2f9-330a-492c-8ebf-65141782f2bb", Name = KharbarchiRoles.PricingEmployee, NormalizedName = "PRICINGEMPLOYEE" },
-            new IdentityRole { Id = "e5ac8272-7f9f-47c0-8e21-040fe3d242ed", Name = KharbarchiRoles.WarehouseEmployee, NormalizedName = "WAREHOUSEEMPLOYEE" },
-            new IdentityRole { Id = "9ab3d5a7-6722-42f7-9f3a-98bb62c44d1c", Name = KharbarchiRoles.CentralSyncAgent, NormalizedName = "CENTRALSYNCAGENT" },
-            new IdentityRole { Id = "6240e185-5c3a-410b-99d3-9767571fdf24", Name = KharbarchiRoles.Customer, NormalizedName = "CUSTOMER" },
-            new IdentityRole { Id = "67320cb2-92a2-4de7-971b-7e9e80244f4b", Name = KharbarchiRoles.GatewayAdmin, NormalizedName = "GATEWAYADMIN" },
-            new IdentityRole { Id = "0c5e0418-46b3-4c6e-887e-0c182171ab11", Name = KharbarchiRoles.SalesManager, NormalizedName = "SALESMANAGER" },
-            new IdentityRole { Id = "e572b070-82bd-47f0-b486-cc1b644b2d9e", Name = KharbarchiRoles.ShippingOrderManager, NormalizedName = "SHIPPINGORDERMANAGER" },
-            new IdentityRole { Id = "e8d1a7c0-7763-4fc8-b2fa-1e0df03b8b52", Name = KharbarchiRoles.Accountant, NormalizedName = "ACCOUNTANT" });
+            new IdentityRole { Id = "f517b79d-1fc4-4800-bcb8-ee0ca67dce1e", Name = KharbarchiRoles.LegacyAdmin, NormalizedName = "ADMIN", ConcurrencyStamp = "f517b79d-1fc4-4800-bcb8-ee0ca67dce1e" },
+            new IdentityRole { Id = "4f43b487-3f8e-426d-9a46-048c7d07f7f9", Name = KharbarchiRoles.SuperAdmin, NormalizedName = "SUPERADMIN", ConcurrencyStamp = "4f43b487-3f8e-426d-9a46-048c7d07f7f9" },
+            new IdentityRole { Id = "b1477f6c-54ef-48d0-b24c-756b3a83b1a1", Name = KharbarchiRoles.PricingManager, NormalizedName = "PRICINGMANAGER", ConcurrencyStamp = "b1477f6c-54ef-48d0-b24c-756b3a83b1a1" },
+            new IdentityRole { Id = "5f36c2f9-330a-492c-8ebf-65141782f2bb", Name = KharbarchiRoles.PricingEmployee, NormalizedName = "PRICINGEMPLOYEE", ConcurrencyStamp = "5f36c2f9-330a-492c-8ebf-65141782f2bb" },
+            new IdentityRole { Id = "e5ac8272-7f9f-47c0-8e21-040fe3d242ed", Name = KharbarchiRoles.WarehouseEmployee, NormalizedName = "WAREHOUSEEMPLOYEE", ConcurrencyStamp = "e5ac8272-7f9f-47c0-8e21-040fe3d242ed" },
+            new IdentityRole { Id = "9ab3d5a7-6722-42f7-9f3a-98bb62c44d1c", Name = KharbarchiRoles.CentralSyncAgent, NormalizedName = "CENTRALSYNCAGENT", ConcurrencyStamp = "9ab3d5a7-6722-42f7-9f3a-98bb62c44d1c" },
+            new IdentityRole { Id = "6240e185-5c3a-410b-99d3-9767571fdf24", Name = KharbarchiRoles.Customer, NormalizedName = "CUSTOMER", ConcurrencyStamp = "6240e185-5c3a-410b-99d3-9767571fdf24" },
+            new IdentityRole { Id = "67320cb2-92a2-4de7-971b-7e9e80244f4b", Name = KharbarchiRoles.GatewayAdmin, NormalizedName = "GATEWAYADMIN", ConcurrencyStamp = "67320cb2-92a2-4de7-971b-7e9e80244f4b" },
+            new IdentityRole { Id = "0c5e0418-46b3-4c6e-887e-0c182171ab11", Name = KharbarchiRoles.SalesManager, NormalizedName = "SALESMANAGER", ConcurrencyStamp = "0c5e0418-46b3-4c6e-887e-0c182171ab11" },
+            new IdentityRole { Id = "e572b070-82bd-47f0-b486-cc1b644b2d9e", Name = KharbarchiRoles.ShippingOrderManager, NormalizedName = "SHIPPINGORDERMANAGER", ConcurrencyStamp = "e572b070-82bd-47f0-b486-cc1b644b2d9e" },
+            new IdentityRole { Id = "e8d1a7c0-7763-4fc8-b2fa-1e0df03b8b52", Name = KharbarchiRoles.Accountant, NormalizedName = "ACCOUNTANT", ConcurrencyStamp = "e8d1a7c0-7763-4fc8-b2fa-1e0df03b8b52" });
     }
 }
