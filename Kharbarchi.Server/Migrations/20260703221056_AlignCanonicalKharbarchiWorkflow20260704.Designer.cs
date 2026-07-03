@@ -3,6 +3,7 @@ using System;
 using Kharbarchi.Server.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Kharbarchi.Server.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260703221056_AlignCanonicalKharbarchiWorkflow20260704")]
+    partial class AlignCanonicalKharbarchiWorkflow20260704
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -26,28 +29,22 @@ namespace Kharbarchi.Server.Migrations
                         .HasColumnType("bigint");
 
                     b.Property<string>("BrandEnglishName")
-                        .HasMaxLength(300)
-                        .HasColumnType("varchar(300)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("BrandName")
-                        .HasMaxLength(300)
-                        .HasColumnType("varchar(300)");
+                        .HasColumnType("longtext");
 
                     b.Property<int?>("CartonQuantity")
                         .HasColumnType("int");
 
                     b.Property<string>("CategoryName")
-                        .HasMaxLength(500)
-                        .HasColumnType("varchar(500)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("CategorySlug")
-                        .HasMaxLength(500)
-                        .HasColumnType("varchar(500)");
+                        .HasColumnType("longtext");
 
                     b.Property<DateTime>("CreatedAtUtc")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime(6)")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP(6)");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("FullDescription")
                         .HasColumnType("longtext");
@@ -56,8 +53,7 @@ namespace Kharbarchi.Server.Migrations
                         .HasColumnType("longtext");
 
                     b.Property<string>("GroupName")
-                        .HasMaxLength(500)
-                        .HasColumnType("varchar(500)");
+                        .HasColumnType("longtext");
 
                     b.Property<bool?>("HaveOtherPackage")
                         .HasColumnType("tinyint(1)");
@@ -66,24 +62,19 @@ namespace Kharbarchi.Server.Migrations
                         .HasColumnType("longtext");
 
                     b.Property<string>("ImportBatchId")
-                        .HasMaxLength(64)
-                        .HasColumnType("varchar(64)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("MainProductName")
-                        .HasMaxLength(500)
-                        .HasColumnType("varchar(500)");
+                        .HasColumnType("varchar(255)");
 
                     b.Property<string>("MainProductSlug")
-                        .HasMaxLength(500)
-                        .HasColumnType("varchar(500)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("PackageName")
-                        .HasMaxLength(300)
-                        .HasColumnType("varchar(300)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("PackageOne")
-                        .HasMaxLength(300)
-                        .HasColumnType("varchar(300)");
+                        .HasColumnType("longtext");
 
                     b.Property<decimal?>("PackagingPricePerPack")
                         .HasPrecision(18, 2)
@@ -139,17 +130,14 @@ namespace Kharbarchi.Server.Migrations
                         .HasColumnType("int");
 
                     b.Property<string>("Status")
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
+                        .HasColumnType("longtext");
 
                     b.Property<decimal?>("UnitWeight")
                         .HasPrecision(18, 6)
                         .HasColumnType("decimal(18,6)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime(6)")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP(6)");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<long?>("WooProductId")
                         .HasColumnType("bigint");
@@ -435,27 +423,20 @@ namespace Kharbarchi.Server.Migrations
                         .HasColumnType("bigint");
 
                     b.Property<string>("CategoryName")
-                        .HasMaxLength(500)
-                        .HasColumnType("varchar(500)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("CategorySlug")
-                        .HasMaxLength(500)
-                        .HasColumnType("varchar(500)");
+                        .HasColumnType("longtext");
 
                     b.Property<DateTime>("CreatedAtUtc")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime(6)")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP(6)");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("SourceKey")
                         .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("varchar(500)");
+                        .HasColumnType("varchar(255)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime(6)")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP(6)");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<long?>("WooCategoryId")
                         .HasColumnType("bigint");
@@ -476,27 +457,20 @@ namespace Kharbarchi.Server.Migrations
                         .HasColumnType("bigint");
 
                     b.Property<string>("CommodityName")
-                        .HasMaxLength(500)
-                        .HasColumnType("varchar(500)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("CommoditySlug")
-                        .HasMaxLength(500)
-                        .HasColumnType("varchar(500)");
+                        .HasColumnType("longtext");
 
                     b.Property<DateTime>("CreatedAtUtc")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime(6)")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP(6)");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("SourceKey")
                         .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("varchar(500)");
+                        .HasColumnType("varchar(255)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime(6)")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP(6)");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<long?>("WooCommodityId")
                         .HasColumnType("bigint");
@@ -517,46 +491,36 @@ namespace Kharbarchi.Server.Migrations
                         .HasColumnType("bigint");
 
                     b.Property<DateTime>("CreatedAtUtc")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime(6)")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("ExternalId")
-                        .HasMaxLength(191)
-                        .HasColumnType("varchar(191)");
+                        .HasColumnType("varchar(255)");
 
                     b.Property<DateTime>("ImportedAtUtc")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime(6)")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP(6)");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("Name")
-                        .HasMaxLength(512)
-                        .HasColumnType("varchar(512)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("RawJson")
                         .IsRequired()
                         .HasColumnType("longtext");
 
                     b.Property<string>("Slug")
-                        .HasMaxLength(255)
-                        .HasColumnType("varchar(255)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("SourceType")
                         .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("varchar(64)");
+                        .HasColumnType("varchar(255)");
 
                     b.Property<string>("SourceUrl")
                         .HasColumnType("text");
 
                     b.Property<string>("Status")
-                        .HasMaxLength(128)
-                        .HasColumnType("varchar(128)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("Title")
-                        .HasMaxLength(512)
-                        .HasColumnType("varchar(512)");
+                        .HasColumnType("longtext");
 
                     b.HasKey("Id");
 
@@ -574,21 +538,16 @@ namespace Kharbarchi.Server.Migrations
                         .HasColumnType("bigint");
 
                     b.Property<DateTime>("CreatedAtUtc")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime(6)")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP(6)");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("PackageCode")
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("PackageGroup")
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("PackageTitle")
-                        .HasMaxLength(300)
-                        .HasColumnType("varchar(300)");
+                        .HasColumnType("longtext");
 
                     b.Property<decimal?>("PackagingPricePerPack")
                         .HasPrecision(18, 2)
@@ -599,17 +558,14 @@ namespace Kharbarchi.Server.Migrations
 
                     b.Property<string>("SourceKey")
                         .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("varchar(500)");
+                        .HasColumnType("varchar(255)");
 
                     b.Property<decimal?>("UnitWeightKg")
                         .HasPrecision(18, 6)
                         .HasColumnType("decimal(18,6)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime(6)")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP(6)");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<long?>("WooPackageId")
                         .HasColumnType("bigint");
@@ -634,13 +590,10 @@ namespace Kharbarchi.Server.Migrations
 
                     b.Property<string>("ChangeType")
                         .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
+                        .HasColumnType("longtext");
 
                     b.Property<DateTime>("CreatedAtUtc")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime(6)")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP(6)");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("Payload")
                         .HasColumnType("longtext");
@@ -649,8 +602,7 @@ namespace Kharbarchi.Server.Migrations
                         .HasColumnType("bigint");
 
                     b.Property<string>("Summary")
-                        .HasMaxLength(1000)
-                        .HasColumnType("varchar(1000)");
+                        .HasColumnType("longtext");
 
                     b.HasKey("Id");
 
@@ -667,12 +619,10 @@ namespace Kharbarchi.Server.Migrations
                         .HasColumnType("bigint");
 
                     b.Property<string>("BrandEnglishName")
-                        .HasMaxLength(300)
-                        .HasColumnType("varchar(300)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("BrandName")
-                        .HasMaxLength(300)
-                        .HasColumnType("varchar(300)");
+                        .HasColumnType("longtext");
 
                     b.Property<decimal?>("BulkWeightKg")
                         .HasPrecision(18, 6)
@@ -687,25 +637,19 @@ namespace Kharbarchi.Server.Migrations
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("CatalogVisibility")
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("CategorySourceKey")
-                        .HasMaxLength(500)
-                        .HasColumnType("varchar(500)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("CommoditySourceKey")
-                        .HasMaxLength(500)
-                        .HasColumnType("varchar(500)");
+                        .HasColumnType("longtext");
 
                     b.Property<DateTime>("CreatedAtUtc")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime(6)")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP(6)");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("ImageTag")
-                        .HasMaxLength(300)
-                        .HasColumnType("varchar(300)");
+                        .HasColumnType("longtext");
 
                     b.Property<decimal?>("KgCashPrice")
                         .HasPrecision(18, 2)
@@ -723,20 +667,16 @@ namespace Kharbarchi.Server.Migrations
                         .HasColumnType("decimal(18,6)");
 
                     b.Property<string>("PackageCode")
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("PackageGroup")
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("PackageSourceKey")
-                        .HasMaxLength(500)
-                        .HasColumnType("varchar(500)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("PackageTitle")
-                        .HasMaxLength(300)
-                        .HasColumnType("varchar(300)");
+                        .HasColumnType("longtext");
 
                     b.Property<decimal?>("PackagingPricePerPack")
                         .HasPrecision(18, 2)
@@ -746,8 +686,7 @@ namespace Kharbarchi.Server.Migrations
                         .HasColumnType("int");
 
                     b.Property<string>("PriceCalculationBasis")
-                        .HasMaxLength(80)
-                        .HasColumnType("varchar(80)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("ProductEnglishName")
                         .HasMaxLength(700)
@@ -770,8 +709,7 @@ namespace Kharbarchi.Server.Migrations
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("SaleMode")
-                        .HasMaxLength(80)
-                        .HasColumnType("varchar(80)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("Sku")
                         .HasMaxLength(191)
@@ -783,17 +721,14 @@ namespace Kharbarchi.Server.Migrations
                         .HasColumnType("char(64)");
 
                     b.Property<string>("Status")
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
+                        .HasColumnType("longtext");
 
                     b.Property<decimal?>("UnitWeightKg")
                         .HasPrecision(18, 6)
                         .HasColumnType("decimal(18,6)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime(6)")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP(6)");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("WooPayloadJson")
                         .HasColumnType("longtext");
@@ -826,48 +761,37 @@ namespace Kharbarchi.Server.Migrations
                         .HasColumnType("bigint");
 
                     b.Property<string>("CategoryName")
-                        .HasMaxLength(500)
-                        .HasColumnType("varchar(500)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("CategorySlug")
-                        .HasMaxLength(500)
-                        .HasColumnType("varchar(500)");
+                        .HasColumnType("longtext");
 
                     b.Property<DateTime>("CreatedAtUtc")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime(6)")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP(6)");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("Description")
                         .HasColumnType("longtext");
 
                     b.Property<string>("EnTaxonomic")
-                        .HasMaxLength(500)
-                        .HasColumnType("varchar(500)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("ImageUrl")
                         .HasColumnType("longtext");
 
                     b.Property<string>("MainProductName")
-                        .HasMaxLength(500)
-                        .HasColumnType("varchar(500)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("MainProductSlug")
-                        .HasMaxLength(500)
-                        .HasColumnType("varchar(500)");
+                        .HasColumnType("varchar(255)");
 
                     b.Property<string>("Name")
-                        .HasMaxLength(500)
-                        .HasColumnType("varchar(500)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("SourceKey")
-                        .HasMaxLength(500)
-                        .HasColumnType("varchar(500)");
+                        .HasColumnType("longtext");
 
                     b.Property<DateTime>("UpdatedAtUtc")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime(6)")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP(6)");
+                        .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
 
@@ -885,25 +809,20 @@ namespace Kharbarchi.Server.Migrations
                         .HasColumnType("bigint");
 
                     b.Property<DateTime>("CreatedAtUtc")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime(6)")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP(6)");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("CurrencyCode")
                         .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)");
+                        .HasColumnType("longtext");
 
                     b.Property<bool>("IsCurrent")
                         .HasColumnType("tinyint(1)");
 
                     b.Property<string>("PackageCode")
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("PackageGroup")
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)");
+                        .HasColumnType("longtext");
 
                     b.Property<decimal>("PriceAmount")
                         .HasPrecision(18, 2)
@@ -911,12 +830,10 @@ namespace Kharbarchi.Server.Migrations
 
                     b.Property<string>("PriceType")
                         .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("varchar(80)");
+                        .HasColumnType("varchar(255)");
 
                     b.Property<string>("ProductName")
-                        .HasMaxLength(700)
-                        .HasColumnType("varchar(700)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("ProductSourceKey")
                         .IsRequired()
@@ -924,8 +841,7 @@ namespace Kharbarchi.Server.Migrations
 
                     b.Property<string>("ProductType")
                         .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("varchar(80)");
+                        .HasColumnType("varchar(255)");
 
                     b.Property<string>("Sku")
                         .HasMaxLength(191)
@@ -933,9 +849,7 @@ namespace Kharbarchi.Server.Migrations
                         .HasColumnName("SKU");
 
                     b.Property<DateTime>("UpdatedAtUtc")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime(6)")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP(6)");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<DateTime>("ValidFromUtc")
                         .HasColumnType("datetime(6)");
@@ -965,18 +879,14 @@ namespace Kharbarchi.Server.Migrations
 
                     b.Property<string>("ActionType")
                         .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)");
+                        .HasColumnType("longtext");
 
                     b.Property<DateTime>("CreatedAtUtc")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime(6)")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP(6)");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("EntityType")
                         .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("varchar(80)");
+                        .HasColumnType("longtext");
 
                     b.Property<Guid?>("JobId")
                         .HasColumnType("char(36)");
@@ -985,13 +895,11 @@ namespace Kharbarchi.Server.Migrations
                         .HasColumnType("longtext");
 
                     b.Property<string>("ProductSlug")
-                        .HasMaxLength(700)
-                        .HasColumnType("varchar(700)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("QueueStatus")
                         .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)");
+                        .HasColumnType("varchar(255)");
 
                     b.Property<string>("Sku")
                         .HasMaxLength(191)
@@ -1006,9 +914,7 @@ namespace Kharbarchi.Server.Migrations
                         .HasColumnType("int");
 
                     b.Property<DateTime>("UpdatedAtUtc")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime(6)")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP(6)");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("WooPayloadJson")
                         .HasColumnType("longtext");
@@ -1038,20 +944,16 @@ namespace Kharbarchi.Server.Migrations
                         .HasColumnType("bigint");
 
                     b.Property<string>("BrandEnglishName")
-                        .HasMaxLength(300)
-                        .HasColumnType("varchar(300)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("BrandName")
-                        .HasMaxLength(300)
-                        .HasColumnType("varchar(300)");
+                        .HasColumnType("longtext");
 
                     b.Property<int?>("CartonQuantity")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("CreatedAtUtc")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime(6)")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP(6)");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("FullDescription")
                         .HasColumnType("longtext");
@@ -1074,16 +976,13 @@ namespace Kharbarchi.Server.Migrations
                         .HasColumnType("bigint");
 
                     b.Property<string>("PackageCode")
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("PackageName")
-                        .HasMaxLength(300)
-                        .HasColumnType("varchar(300)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("PackagingGroup")
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)");
+                        .HasColumnType("longtext");
 
                     b.Property<decimal?>("PackagingPricePerPack")
                         .HasPrecision(18, 2)
@@ -1093,8 +992,7 @@ namespace Kharbarchi.Server.Migrations
                         .HasColumnType("int");
 
                     b.Property<string>("PriceCalculationBasis")
-                        .HasMaxLength(80)
-                        .HasColumnType("varchar(80)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("ProductEnglishName")
                         .HasMaxLength(700)
@@ -1120,8 +1018,7 @@ namespace Kharbarchi.Server.Migrations
                         .HasColumnType("longtext");
 
                     b.Property<string>("SaleMode")
-                        .HasMaxLength(80)
-                        .HasColumnType("varchar(80)");
+                        .HasColumnType("longtext");
 
                     b.Property<decimal?>("SalePriceCash")
                         .HasPrecision(18, 2)
@@ -1155,9 +1052,7 @@ namespace Kharbarchi.Server.Migrations
                         .HasColumnType("decimal(18,6)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime(6)")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP(6)");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<long?>("WooProductId")
                         .HasColumnType("bigint");
@@ -1190,25 +1085,19 @@ namespace Kharbarchi.Server.Migrations
                         .HasColumnType("bigint");
 
                     b.Property<string>("BrandEnglishName")
-                        .HasMaxLength(300)
-                        .HasColumnType("varchar(300)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("BrandName")
-                        .HasMaxLength(300)
-                        .HasColumnType("varchar(300)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("CategoryName")
-                        .HasMaxLength(500)
-                        .HasColumnType("varchar(500)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("CategorySlug")
-                        .HasMaxLength(500)
-                        .HasColumnType("varchar(500)");
+                        .HasColumnType("longtext");
 
                     b.Property<DateTime>("CreatedAtUtc")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime(6)")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP(6)");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<decimal?>("KgCashPrice")
                         .HasPrecision(18, 2)
@@ -1219,20 +1108,16 @@ namespace Kharbarchi.Server.Migrations
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("MainProductName")
-                        .HasMaxLength(500)
-                        .HasColumnType("varchar(500)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("PackageOne")
-                        .HasMaxLength(300)
-                        .HasColumnType("varchar(300)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("ProductEnglishName")
-                        .HasMaxLength(700)
-                        .HasColumnType("varchar(700)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("ProductName")
-                        .HasMaxLength(700)
-                        .HasColumnType("varchar(700)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("RawJson")
                         .HasColumnType("longtext");
@@ -1249,9 +1134,7 @@ namespace Kharbarchi.Server.Migrations
                         .HasColumnType("decimal(18,6)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime(6)")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP(6)");
+                        .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
 
@@ -1269,9 +1152,7 @@ namespace Kharbarchi.Server.Migrations
                         .HasColumnType("bigint");
 
                     b.Property<DateTime>("CreatedAtUtc")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime(6)")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP(6)");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("CreatedBy")
                         .HasMaxLength(256)
@@ -1279,8 +1160,7 @@ namespace Kharbarchi.Server.Migrations
 
                     b.Property<string>("CurrentStep")
                         .IsRequired()
-                        .HasMaxLength(160)
-                        .HasColumnType("varchar(160)");
+                        .HasColumnType("longtext");
 
                     b.Property<int>("DraftCount")
                         .HasColumnType("int");
@@ -1315,8 +1195,7 @@ namespace Kharbarchi.Server.Migrations
 
                     b.Property<string>("Status")
                         .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)");
+                        .HasColumnType("longtext");
 
                     b.Property<int>("SuccessCount")
                         .HasColumnType("int");
@@ -1326,13 +1205,10 @@ namespace Kharbarchi.Server.Migrations
 
                     b.Property<string>("Type")
                         .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)");
+                        .HasColumnType("varchar(255)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime(6)")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP(6)");
+                        .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
 
@@ -1351,17 +1227,13 @@ namespace Kharbarchi.Server.Migrations
                         .HasColumnType("bigint");
 
                     b.Property<DateTime>("CreatedAtUtc")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime(6)")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP(6)");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("EntityId")
-                        .HasMaxLength(191)
-                        .HasColumnType("varchar(191)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("EntityType")
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
+                        .HasColumnType("longtext");
 
                     b.Property<Guid>("JobId")
                         .HasColumnType("char(36)");
@@ -1382,18 +1254,15 @@ namespace Kharbarchi.Server.Migrations
                         .HasColumnType("int");
 
                     b.Property<string>("Sku")
-                        .HasMaxLength(191)
-                        .HasColumnType("varchar(191)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("Status")
                         .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("StepName")
                         .IsRequired()
-                        .HasMaxLength(160)
-                        .HasColumnType("varchar(160)");
+                        .HasColumnType("longtext");
 
                     b.Property<long>("WorkflowJobId")
                         .HasColumnType("bigint");
@@ -1483,28 +1352,22 @@ namespace Kharbarchi.Server.Migrations
 
                     b.Property<string>("ApiVersion")
                         .IsRequired()
-                        .HasMaxLength(40)
-                        .HasColumnType("varchar(40)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("BaseUrl")
                         .IsRequired()
-                        .HasMaxLength(1000)
-                        .HasColumnType("varchar(1000)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("ConsumerKey")
                         .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("varchar(255)");
+                        .HasColumnType("longtext");
 
                     b.Property<DateTime>("CreatedAtUtc")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime(6)")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP(6)");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("EnvironmentType")
                         .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)");
+                        .HasColumnType("varchar(255)");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("tinyint(1)");
@@ -1521,8 +1384,7 @@ namespace Kharbarchi.Server.Migrations
 
                     b.Property<string>("ProfileName")
                         .IsRequired()
-                        .HasMaxLength(160)
-                        .HasColumnType("varchar(160)");
+                        .HasColumnType("varchar(255)");
 
                     b.Property<string>("ProtectedConsumerSecret")
                         .IsRequired()
@@ -1532,9 +1394,7 @@ namespace Kharbarchi.Server.Migrations
                         .HasColumnType("int");
 
                     b.Property<DateTime>("UpdatedAtUtc")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime(6)")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP(6)");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<bool>("VerifySsl")
                         .HasColumnType("tinyint(1)");

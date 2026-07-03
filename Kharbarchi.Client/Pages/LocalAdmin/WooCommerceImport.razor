@@ -42,7 +42,7 @@
     <div class="khb-grid khb-grid-2">
         <div class="khb-glass-card khb-form-card">
             <h2>تنظیمات Import</h2>
-            <p class="khb-muted">این مقادیر از صفحه تنظیمات خوانده می‌شوند. برای امنیت، مقدار Secret در خروجی API نمایش داده نمی‌شود.</p>
+            <p class="khb-muted">Secret و رمز WordPress در localStorage نگهداری نمی‌شوند. برای Import/Sync اصلی از پروفایل امن پایگاه‌داده استفاده کنید.</p>
 
             <label>BaseUrl</label>
             <input class="khb-input ltr" @bind="Model.BaseUrl" />
@@ -115,9 +115,7 @@
     {
         Model.BaseUrl = await GetLocal("khb.woo.baseUrl") ?? Model.BaseUrl;
         Model.ConsumerKey = await GetLocal("khb.woo.consumerKey") ?? Model.ConsumerKey;
-        Model.ConsumerSecret = await GetLocal("khb.woo.consumerSecret") ?? Model.ConsumerSecret;
         Model.WordPressUsername = await GetLocal("khb.woo.wpUsername") ?? Model.WordPressUsername;
-        Model.WordPressPassword = await GetLocal("khb.woo.wpPassword") ?? Model.WordPressPassword;
         LastOk = true;
         LastMessage = HasKeys ? "تنظیمات از مرورگر خوانده شد." : "تنظیمات خوانده شد، اما Consumer Key/Secret در UI خالی است. اگر در User Secrets گذاشته باشی، سرور از همان استفاده می‌کند.";
     }
@@ -126,9 +124,7 @@
     {
         await SetLocal("khb.woo.baseUrl", Model.BaseUrl);
         await SetLocal("khb.woo.consumerKey", Model.ConsumerKey);
-        await SetLocal("khb.woo.consumerSecret", Model.ConsumerSecret);
         await SetLocal("khb.woo.wpUsername", Model.WordPressUsername);
-        await SetLocal("khb.woo.wpPassword", Model.WordPressPassword);
         LastOk = true;
         LastMessage = "تنظیمات ذخیره شد.";
     }

@@ -6,6 +6,11 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Kharbarchi.Server.Models;
+using Kharbarchi.Server.Security;
+using Kharbarchi.Server.Services;
+using Kharbarchi.Shared.Contracts.ProductWorkflow;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using MySql.Data.MySqlClient;
@@ -14,6 +19,7 @@ namespace Kharbarchi.Server.Controllers;
 
 [ApiController]
 [Route("api/product-csv")]
+[Authorize(Policy = AuthorizationPolicyNames.ProductImportWrite)]
 public sealed class ProductCsvImportController : ControllerBase
 {
     [HttpGet("workflow-table")]
@@ -30,12 +36,12 @@ public sealed class ProductCsvImportController : ControllerBase
 
         var tableName = (kind ?? string.Empty).Trim().ToLowerInvariant() switch
         {
-            "source" => "KHB_Source_Product",
-            "category" => "KHB_Category_Map",
-            "commodity" => "KHB_Commodity",
-            "package" => "KHB_Package_Type",
-            "product" => "KHB_Product_Final",
-            "queue" => "KHB_Product_Update_Queue",
+            "source" => "khb_source_product",
+            "category" => "khb_category_map",
+            "commodity" => "khb_commodity",
+            "package" => "khb_package_type",
+            "product" => "khb_product_final",
+            "queue" => "khb_product_update_queue",
             _ => null
         };
 
@@ -108,15 +114,58 @@ public sealed class ProductCsvImportController : ControllerBase
     }
     private readonly IConfiguration _configuration;
     private readonly ILogger<ProductCsvImportController> _logger;
+    private readonly WorkflowJobService _jobs;
+    private readonly WooCommerceProfileService _profiles;
 
-    private const string DefaultTableName = "All_Product_With_Process";
+    private const string DefaultTableName = "all_product_with_process";
     private const decimal DefaultRetailPackagingFeePerPack = 30000m;
 
-    public ProductCsvImportController(IConfiguration configuration, ILogger<ProductCsvImportController> logger)
+    public ProductCsvImportController(
+        IConfiguration configuration,
+        ILogger<ProductCsvImportController> logger,
+        WorkflowJobService jobs,
+        WooCommerceProfileService profiles)
     {
         _configuration = configuration;
         _logger = logger;
+        _jobs = jobs;
+        _profiles = profiles;
     }
+
+    [HttpPost("jobs/{type}/start")]
+    public async Task<ActionResult<WorkflowJobDto>> StartWorkflowJob(
+        string type,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return Ok(await _jobs.CreateAsync(type, User.Identity?.Name, cancellationToken));
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpGet("jobs/{jobId:guid}")]
+    public async Task<ActionResult<WorkflowJobDto>> GetWorkflowJob(Guid jobId, CancellationToken cancellationToken)
+    {
+        var result = await _jobs.GetAsync(jobId, cancellationToken);
+        return result is null ? NotFound() : Ok(result);
+    }
+
+    [HttpGet("jobs/{jobId:guid}/logs")]
+    public async Task<ActionResult<IReadOnlyList<WorkflowJobLogDto>>> GetWorkflowJobLogs(
+        Guid jobId,
+        [FromQuery] int take = 200,
+        CancellationToken cancellationToken = default) =>
+        Ok(await _jobs.GetLogsAsync(jobId, take, cancellationToken));
+
+    [HttpGet("jobs/latest")]
+    public async Task<ActionResult<WorkflowJobDto?>> GetLatestWorkflowJob(
+        [FromQuery] string? type,
+        CancellationToken cancellationToken) =>
+        Ok(await _jobs.GetLatestAsync(type, cancellationToken));
 
     [HttpPost("import-all-product-with-process")]
     [RequestSizeLimit(100_000_000)]
@@ -124,23 +173,28 @@ public sealed class ProductCsvImportController : ControllerBase
         IFormFile file,
         [FromQuery] string? tableName,
         [FromQuery] bool truncate = false,
+        [FromQuery] Guid? jobId = null,
         CancellationToken cancellationToken = default)
     {
         var safeTableName = NormalizeTableName(tableName);
+        var job = await GetOrCreateJobAsync(jobId, "import", cancellationToken);
 
         if (file is null || file.Length == 0)
         {
+            await _jobs.FailAsync(job, "Reading CSV file", new InvalidDataException("CSV file is required."), cancellationToken);
             return BadRequest(new { error = "CSV file is required." });
         }
 
         if (!file.FileName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
         {
+            await _jobs.FailAsync(job, "Reading CSV file", new InvalidDataException("Only CSV files are supported."), cancellationToken);
             return BadRequest(new { error = "Only CSV files are supported. Save Excel as CSV UTF-8." });
         }
 
         var csvText = await ReadCsvAsUtf8Async(file, cancellationToken);
         if (csvText.Contains('\uFFFD'))
         {
+            await _jobs.FailAsync(job, "Reading CSV file", new InvalidDataException("CSV encoding is not valid UTF-8."), cancellationToken);
             return BadRequest(new
             {
                 error = "CSV encoding is not valid UTF-8. In Excel use: Save As > CSV UTF-8 (Comma delimited)."
@@ -150,19 +204,31 @@ public sealed class ProductCsvImportController : ControllerBase
         var parsed = CsvParser.Parse(csvText);
         if (parsed.Headers.Count == 0)
         {
+            await _jobs.FailAsync(job, "Reading CSV file", new InvalidDataException("CSV header row was not found."), cancellationToken);
             return BadRequest(new { error = "CSV header row was not found." });
         }
 
         if (parsed.Rows.Count == 0)
         {
+            await _jobs.FailAsync(job, "Reading CSV file", new InvalidDataException("CSV has headers but no data rows."), cancellationToken);
             return BadRequest(new { error = "CSV has headers but no data rows." });
         }
+
+        await _jobs.StartAsync(job, "Validating data", parsed.Rows.Count, "CSV validated; starting source-row upsert.", cancellationToken);
 
         await using var connection = new MySqlConnection(GetConnectionString());
         await connection.OpenAsync(cancellationToken);
 
-        await EnsureAllProductTableAsync(connection, safeTableName, cancellationToken);
-        await EnsureProductManagementTablesAsync(connection, cancellationToken);
+        try
+        {
+            await ValidateAllProductTableAsync(connection, safeTableName, cancellationToken);
+            await ValidateProductManagementTablesAsync(connection, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            await _jobs.FailAsync(job, "Validating database schema", ex, cancellationToken);
+            return Conflict(new { jobId = job.JobId, error = ex.Message });
+        }
 
         var truncateWasIgnored = truncate;
 
@@ -186,7 +252,19 @@ public sealed class ProductCsvImportController : ControllerBase
             {
                 skipped++;
                 warnings.Add($"Row {i + 2}: product name is empty.");
-                continue;
+                mapped = mapped with { Status = "error" };
+                await _jobs.AddLogAsync(
+                    job,
+                    "Validating data",
+                    "source-row",
+                    (i + 2).ToString(CultureInfo.InvariantCulture),
+                    mapped.Sku,
+                    "error",
+                    "Product name is empty. The row was stored with Error status and will not be queued for WooCommerce.",
+                    null,
+                    null,
+                    null,
+                    cancellationToken);
             }
 
             var rawJson = JsonSerializer.Serialize(rowDictionary, JsonOptions);
@@ -337,10 +415,31 @@ ON DUPLICATE KEY UPDATE
 
             var affected = await command.ExecuteNonQueryAsync(cancellationToken);
             if (affected == 1) inserted++; else updated++;
+
+            if ((i + 1) % 10 == 0 || i + 1 == parsed.Rows.Count)
+            {
+                await _jobs.UpdateAsync(
+                    job,
+                    "Saving source rows",
+                    i + 1,
+                    parsed.Rows.Count,
+                    inserted + updated - skipped,
+                    skipped,
+                    0,
+                    skipped,
+                    $"Saved {i + 1} of {parsed.Rows.Count} source rows.",
+                    cancellationToken);
+            }
         }
+
+        job.SuccessCount = inserted + updated - skipped;
+        job.ErrorCount = skipped;
+        job.SkippedCount = skipped;
+        await _jobs.CompleteAsync(job, $"CSV import completed. Inserted: {inserted}; updated: {updated}; errors: {skipped}.", cancellationToken);
 
         return Ok(new
         {
+            jobId = job.JobId,
             tableName = safeTableName,
             batchId,
             file = file.FileName,
@@ -360,17 +459,27 @@ ON DUPLICATE KEY UPDATE
         [FromQuery] string? priceUnit = "rial",
         [FromQuery] bool clearGeneratedBeforeProcess = false,
         [FromQuery] bool? clearTargets = null,
+        [FromQuery] Guid? jobId = null,
         CancellationToken cancellationToken = default)
     {
         var safeTableName = NormalizeTableName(tableName);
         var normalizedPriceUnit = NormalizePriceUnit(priceUnit);
         var clearWasRequested = clearTargets ?? clearGeneratedBeforeProcess;
+        var job = await GetOrCreateJobAsync(jobId, "process", cancellationToken);
 
         await using var connection = new MySqlConnection(GetConnectionString());
         await connection.OpenAsync(cancellationToken);
 
-        await EnsureAllProductTableAsync(connection, safeTableName, cancellationToken);
-        await EnsureProductManagementTablesAsync(connection, cancellationToken);
+        try
+        {
+            await ValidateAllProductTableAsync(connection, safeTableName, cancellationToken);
+            await ValidateProductManagementTablesAsync(connection, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            await _jobs.FailAsync(job, "Validating database schema", ex, cancellationToken);
+            return Conflict(new { jobId = job.JobId, error = ex.Message });
+        }
         if (clearWasRequested)
         {
             _logger.LogWarning("KHB-SAFE: clearGeneratedBeforeProcess/clearTargets was requested but ignored. Product workflow tables are never truncated or dropped by processing.");
@@ -427,40 +536,106 @@ ORDER BY Id;";
         var inactive = 0;
         var cartonPackagedProducts = 0;
         var cartonWeightProducts = 0;
+        var skipped = 0;
+        var errors = 0;
+        var drafts = new List<(AllProductRow Source, SaleProductDraft Product)>();
 
         foreach (var row in rows)
         {
+            if (string.IsNullOrWhiteSpace(row.ProductName)
+                || string.Equals(row.Status, "error", StringComparison.OrdinalIgnoreCase))
+            {
+                skipped++;
+                continue;
+            }
+
+            foreach (var finalProduct in BuildFinalSaleProducts(row, normalizedPriceUnit))
+            {
+                drafts.Add((row, finalProduct));
+                if (!string.Equals(finalProduct.Status, "publish", StringComparison.OrdinalIgnoreCase)) inactive++;
+                if (string.Equals(finalProduct.PackagingGroup, "retail", StringComparison.OrdinalIgnoreCase)) cartonPackagedProducts++; else cartonWeightProducts++;
+            }
+        }
+
+        await _jobs.StartAsync(job, "Saving source rows", drafts.Count, "Preparing canonical product workflow tables.", cancellationToken);
+
+        var groupIds = new Dictionary<long, long>();
+        for (var index = 0; index < rows.Count; index++)
+        {
+            var row = rows[index];
+            if (string.IsNullOrWhiteSpace(row.ProductName)
+                || string.Equals(row.Status, "error", StringComparison.OrdinalIgnoreCase))
+            {
+                await _jobs.AddLogAsync(job, "Validating data", "source-row", row.Id.ToString(CultureInfo.InvariantCulture), row.Sku, "skipped", "Source row is incomplete or has Error status.", null, null, null, cancellationToken);
+                continue;
+            }
+
             var productEnglishName = ResolveEnglishProductName(row.ProductEnglishName, row.ProductName, row.MainProductName, row.CategorySlug);
             var mainName = FirstNotEmpty(row.MainProductName, row.CategoryName, row.GroupName, "بدون گروه");
             var mainSlug = BuildEnglishSlug(FirstNotEmpty(productEnglishName, row.CategorySlug, row.MainProductSlug, row.Sku, mainName));
             var categoryName = FirstNotEmpty(row.CategoryName, mainName);
             var categorySlug = BuildEnglishSlug(FirstNotEmpty(row.CategorySlug, productEnglishName, row.BrandEnglishName, categoryName));
 
-            var groupId = await UpsertMainGroupAsync(
-                connection,
-                mainName,
-                mainSlug,
-                categoryName,
-                categorySlug,
-                cancellationToken);
-            groups++;
-
-            await UpsertSourceProductAsync(connection, row, productEnglishName, normalizedPriceUnit, cancellationToken);
-
-            foreach (var finalProduct in BuildFinalSaleProducts(row, normalizedPriceUnit))
+            try
             {
-                if (!string.Equals(finalProduct.Status, "publish", StringComparison.OrdinalIgnoreCase)) inactive++;
-                if (string.Equals(finalProduct.PackagingGroup, "retail", StringComparison.OrdinalIgnoreCase)) cartonPackagedProducts++; else cartonWeightProducts++;
-
-                await UpsertSaleProductAsync(connection, groupId, finalProduct, cancellationToken);
-                await UpsertWorkflowTablesAsync(connection, groupId, row, finalProduct, cancellationToken);
-                await RegisterPriceHistoryAsync(connection, finalProduct, cancellationToken);
-                products++;
+                var groupId = await UpsertMainGroupAsync(
+                    connection,
+                    mainName,
+                    mainSlug,
+                    categoryName,
+                    categorySlug,
+                    cancellationToken);
+                groupIds[row.Id] = groupId;
+                groups++;
+                await UpsertSourceProductAsync(connection, row, productEnglishName, normalizedPriceUnit, cancellationToken);
             }
+            catch (Exception ex)
+            {
+                errors++;
+                await _jobs.AddLogAsync(job, "Saving source rows", "source-row", row.Id.ToString(CultureInfo.InvariantCulture), row.Sku, "error", ex.Message, null, null, null, cancellationToken);
+            }
+
+            var percent = rows.Count == 0 ? 15 : 5 + (int)Math.Round((index + 1) * 10d / rows.Count);
+            await _jobs.SetPhaseAsync(job, "Saving source rows", percent, drafts.Count, 0, 0, errors, inactive, skipped, $"Saved source row {index + 1} of {rows.Count}.", cancellationToken);
         }
+
+        var prepared = drafts
+            .Select(x => new PreparedSaleProduct(
+                x.Source,
+                x.Product,
+                groupIds.GetValueOrDefault(x.Source.Id)))
+            .ToList();
+        var blocked = prepared
+            .Where(x => x.GroupId <= 0)
+            .Select(x => x.Product.SourceRowHash)
+            .ToHashSet(StringComparer.Ordinal);
+
+        errors += await ExecutePreparedPhaseAsync(connection, job, prepared, blocked, "Saving categories", 15, 30, UpsertCategoryWorkflowAsync, cancellationToken);
+        errors += await ExecutePreparedPhaseAsync(connection, job, prepared, blocked, "Saving base products", 30, 45, UpsertCommodityWorkflowAsync, cancellationToken);
+        errors += await ExecutePreparedPhaseAsync(connection, job, prepared, blocked, "Saving packaging records", 45, 60, UpsertPackageWorkflowAsync, cancellationToken);
+        errors += await ExecutePreparedPhaseAsync(connection, job, prepared, blocked, "Creating final products", 60, 85, UpsertFinalWorkflowAsync, cancellationToken);
+        errors += await ExecutePreparedPhaseAsync(
+            connection,
+            job,
+            prepared,
+            blocked,
+            "Building WooCommerce sync queue",
+            85,
+            99,
+            (db, row, token) => QueueWorkflowAsync(db, row, job.JobId, token),
+            cancellationToken);
+
+        products = prepared.Count - blocked.Count;
+        job.SuccessCount = products;
+        job.ErrorCount = errors;
+        job.DraftCount = inactive;
+        job.SkippedCount = skipped;
+        job.ProcessedItems = products;
+        await _jobs.CompleteAsync(job, $"Processing completed. Ready: {products}; draft: {inactive}; skipped: {skipped}; errors: {errors}.", cancellationToken);
 
         return Ok(new
         {
+            jobId = job.JobId,
             tableName = safeTableName,
             inputPriceUnit = normalizedPriceUnit,
             outputPriceUnit = "toman",
@@ -472,6 +647,8 @@ ORDER BY Id;";
             cartonWeightProducts,
             cartonPackagedProducts,
             inactiveProducts = inactive,
+            skippedProducts = skipped,
+            errorProducts = errors,
             pricingRule = "KHB-246: carton-weight products use kg price * carton weight. Carton-packaged products use package price * packs per carton. Kg price and packaging fee may be stored as informational meta but are not used in carton-packaged calculations."
         });
     }
@@ -487,7 +664,7 @@ ORDER BY Id;";
 
         await using var connection = new MySqlConnection(GetConnectionString());
         await connection.OpenAsync(cancellationToken);
-        await EnsureAllProductTableAsync(connection, safeTableName, cancellationToken);
+        await ValidateAllProductTableAsync(connection, safeTableName, cancellationToken);
 
         var where = string.IsNullOrWhiteSpace(search)
             ? string.Empty
@@ -589,7 +766,7 @@ LIMIT @Take OFFSET @Skip;";
 
         await using var connection = new MySqlConnection(GetConnectionString());
         await connection.OpenAsync(cancellationToken);
-        await EnsureAllProductTableAsync(connection, safeTableName, cancellationToken);
+        await ValidateAllProductTableAsync(connection, safeTableName, cancellationToken);
 
         var normalizedEnglishSlug = BuildEnglishSlug(FirstNotEmpty(input.ProductEnglishName, input.ProductSlug, input.Sku, input.ProductName));
         var categorySlug = BuildEnglishSlug(FirstNotEmpty(input.CategorySlug, input.ProductEnglishName, input.BrandEnglishName, input.CategoryName));
@@ -671,7 +848,7 @@ WHERE Id = @Id;";
         var safeTableName = NormalizeTableName(tableName);
         await using var connection = new MySqlConnection(GetConnectionString());
         await connection.OpenAsync(cancellationToken);
-        await EnsureAllProductTableAsync(connection, safeTableName, cancellationToken);
+        await ValidateAllProductTableAsync(connection, safeTableName, cancellationToken);
 
         await using var command = connection.CreateCommand();
         command.CommandText = $@"
@@ -704,7 +881,7 @@ FROM `{safeTableName}`;";
 
         await using var connection = new MySqlConnection(GetConnectionString());
         await connection.OpenAsync(cancellationToken);
-        await EnsureProductManagementTablesAsync(connection, cancellationToken);
+        await ValidateProductManagementTablesAsync(connection, cancellationToken);
 
         var where = string.IsNullOrWhiteSpace(search)
             ? ""
@@ -792,73 +969,112 @@ LIMIT @Take OFFSET @Skip;";
 
 
     [HttpPost("woocommerce/sync-all")]
-    public async Task<IActionResult> SyncWooCommerceAll([FromQuery] bool productsOnly = false, [FromQuery] bool skipConnectionTest = false, CancellationToken cancellationToken = default)
+    public async Task<IActionResult> SyncWooCommerceAll(
+        [FromQuery] int profileId,
+        [FromQuery] bool productsOnly = false,
+        [FromQuery] bool skipConnectionTest = false,
+        [FromQuery] Guid? jobId = null,
+        CancellationToken cancellationToken = default)
     {
+        var job = await GetOrCreateJobAsync(jobId, "sync", cancellationToken);
         await using var connection = new MySqlConnection(GetConnectionString());
         await connection.OpenAsync(cancellationToken);
-        await EnsureProductManagementTablesAsync(connection, cancellationToken);
+        try
+        {
+            await ValidateProductManagementTablesAsync(connection, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            await _jobs.FailAsync(job, "Validating database schema", ex, cancellationToken);
+            return Conflict(new { jobId = job.JobId, error = ex.Message });
+        }
 
-        var options = GetWooCommerceOptions();
-        using var httpClient = CreateWooCommerceHttpClient(options);
+        WooProfileConnection profile;
+        try
+        {
+            profile = await _profiles.GetConnectionAsync(profileId, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            await _jobs.FailAsync(job, "Loading WooCommerce profile", ex, cancellationToken);
+            return BadRequest(new { jobId = job.JobId, error = ex.Message });
+        }
+        using var wooClient = new ProfileWooCommerceClient(profile);
+        var progressBefore = await GetWooProductSyncProgressAsync(connection, cancellationToken);
+        await _jobs.StartAsync(job, "Testing WooCommerce connection", progressBefore.Total, $"Using profile '{profile.ProfileName}'.", cancellationToken);
+
         if (!skipConnectionTest)
         {
-            await EnsureWooConnectionAsync(httpClient, options, cancellationToken);
+            var test = await wooClient.TestAsync(cancellationToken);
+            await _profiles.RecordTestAsync(profileId, test, cancellationToken);
+            if (!test.Success)
+            {
+                await _jobs.FailAsync(job, "Testing WooCommerce connection", new InvalidOperationException(test.Message), cancellationToken);
+                return StatusCode(StatusCodes.Status503ServiceUnavailable, test);
+            }
         }
 
         var result = new WooSyncResult();
 
         if (!productsOnly)
         {
-            await SyncWooCategoriesAsync(connection, httpClient, options, result, cancellationToken);
-            await SyncWooCommoditiesAsync(connection, httpClient, options, result, cancellationToken);
-            await SyncWooPackagesAsync(connection, httpClient, options, result, cancellationToken);
+            await _jobs.SetPhaseAsync(job, "Sending categories to WooCommerce", 10, progressBefore.Total, 0, 0, 0, 0, 0, null, cancellationToken);
+            await SyncWooCategoriesAsync(connection, wooClient, result, job, cancellationToken);
+            await _jobs.SetPhaseAsync(job, "Sending base products to WooCommerce", 25, progressBefore.Total, 0, result.CategoriesSynced, result.CategoriesFailed, 0, 0, null, cancellationToken);
+            await SyncWooCommoditiesAsync(connection, wooClient, result, job, cancellationToken);
+            await _jobs.SetPhaseAsync(job, "Sending packaging records to WooCommerce", 40, progressBefore.Total, 0, result.CategoriesSynced + result.CommoditiesSynced, result.CategoriesFailed + result.CommoditiesFailed, 0, 0, null, cancellationToken);
+            await SyncWooPackagesAsync(connection, wooClient, result, job, cancellationToken);
         }
 
-        await SyncWooProductsAsync(connection, httpClient, options, result, cancellationToken);
+        await _jobs.SetPhaseAsync(job, "Sending final products to WooCommerce", 55, progressBefore.Total, 0, 0, result.CategoriesFailed + result.CommoditiesFailed + result.PackagesFailed, 0, 0, null, cancellationToken);
+        await SyncWooProductsAsync(connection, wooClient, result, job, cancellationToken);
+        var finalProgress = await GetWooProductSyncProgressAsync(connection, cancellationToken);
+        job.TotalItems = finalProgress.Total;
+        job.ProcessedItems = finalProgress.Synced + finalProgress.Failed;
+        job.SuccessCount = finalProgress.Synced;
+        job.ErrorCount = finalProgress.Failed + result.CategoriesFailed + result.CommoditiesFailed + result.PackagesFailed;
+        job.PendingCount = finalProgress.Pending;
+        job.DraftCount = await GetWooDraftCountAsync(connection, cancellationToken);
         result.FinishedAtUtc = DateTime.UtcNow;
-        return Ok(result);
+        await _jobs.CompleteAsync(job, $"WooCommerce sync completed. Synced: {finalProgress.Synced}; failed: {job.ErrorCount}; pending: {finalProgress.Pending}.", cancellationToken);
+        return Ok(new { jobId = job.JobId, result, progress = finalProgress });
     }
 
     [HttpPost("woocommerce/sync-products")]
-    public async Task<IActionResult> SyncWooCommerceProductsOnly([FromQuery] bool skipConnectionTest = false, CancellationToken cancellationToken = default)
+    public Task<IActionResult> SyncWooCommerceProductsOnly(
+        [FromQuery] int profileId,
+        [FromQuery] bool skipConnectionTest = false,
+        [FromQuery] Guid? jobId = null,
+        CancellationToken cancellationToken = default)
     {
-        await using var connection = new MySqlConnection(GetConnectionString());
-        await connection.OpenAsync(cancellationToken);
-        await EnsureProductManagementTablesAsync(connection, cancellationToken);
-
-        var options = GetWooCommerceOptions();
-        using var httpClient = CreateWooCommerceHttpClient(options);
-        if (!skipConnectionTest)
-        {
-            await EnsureWooConnectionAsync(httpClient, options, cancellationToken);
-        }
-
-        var result = new WooSyncResult();
-        await SyncWooProductsAsync(connection, httpClient, options, result, cancellationToken);
-        result.FinishedAtUtc = DateTime.UtcNow;
-        return Ok(result);
+        return SyncWooCommerceAll(profileId, productsOnly: true, skipConnectionTest, jobId, cancellationToken);
     }
 
 
     [HttpPost("woocommerce/sync-products-batch")]
-    public async Task<IActionResult> SyncWooCommerceProductsBatch([FromQuery] int take = 1, [FromQuery] bool skipConnectionTest = false, CancellationToken cancellationToken = default)
+    public async Task<IActionResult> SyncWooCommerceProductsBatch(
+        [FromQuery] int profileId,
+        [FromQuery] int take = 1,
+        [FromQuery] bool skipConnectionTest = false,
+        CancellationToken cancellationToken = default)
     {
         take = Math.Clamp(take, 1, 50);
 
         await using var connection = new MySqlConnection(GetConnectionString());
         await connection.OpenAsync(cancellationToken);
-        await EnsureProductManagementTablesAsync(connection, cancellationToken);
+        await ValidateProductManagementTablesAsync(connection, cancellationToken);
 
-        var options = GetWooCommerceOptions();
-        using var httpClient = CreateWooCommerceHttpClient(options);
+        var profile = await _profiles.GetConnectionAsync(profileId, cancellationToken);
+        using var wooClient = new ProfileWooCommerceClient(profile);
         if (!skipConnectionTest)
         {
-            await EnsureWooConnectionAsync(httpClient, options, cancellationToken);
+            var test = await wooClient.TestAsync(cancellationToken);
+            if (!test.Success) return StatusCode(StatusCodes.Status503ServiceUnavailable, test);
         }
 
         var result = new WooSyncResult();
 
-        await SyncWooProductsAsync(connection, httpClient, options, result, cancellationToken, take, pendingOnly: true);
+        await SyncWooProductsAsync(connection, wooClient, result, null, cancellationToken, take, pendingOnly: true);
         var progress = await GetWooProductSyncProgressAsync(connection, cancellationToken);
         result.FinishedAtUtc = DateTime.UtcNow;
 
@@ -880,13 +1096,13 @@ LIMIT @Take OFFSET @Skip;";
     {
         await using var connection = new MySqlConnection(GetConnectionString());
         await connection.OpenAsync(cancellationToken);
-        await EnsureProductManagementTablesAsync(connection, cancellationToken);
+        await ValidateProductManagementTablesAsync(connection, cancellationToken);
 
         var rows = new List<object>();
         await using var command = connection.CreateCommand();
         command.CommandText = @"
 SELECT QueueStatus, COUNT(*) AS Total
-FROM KHB_Product_Update_Queue
+FROM khb_product_update_queue
 GROUP BY QueueStatus
 ORDER BY QueueStatus;";
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -907,120 +1123,111 @@ ORDER BY QueueStatus;";
     {
         await using var connection = new MySqlConnection(GetConnectionString());
         await connection.OpenAsync(cancellationToken);
-        await EnsureProductManagementTablesAsync(connection, cancellationToken);
+        await ValidateProductManagementTablesAsync(connection, cancellationToken);
 
         return Ok(await GetWooProductSyncProgressAsync(connection, cancellationToken));
     }
 
     [HttpGet("woocommerce/test-connection")]
-    public async Task<IActionResult> TestWooCommerceConnection(CancellationToken cancellationToken = default)
+    public async Task<IActionResult> TestWooCommerceConnection([FromQuery] int profileId, CancellationToken cancellationToken = default)
     {
         try
         {
-            var options = GetWooCommerceOptions();
-            using var httpClient = CreateWooCommerceHttpClient(options);
-            var result = await TestWooConnectionAsync(httpClient, options, cancellationToken);
+            var profile = await _profiles.GetConnectionAsync(profileId, cancellationToken);
+            using var wooClient = new ProfileWooCommerceClient(profile);
+            var result = await wooClient.TestAsync(cancellationToken);
+            await _profiles.RecordTestAsync(profileId, result, cancellationToken);
             return result.Success ? Ok(result) : StatusCode(StatusCodes.Status503ServiceUnavailable, result);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "WooCommerce connection test failed before sync.");
-            return StatusCode(StatusCodes.Status503ServiceUnavailable, new WooConnectionTestResult(
-                Success: false,
-                StatusCode: 0,
-                Url: string.Empty,
-                Message: ex.Message,
-                ElapsedMilliseconds: 0,
-                ResponsePreview: ex.ToString()));
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new { success = false, message = ex.Message });
         }
     }
 
     [HttpPost("woocommerce/sync-catalog-setup")]
-    public async Task<IActionResult> SyncWooCommerceCatalogSetup([FromQuery] bool skipConnectionTest = false, CancellationToken cancellationToken = default)
+    public async Task<IActionResult> SyncWooCommerceCatalogSetup([FromQuery] int profileId, [FromQuery] bool skipConnectionTest = false, CancellationToken cancellationToken = default)
     {
         await using var connection = new MySqlConnection(GetConnectionString());
         await connection.OpenAsync(cancellationToken);
-        await EnsureProductManagementTablesAsync(connection, cancellationToken);
+        await ValidateProductManagementTablesAsync(connection, cancellationToken);
 
-        var options = GetWooCommerceOptions();
-        using var httpClient = CreateWooCommerceHttpClient(options);
+        var profile = await _profiles.GetConnectionAsync(profileId, cancellationToken);
+        using var wooClient = new ProfileWooCommerceClient(profile);
 
         if (!skipConnectionTest)
         {
-            await EnsureWooConnectionAsync(httpClient, options, cancellationToken);
+            var test = await wooClient.TestAsync(cancellationToken);
+            if (!test.Success) return StatusCode(StatusCodes.Status503ServiceUnavailable, test);
         }
 
         var result = new WooSyncResult();
-        await SyncWooCategoriesAsync(connection, httpClient, options, result, cancellationToken);
-        await SyncWooCommoditiesAsync(connection, httpClient, options, result, cancellationToken);
-        await SyncWooPackagesAsync(connection, httpClient, options, result, cancellationToken);
+        await SyncWooCategoriesAsync(connection, wooClient, result, null, cancellationToken);
+        await SyncWooCommoditiesAsync(connection, wooClient, result, null, cancellationToken);
+        await SyncWooPackagesAsync(connection, wooClient, result, null, cancellationToken);
         result.FinishedAtUtc = DateTime.UtcNow;
         return Ok(result);
     }
 
-    private static async Task EnsureWooConnectionAsync(HttpClient httpClient, WooCommerceOptions options, CancellationToken cancellationToken)
+    private async Task<KhbWorkflowJob> GetOrCreateJobAsync(
+        Guid? jobId,
+        string type,
+        CancellationToken cancellationToken)
     {
-        var test = await TestWooConnectionAsync(httpClient, options, cancellationToken);
-        if (!test.Success)
+        if (jobId.HasValue)
         {
-            throw new InvalidOperationException($"اتصال WooCommerce برقرار نیست. {test.Message}");
+            return await _jobs.RequireAsync(jobId.Value, type, cancellationToken);
         }
+
+        var created = await _jobs.CreateAsync(type, User.Identity?.Name, cancellationToken);
+        return await _jobs.RequireAsync(created.JobId, type, cancellationToken);
     }
 
-    private static async Task<WooConnectionTestResult> TestWooConnectionAsync(HttpClient httpClient, WooCommerceOptions options, CancellationToken cancellationToken)
+    private async Task LogWooFailureAsync(
+        KhbWorkflowJob job,
+        string step,
+        string entityType,
+        string entityId,
+        string? sku,
+        Exception exception,
+        CancellationToken cancellationToken)
     {
-        var endpoint = "/wp-json/wc/v3/products?per_page=1";
-        var uri = BuildWooUri(options, endpoint);
-        var watch = Stopwatch.StartNew();
-
-        try
-        {
-            using var request = new HttpRequestMessage(HttpMethod.Get, uri);
-            using var response = await httpClient.SendAsync(request, cancellationToken);
-            var body = await response.Content.ReadAsStringAsync(cancellationToken);
-            watch.Stop();
-
-            return new WooConnectionTestResult(
-                Success: response.IsSuccessStatusCode,
-                StatusCode: (int)response.StatusCode,
-                Url: uri,
-                Message: response.IsSuccessStatusCode
-                    ? "اتصال WooCommerce قبل از ارسال محصولات با موفقیت تست شد."
-                    : $"WooCommerce پاسخ خطا داد: {(int)response.StatusCode} {response.ReasonPhrase}",
-                ElapsedMilliseconds: watch.ElapsedMilliseconds,
-                ResponsePreview: TrimForPreview(body));
-        }
-        catch (Exception ex)
-        {
-            watch.Stop();
-            return new WooConnectionTestResult(
-                Success: false,
-                StatusCode: 0,
-                Url: uri,
-                Message: ex.Message,
-                ElapsedMilliseconds: watch.ElapsedMilliseconds,
-                ResponsePreview: ex.ToString());
-        }
+        var woo = exception as WooCommerceProfileException;
+        await _jobs.AddLogAsync(
+            job,
+            step,
+            entityType,
+            entityId,
+            sku,
+            "error",
+            exception.Message,
+            woo?.RequestUrl,
+            woo?.ResponseCode,
+            woo?.ResponseSummary,
+            cancellationToken);
     }
 
-    private static string TrimForPreview(string? value)
+    private static async Task<int> GetWooDraftCountAsync(MySqlConnection connection, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return string.Empty;
-        }
-
-        return value.Length <= 3000 ? value : value[..3000] + "\n... truncated ...";
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COUNT(*) FROM khb_product_final WHERE COALESCE(Status, 'draft') <> 'publish';";
+        return Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken), CultureInfo.InvariantCulture);
     }
 
-    private async Task SyncWooCategoriesAsync(MySqlConnection connection, HttpClient httpClient, WooCommerceOptions options, WooSyncResult result, CancellationToken cancellationToken)
+    private async Task SyncWooCategoriesAsync(
+        MySqlConnection connection,
+        ProfileWooCommerceClient wooClient,
+        WooSyncResult result,
+        KhbWorkflowJob? job,
+        CancellationToken cancellationToken)
     {
         var rows = new List<WooCategoryRow>();
         await using (var command = connection.CreateCommand())
         {
             command.CommandText = @"
 SELECT Id, SourceKey, CategoryName, CategorySlug, WooCategoryId
-FROM KHB_Category_Map
+FROM khb_category_map
 ORDER BY Id;";
             await using var reader = await command.ExecuteReaderAsync(cancellationToken);
             while (await reader.ReadAsync(cancellationToken))
@@ -1048,22 +1255,35 @@ ORDER BY Id;";
                 };
 
                 // Use the plugin endpoint so product_cat and its import meta are normalized in one place.
-                var wooId = await PostKharbarchiEndpointAsync(httpClient, options, "/wp-json/khb/v1/category/upsert", row.WooCategoryId, payload, cancellationToken);
+                var wooId = await PostKharbarchiEndpointAsync(wooClient, "/wp-json/khb/v1/category/upsert", row.WooCategoryId, payload, cancellationToken);
 
-                await ExecuteUpsertAsync(connection, "UPDATE KHB_Category_Map SET WooCategoryId = @WooCategoryId, UpdatedAtUtc = UTC_TIMESTAMP(6) WHERE Id = @Id;", cancellationToken,
+                await ExecuteUpsertAsync(connection, "UPDATE khb_category_map SET WooCategoryId = @WooCategoryId, UpdatedAtUtc = UTC_TIMESTAMP(6) WHERE Id = @Id;", cancellationToken,
                     ("@WooCategoryId", wooId),
                     ("@Id", row.Id));
                 result.CategoriesSynced++;
+                if (job is not null)
+                {
+                    await _jobs.AddLogAsync(job, "Sending categories to WooCommerce", "category", row.SourceKey, null, "success", $"WooCommerce category id {wooId}.", wooClient.BuildSafeUrl("/wp-json/khb/v1/category/upsert"), 200, null, cancellationToken);
+                }
             }
             catch (Exception ex)
             {
                 result.CategoriesFailed++;
                 result.Errors.Add($"category:{row.SourceKey}: {ex.Message}");
+                if (job is not null)
+                {
+                    await LogWooFailureAsync(job, "Sending categories to WooCommerce", "category", row.SourceKey, null, ex, cancellationToken);
+                }
             }
         }
     }
 
-    private async Task SyncWooCommoditiesAsync(MySqlConnection connection, HttpClient httpClient, WooCommerceOptions options, WooSyncResult result, CancellationToken cancellationToken)
+    private async Task SyncWooCommoditiesAsync(
+        MySqlConnection connection,
+        ProfileWooCommerceClient wooClient,
+        WooSyncResult result,
+        KhbWorkflowJob? job,
+        CancellationToken cancellationToken)
     {
         var rows = new List<WooCommodityRow>();
         await using (var command = connection.CreateCommand())
@@ -1078,9 +1298,9 @@ SELECT
     MAX(cat.WooCategoryId) AS WooCategoryId,
     MAX(cat.CategorySlug) AS CategorySlug,
     MAX(cat.CategoryName) AS CategoryName
-FROM KHB_Commodity c
-LEFT JOIN KHB_Product_Final p ON p.CommoditySourceKey = c.SourceKey
-LEFT JOIN KHB_Category_Map cat ON cat.SourceKey = p.CategorySourceKey
+FROM khb_commodity c
+LEFT JOIN khb_product_final p ON p.CommoditySourceKey = c.SourceKey
+LEFT JOIN khb_category_map cat ON cat.SourceKey = p.CategorySourceKey
 GROUP BY c.Id, c.SourceKey, c.CommodityName, c.CommoditySlug, c.WooCommodityId
 ORDER BY c.Id;";
             await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -1112,28 +1332,41 @@ ORDER BY c.Id;";
                     ["category_slug"] = BuildEnglishSlug(FirstNotEmpty(row.CategorySlug, row.CategoryName))
                 };
 
-                var wooId = await PostKharbarchiEndpointAsync(httpClient, options, "/wp-json/khb/v1/commodity/upsert", row.WooCommodityId, payload, cancellationToken);
-                await ExecuteUpsertAsync(connection, "UPDATE KHB_Commodity SET WooCommodityId = @WooCommodityId, UpdatedAtUtc = UTC_TIMESTAMP(6) WHERE Id = @Id;", cancellationToken,
+                var wooId = await PostKharbarchiEndpointAsync(wooClient, "/wp-json/khb/v1/commodity/upsert", row.WooCommodityId, payload, cancellationToken);
+                await ExecuteUpsertAsync(connection, "UPDATE khb_commodity SET WooCommodityId = @WooCommodityId, UpdatedAtUtc = UTC_TIMESTAMP(6) WHERE Id = @Id;", cancellationToken,
                     ("@WooCommodityId", wooId),
                     ("@Id", row.Id));
                 result.CommoditiesSynced++;
+                if (job is not null)
+                {
+                    await _jobs.AddLogAsync(job, "Sending base products to WooCommerce", "commodity", row.SourceKey, null, "success", $"WooCommerce commodity id {wooId}.", wooClient.BuildSafeUrl("/wp-json/khb/v1/commodity/upsert"), 200, null, cancellationToken);
+                }
             }
             catch (Exception ex)
             {
                 result.CommoditiesFailed++;
                 result.Errors.Add($"commodity:{row.SourceKey}: {ex.Message}");
+                if (job is not null)
+                {
+                    await LogWooFailureAsync(job, "Sending base products to WooCommerce", "commodity", row.SourceKey, null, ex, cancellationToken);
+                }
             }
         }
     }
 
-    private async Task SyncWooPackagesAsync(MySqlConnection connection, HttpClient httpClient, WooCommerceOptions options, WooSyncResult result, CancellationToken cancellationToken)
+    private async Task SyncWooPackagesAsync(
+        MySqlConnection connection,
+        ProfileWooCommerceClient wooClient,
+        WooSyncResult result,
+        KhbWorkflowJob? job,
+        CancellationToken cancellationToken)
     {
         var rows = new List<WooPackageRow>();
         await using (var command = connection.CreateCommand())
         {
             command.CommandText = @"
-SELECT Id, SourceKey, PackageGroup, PackageCode, PackageTitle, UnitWeightKg, PacksPerCarton, PackagingPricePerPack
-FROM KHB_Package_Type
+SELECT Id, SourceKey, PackageGroup, PackageCode, PackageTitle, UnitWeightKg, PacksPerCarton, PackagingPricePerPack, WooPackageId
+FROM khb_package_type
 ORDER BY Id;";
             await using var reader = await command.ExecuteReaderAsync(cancellationToken);
             while (await reader.ReadAsync(cancellationToken))
@@ -1146,7 +1379,8 @@ ORDER BY Id;";
                     ReadString(reader, 4),
                     ReadNullableDecimal(reader, 5),
                     ReadNullableInt(reader, 6),
-                    ReadNullableDecimal(reader, 7)));
+                    ReadNullableDecimal(reader, 7),
+                    ReadNullableLong(reader, 8)));
             }
         }
 
@@ -1168,22 +1402,33 @@ ORDER BY Id;";
                     ["image_tag"] = BuildImageTag(row.PackageTitle, group, row.UnitWeightKg)
                 };
 
-                await PostKharbarchiEndpointAsync(httpClient, options, "/wp-json/khb/v1/package/upsert", null, payload, cancellationToken);
+                var wooId = await PostKharbarchiEndpointAsync(wooClient, "/wp-json/khb/v1/package/upsert", row.WooPackageId, payload, cancellationToken);
+                await ExecuteUpsertAsync(connection, "UPDATE khb_package_type SET WooPackageId = @WooPackageId, UpdatedAtUtc = UTC_TIMESTAMP(6) WHERE Id = @Id;", cancellationToken,
+                    ("@WooPackageId", wooId > 0 ? wooId : null),
+                    ("@Id", row.Id));
                 result.PackagesSynced++;
+                if (job is not null)
+                {
+                    await _jobs.AddLogAsync(job, "Sending packaging records to WooCommerce", "package", row.SourceKey, null, "success", wooId > 0 ? $"WooCommerce package id {wooId}." : "Package endpoint completed.", wooClient.BuildSafeUrl("/wp-json/khb/v1/package/upsert"), 200, null, cancellationToken);
+                }
             }
             catch (Exception ex)
             {
                 result.PackagesFailed++;
                 result.Errors.Add($"package:{row.SourceKey}: {ex.Message}");
+                if (job is not null)
+                {
+                    await LogWooFailureAsync(job, "Sending packaging records to WooCommerce", "package", row.SourceKey, null, ex, cancellationToken);
+                }
             }
         }
     }
 
     private async Task SyncWooProductsAsync(
         MySqlConnection connection,
-        HttpClient httpClient,
-        WooCommerceOptions options,
+        ProfileWooCommerceClient wooClient,
         WooSyncResult result,
+        KhbWorkflowJob? job,
         CancellationToken cancellationToken,
         int? take = null,
         bool pendingOnly = false)
@@ -1219,6 +1464,7 @@ SELECT
     p.PackageGroup,
     p.PackageCode,
     COALESCE(pk.PackageTitle, sp.PackageName, p.PackageCode) AS PackageTitle,
+    pk.WooPackageId,
     p.UnitWeightKg,
     p.PacksPerCarton,
     p.PackagingPricePerPack,
@@ -1236,11 +1482,11 @@ SELECT
     sp.FullDescription,
     sp.ImageUrl,
     sp.GalleryJson
-FROM KHB_Product_Final p
-LEFT JOIN KHB_Category_Map c ON c.SourceKey = p.CategorySourceKey
-LEFT JOIN KHB_Commodity cm ON cm.SourceKey = p.CommoditySourceKey
-LEFT JOIN KHB_Package_Type pk ON pk.SourceKey = p.PackageSourceKey
-LEFT JOIN KHB_Product_Update_Queue q ON q.SourceKey = p.SourceKey
+FROM khb_product_final p
+LEFT JOIN khb_category_map c ON c.SourceKey = p.CategorySourceKey
+LEFT JOIN khb_commodity cm ON cm.SourceKey = p.CommoditySourceKey
+LEFT JOIN khb_package_type pk ON pk.SourceKey = p.PackageSourceKey
+LEFT JOIN khb_product_update_queue q ON q.SourceKey = p.SourceKey
 LEFT JOIN khb_sale_products sp ON sp.SourceRowHash = p.SourceKey
 {where}
 ORDER BY p.Id{limit};";
@@ -1275,23 +1521,24 @@ ORDER BY p.Id{limit};";
                     ReadString(reader, 18),
                     ReadString(reader, 19),
                     ReadString(reader, 20),
-                    ReadNullableDecimal(reader, 21),
-                    ReadNullableInt(reader, 22),
-                    ReadNullableDecimal(reader, 23),
+                    ReadNullableLong(reader, 21),
+                    ReadNullableDecimal(reader, 22),
+                    ReadNullableInt(reader, 23),
                     ReadNullableDecimal(reader, 24),
                     ReadNullableDecimal(reader, 25),
                     ReadNullableDecimal(reader, 26),
                     ReadNullableDecimal(reader, 27),
                     ReadNullableDecimal(reader, 28),
                     ReadNullableDecimal(reader, 29),
-                    ReadString(reader, 30),
+                    ReadNullableDecimal(reader, 30),
                     ReadString(reader, 31),
                     ReadString(reader, 32),
                     ReadString(reader, 33),
                     ReadString(reader, 34),
                     ReadString(reader, 35),
                     ReadString(reader, 36),
-                    ReadString(reader, 37)));
+                    ReadString(reader, 37),
+                    ReadString(reader, 38)));
             }
         }
 
@@ -1299,38 +1546,70 @@ ORDER BY p.Id{limit};";
         {
             try
             {
-                var payload = BuildWooProductPayload(row);
-                var wooId = await UpsertWooProductAsync(httpClient, options, row, payload, cancellationToken);
+                if (row.WooCategoryId is not > 0)
+                {
+                    throw new InvalidOperationException("DEPENDENCY_CATEGORY_NOT_SYNCED");
+                }
+                if (row.WooCommodityId is not > 0)
+                {
+                    throw new InvalidOperationException("DEPENDENCY_COMMODITY_NOT_SYNCED");
+                }
+                if (row.WooPackageId is not > 0)
+                {
+                    throw new InvalidOperationException("DEPENDENCY_PACKAGE_NOT_SYNCED");
+                }
 
-                await LinkWooProductRelationsAsync(httpClient, options, row, wooId, cancellationToken);
+                var payload = BuildWooProductPayload(row);
+                var wooId = await UpsertWooProductAsync(wooClient, row, payload, cancellationToken);
+
+                await LinkWooProductRelationsAsync(wooClient, row, wooId, cancellationToken);
 
                 await ExecuteUpsertAsync(connection, @"
-UPDATE KHB_Product_Final
+UPDATE khb_product_final
 SET WooProductId = @WooProductId, UpdatedAtUtc = UTC_TIMESTAMP(6)
 WHERE Id = @Id;", cancellationToken,
                     ("@WooProductId", wooId),
                     ("@Id", row.Id));
 
                 await ExecuteUpsertAsync(connection, @"
-UPDATE KHB_Product_Update_Queue
-SET EntityType = 'product', QueueStatus = 'synced', WooProductId = @WooProductId, LastError = NULL, UpdatedAtUtc = UTC_TIMESTAMP(6)
+UPDATE khb_product_update_queue
+SET EntityType = 'product', QueueStatus = 'synced', WooProductId = @WooProductId, LastError = NULL, TryCount = TryCount + 1, UpdatedAtUtc = UTC_TIMESTAMP(6)
 WHERE SourceKey = @SourceKey;", cancellationToken,
                     ("@WooProductId", wooId),
                     ("@SourceKey", row.SourceKey));
 
                 result.ProductsSynced++;
+                if (job is not null)
+                {
+                    await _jobs.AddLogAsync(job, "Sending final products to WooCommerce", "product", row.SourceKey, row.Sku, "success", $"WooCommerce product id {wooId}.", wooClient.BuildSafeUrl("/wp-json/wc/v3/products"), 200, null, cancellationToken);
+                    var processed = result.ProductsSynced + result.ProductsFailed;
+                    var total = Math.Max(job.TotalItems, processed);
+                    await _jobs.SetPhaseAsync(job, "Sending final products to WooCommerce", 55 + (int)Math.Round(processed * 44d / Math.Max(1, total)), total, processed, result.ProductsSynced, result.ProductsFailed, job.DraftCount, job.SkippedCount, $"Processed {processed} of {total} products.", cancellationToken);
+                }
             }
             catch (Exception ex)
             {
                 await ExecuteUpsertAsync(connection, @"
-UPDATE KHB_Product_Update_Queue
-SET EntityType = 'product', QueueStatus = 'failed', LastError = @LastError, UpdatedAtUtc = UTC_TIMESTAMP(6)
+UPDATE khb_product_update_queue
+SET EntityType = 'product', QueueStatus = 'failed', LastError = @LastError, TryCount = TryCount + 1, UpdatedAtUtc = UTC_TIMESTAMP(6)
 WHERE SourceKey = @SourceKey;", cancellationToken,
                     ("@LastError", ex.Message),
                     ("@SourceKey", row.SourceKey));
 
                 result.ProductsFailed++;
                 result.Errors.Add($"product:{row.SourceKey}: {ex.Message}");
+                if (job is not null)
+                {
+                    await LogWooFailureAsync(job, "Sending final products to WooCommerce", "product", row.SourceKey, row.Sku, ex, cancellationToken);
+                }
+                if (ex is WooCommerceProfileException { ResponseCode: 401 or 403 })
+                {
+                    if (job is not null)
+                    {
+                        await _jobs.FailAsync(job, "Sending final products to WooCommerce", ex, cancellationToken);
+                    }
+                    throw;
+                }
             }
         }
     }
@@ -1386,7 +1665,7 @@ WHERE SourceKey = @SourceKey;", cancellationToken,
         return node;
     }
 
-    private async Task LinkWooProductRelationsAsync(HttpClient httpClient, WooCommerceOptions options, WooProductRow row, long wooProductId, CancellationToken cancellationToken)
+    private async Task LinkWooProductRelationsAsync(ProfileWooCommerceClient wooClient, WooProductRow row, long wooProductId, CancellationToken cancellationToken)
     {
         var priceContext = GetWooPriceContext(row);
         var payload = new JsonObject
@@ -1398,141 +1677,81 @@ WHERE SourceKey = @SourceKey;", cancellationToken,
             ["meta"] = BuildProductLinkMeta(row, priceContext)
         };
 
-        await SendWooJsonAsync(httpClient, options, HttpMethod.Post, "/wp-json/khb/v1/product/link", payload, cancellationToken);
+        await SendWooJsonAsync(wooClient, HttpMethod.Post, "/wp-json/khb/v1/product/link", payload, cancellationToken);
     }
 
-    private async Task<long> UpsertWooProductAsync(HttpClient httpClient, WooCommerceOptions options, WooProductRow row, JsonObject payload, CancellationToken cancellationToken)
+    private async Task<long> UpsertWooProductAsync(ProfileWooCommerceClient wooClient, WooProductRow row, JsonObject payload, CancellationToken cancellationToken)
     {
         var existingId = row.WooProductId ?? row.QueueWooProductId;
         if (!existingId.HasValue && !string.IsNullOrWhiteSpace(row.Sku))
         {
-            existingId = await FindWooObjectIdByQueryAsync(httpClient, options, "/wp-json/wc/v3/products", $"sku={Uri.EscapeDataString(row.Sku)}", cancellationToken);
+            existingId = await FindWooObjectIdByQueryAsync(wooClient, "/wp-json/wc/v3/products", $"sku={Uri.EscapeDataString(row.Sku)}", cancellationToken);
         }
 
         if (existingId.HasValue && existingId.Value > 0)
         {
-            var doc = await SendWooJsonAsync(httpClient, options, HttpMethod.Put, $"/wp-json/wc/v3/products/{existingId.Value}", payload, cancellationToken);
+            var doc = await SendWooJsonAsync(wooClient, HttpMethod.Put, $"/wp-json/wc/v3/products/{existingId.Value}", payload, cancellationToken);
             return ExtractWooId(doc) ?? existingId.Value;
         }
 
-        var created = await SendWooJsonAsync(httpClient, options, HttpMethod.Post, "/wp-json/wc/v3/products", payload, cancellationToken);
+        var created = await SendWooJsonAsync(wooClient, HttpMethod.Post, "/wp-json/wc/v3/products", payload, cancellationToken);
         return ExtractWooId(created) ?? throw new InvalidOperationException("WooCommerce product response did not include id.");
     }
 
-    private async Task<long> UpsertWooCommerceObjectAsync(HttpClient httpClient, WooCommerceOptions options, string endpoint, long? existingId, string? slug, JsonObject payload, CancellationToken cancellationToken)
+    private async Task<long> UpsertWooCommerceObjectAsync(ProfileWooCommerceClient wooClient, string endpoint, long? existingId, string? slug, JsonObject payload, CancellationToken cancellationToken)
     {
         if (existingId.HasValue && existingId.Value > 0)
         {
-            var updated = await SendWooJsonAsync(httpClient, options, HttpMethod.Put, $"{endpoint}/{existingId.Value}", payload, cancellationToken);
+            var updated = await SendWooJsonAsync(wooClient, HttpMethod.Put, $"{endpoint}/{existingId.Value}", payload, cancellationToken);
             return ExtractWooId(updated) ?? existingId.Value;
         }
 
         if (!string.IsNullOrWhiteSpace(slug))
         {
-            var found = await FindWooObjectIdByQueryAsync(httpClient, options, endpoint, $"slug={Uri.EscapeDataString(slug)}", cancellationToken);
+            var found = await FindWooObjectIdByQueryAsync(wooClient, endpoint, $"slug={Uri.EscapeDataString(slug)}", cancellationToken);
             if (found.HasValue && found.Value > 0)
             {
-                var updated = await SendWooJsonAsync(httpClient, options, HttpMethod.Put, $"{endpoint}/{found.Value}", payload, cancellationToken);
+                var updated = await SendWooJsonAsync(wooClient, HttpMethod.Put, $"{endpoint}/{found.Value}", payload, cancellationToken);
                 return ExtractWooId(updated) ?? found.Value;
             }
         }
 
-        var created = await SendWooJsonAsync(httpClient, options, HttpMethod.Post, endpoint, payload, cancellationToken);
+        var created = await SendWooJsonAsync(wooClient, HttpMethod.Post, endpoint, payload, cancellationToken);
         return ExtractWooId(created) ?? throw new InvalidOperationException("WooCommerce response did not include id.");
     }
 
-    private async Task<long> PostKharbarchiEndpointAsync(HttpClient httpClient, WooCommerceOptions options, string endpoint, long? existingId, JsonObject payload, CancellationToken cancellationToken)
+    private async Task<long> PostKharbarchiEndpointAsync(ProfileWooCommerceClient wooClient, string endpoint, long? existingId, JsonObject payload, CancellationToken cancellationToken)
     {
         if (existingId.HasValue) payload["id"] = existingId.Value;
-        var doc = await SendWooJsonAsync(httpClient, options, HttpMethod.Post, endpoint, payload, cancellationToken);
+        var doc = await SendWooJsonAsync(wooClient, HttpMethod.Post, endpoint, payload, cancellationToken);
         return ExtractWooId(doc) ?? existingId ?? 0;
     }
 
-    private static async Task<long?> FindWooObjectIdByQueryAsync(HttpClient httpClient, WooCommerceOptions options, string endpoint, string query, CancellationToken cancellationToken)
+    private static async Task<long?> FindWooObjectIdByQueryAsync(ProfileWooCommerceClient wooClient, string endpoint, string query, CancellationToken cancellationToken)
     {
-        var uri = BuildWooUri(options, endpoint + (endpoint.Contains('?') ? "&" : "?") + query);
-        using var request = new HttpRequestMessage(HttpMethod.Get, uri);
-        using var response = await httpClient.SendAsync(request, cancellationToken);
-        if (!response.IsSuccessStatusCode) return null;
-        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+        using var doc = await wooClient.TryGetJsonAsync(endpoint + (endpoint.Contains('?') ? "&" : "?") + query, cancellationToken);
+        if (doc is null) return null;
         if (doc.RootElement.ValueKind != JsonValueKind.Array || doc.RootElement.GetArrayLength() == 0) return null;
         return doc.RootElement[0].TryGetProperty("id", out var idElement) && idElement.TryGetInt64(out var id) ? id : null;
     }
 
-    private static async Task<JsonDocument> SendWooJsonAsync(HttpClient httpClient, WooCommerceOptions options, HttpMethod method, string endpoint, JsonObject payload, CancellationToken cancellationToken)
-    {
-        var uri = BuildWooUri(options, endpoint);
-        using var request = new HttpRequestMessage(method, uri);
-        request.Content = new StringContent(payload.ToJsonString(JsonOptions), Encoding.UTF8, "application/json");
-        using var response = await httpClient.SendAsync(request, cancellationToken);
-        var body = await response.Content.ReadAsStringAsync(cancellationToken);
-        if (!response.IsSuccessStatusCode)
-        {
-            throw new InvalidOperationException($"WooCommerce HTTP {(int)response.StatusCode}: {body}");
-        }
-
-        if (string.IsNullOrWhiteSpace(body))
-        {
-            return JsonDocument.Parse("{}");
-        }
-        return JsonDocument.Parse(body);
-    }
-
-    private WooCommerceOptions GetWooCommerceOptions()
-    {
-        var baseUrl = FirstNotEmpty(
-            _configuration["WooCommerce:BaseUrl"],
-            _configuration["Kharbarchi:WooCommerce:BaseUrl"],
-            Environment.GetEnvironmentVariable("KHB_WOO_BASE_URL"));
-        var consumerKey = FirstNotEmpty(
-            _configuration["WooCommerce:ConsumerKey"],
-            _configuration["Kharbarchi:WooCommerce:ConsumerKey"],
-            Environment.GetEnvironmentVariable("KHB_WOO_CONSUMER_KEY"));
-        var consumerSecret = FirstNotEmpty(
-            _configuration["WooCommerce:ConsumerSecret"],
-            _configuration["Kharbarchi:WooCommerce:ConsumerSecret"],
-            Environment.GetEnvironmentVariable("KHB_WOO_CONSUMER_SECRET"));
-
-        if (string.IsNullOrWhiteSpace(baseUrl) || string.IsNullOrWhiteSpace(consumerKey) || string.IsNullOrWhiteSpace(consumerSecret))
-        {
-            throw new InvalidOperationException("WooCommerce settings are missing. Set WooCommerce:BaseUrl, WooCommerce:ConsumerKey, and WooCommerce:ConsumerSecret in appsettings.Development.json or environment variables KHB_WOO_BASE_URL, KHB_WOO_CONSUMER_KEY, KHB_WOO_CONSUMER_SECRET.");
-        }
-
-        var verifySslText = FirstNotEmpty(_configuration["WooCommerce:VerifySsl"], Environment.GetEnvironmentVariable("KHB_WOO_VERIFY_SSL"));
-        var verifySsl = bool.TryParse(verifySslText, out var parsedVerify) ? parsedVerify : !baseUrl.Contains("localhost", StringComparison.OrdinalIgnoreCase);
-        return new WooCommerceOptions(baseUrl.TrimEnd('/'), consumerKey, consumerSecret, verifySsl, 180);
-    }
-
-    private static HttpClient CreateWooCommerceHttpClient(WooCommerceOptions options)
-    {
-        var handler = new HttpClientHandler();
-        if (!options.VerifySsl)
-        {
-            handler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
-        }
-
-        var client = new HttpClient(handler)
-        {
-            Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds)
-        };
-        var basic = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{options.ConsumerKey}:{options.ConsumerSecret}"));
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", basic);
-        client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-        return client;
-    }
-
-    private static string BuildWooUri(WooCommerceOptions options, string endpoint)
-    {
-        var separator = endpoint.Contains('?') ? "&" : "?";
-        return $"{options.BaseUrl}{endpoint}{separator}consumer_key={Uri.EscapeDataString(options.ConsumerKey)}&consumer_secret={Uri.EscapeDataString(options.ConsumerSecret)}";
-    }
+    private static Task<JsonDocument> SendWooJsonAsync(
+        ProfileWooCommerceClient wooClient,
+        HttpMethod method,
+        string endpoint,
+        JsonObject payload,
+        CancellationToken cancellationToken) =>
+        wooClient.SendJsonAsync(method, endpoint, payload.ToJsonString(JsonOptions), cancellationToken);
 
     private static long? ExtractWooId(JsonDocument doc)
     {
         if (doc.RootElement.ValueKind == JsonValueKind.Object && doc.RootElement.TryGetProperty("id", out var idElement) && idElement.TryGetInt64(out var id))
         {
             return id;
+        }
+        if (doc.RootElement.ValueKind == JsonValueKind.Object && doc.RootElement.TryGetProperty("term_id", out var termIdElement) && termIdElement.TryGetInt64(out var termId))
+        {
+            return termId;
         }
         return null;
     }
@@ -1928,7 +2147,7 @@ SELECT
     SUM(CASE WHEN QueueStatus = 'synced' THEN 1 ELSE 0 END) AS Synced,
     SUM(CASE WHEN QueueStatus = 'failed' THEN 1 ELSE 0 END) AS Failed,
     SUM(CASE WHEN QueueStatus IN ('pending', 'processing') OR QueueStatus IS NULL THEN 1 ELSE 0 END) AS Pending
-FROM KHB_Product_Update_Queue
+FROM khb_product_update_queue
 WHERE EntityType = 'product'
    OR ActionType = 'upsert';";
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -1947,13 +2166,11 @@ WHERE EntityType = 'product'
 
     private sealed record WooPriceContext(string PackageGroup, decimal TotalWeight, decimal BulkWeightKg, decimal MinPurchaseKg, int PacksPerCarton, string UnitMeasure, string QuantityLabel, bool ShouldDraft, string FixNote);
     private sealed record WooProductSyncProgress(int Total, int Synced, int Failed, int Pending, int Percent);
-    private sealed record WooConnectionTestResult(bool Success, int StatusCode, string Url, string Message, long ElapsedMilliseconds, string? ResponsePreview);
-
-    private sealed record WooCommerceOptions(string BaseUrl, string ConsumerKey, string ConsumerSecret, bool VerifySsl, int TimeoutSeconds);
     private sealed record WooCategoryRow(long Id, string SourceKey, string? CategoryName, string? CategorySlug, long? WooCategoryId);
     private sealed record WooCommodityRow(long Id, string SourceKey, string? CommodityName, string? CommoditySlug, long? WooCommodityId, long? WooCategoryId, string? CategorySlug, string? CategoryName);
-    private sealed record WooPackageRow(long Id, string SourceKey, string? PackageGroup, string? PackageCode, string? PackageTitle, decimal? UnitWeightKg, int? PacksPerCarton, decimal? PackagingPricePerPack);
-    private sealed record WooProductRow(long Id, string SourceKey, long? WooProductId, string? Sku, string? ProductSlug, string? WooPayloadJson, string? CategorySourceKey, string? CommoditySourceKey, string? PackageSourceKey, long? WooCategoryId, string? CategoryName, string? CategorySlug, long? WooCommodityId, string? CommodityName, string? CommoditySlug, long? QueueWooProductId, string? ProductName, string? ProductEnglishName, string? PackageGroup, string? PackageCode, string? PackageTitle, decimal? UnitWeightKg, int? PacksPerCarton, decimal? PackagingPricePerPack, decimal? KgCashPrice, decimal? KgCreditPrice, decimal? SaleCashPrice, decimal? SaleCreditPrice, decimal? BuyCashPrice, decimal? BuyCreditPrice, string? Status, string? CatalogVisibility, string? BrandName, string? BrandEnglishName, string? ShortDescription, string? FullDescription, string? ImageUrl, string? GalleryJson);
+    private sealed record WooPackageRow(long Id, string SourceKey, string? PackageGroup, string? PackageCode, string? PackageTitle, decimal? UnitWeightKg, int? PacksPerCarton, decimal? PackagingPricePerPack, long? WooPackageId);
+    private sealed record WooProductRow(long Id, string SourceKey, long? WooProductId, string? Sku, string? ProductSlug, string? WooPayloadJson, string? CategorySourceKey, string? CommoditySourceKey, string? PackageSourceKey, long? WooCategoryId, string? CategoryName, string? CategorySlug, long? WooCommodityId, string? CommodityName, string? CommoditySlug, long? QueueWooProductId, string? ProductName, string? ProductEnglishName, string? PackageGroup, string? PackageCode, string? PackageTitle, long? WooPackageId, decimal? UnitWeightKg, int? PacksPerCarton, decimal? PackagingPricePerPack, decimal? KgCashPrice, decimal? KgCreditPrice, decimal? SaleCashPrice, decimal? SaleCreditPrice, decimal? BuyCashPrice, decimal? BuyCreditPrice, string? Status, string? CatalogVisibility, string? BrandName, string? BrandEnglishName, string? ShortDescription, string? FullDescription, string? ImageUrl, string? GalleryJson);
+    private sealed record PreparedSaleProduct(AllProductRow Source, SaleProductDraft Product, long GroupId);
 
     private sealed class WooSyncResult
     {
@@ -2201,7 +2418,7 @@ SELECT LAST_INSERT_ID();";
         var kgCashToman = ConvertInputPriceToToman(row.SaleKgPriceCash, priceUnit);
         var kgCreditToman = ConvertInputPriceToToman(row.SaleKgPriceInstallment, priceUnit);
         await ExecuteUpsertAsync(connection, @"
-INSERT INTO KHB_Source_Product
+INSERT INTO khb_source_product
 (SourceKey, SourceRowId, ProductName, ProductEnglishName, MainProductName, CategoryName, CategorySlug, BrandName, BrandEnglishName, PackageOne, UnitWeightKg, KgCashPrice, KgCreditPrice, RawJson, CreatedAtUtc, UpdatedAtUtc)
 VALUES
 (@SourceKey, @SourceRowId, @ProductName, @ProductEnglishName, @MainProductName, @CategoryName, @CategorySlug, @BrandName, @BrandEnglishName, @PackageOne, @UnitWeightKg, @KgCashPrice, @KgCreditPrice, @RawJson, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6))
@@ -2223,34 +2440,104 @@ ON DUPLICATE KEY UPDATE ProductName = VALUES(ProductName), ProductEnglishName = 
             ("@RawJson", row.RawJson));
     }
 
-    private static async Task UpsertWorkflowTablesAsync(MySqlConnection connection, long groupId, AllProductRow source, SaleProductDraft product, CancellationToken cancellationToken)
+    private async Task<int> ExecutePreparedPhaseAsync(
+        MySqlConnection connection,
+        KhbWorkflowJob job,
+        IReadOnlyList<PreparedSaleProduct> rows,
+        HashSet<string> blocked,
+        string step,
+        int startPercent,
+        int endPercent,
+        Func<MySqlConnection, PreparedSaleProduct, CancellationToken, Task> operation,
+        CancellationToken cancellationToken)
     {
-        var categorySlug = BuildEnglishSlug(FirstNotEmpty(source.CategorySlug, source.ProductEnglishName, source.CategoryName));
-        var categoryName = FirstNotEmpty(source.CategoryName, source.MainProductName, categorySlug);
-        var commoditySlug = BuildEnglishSlug(FirstNotEmpty(source.MainProductSlug, source.ProductEnglishName, source.MainProductName));
-        var commodityName = FirstNotEmpty(source.MainProductName, source.ProductName, commoditySlug);
-        var packageSourceKey = $"pkg:{product.PackagingGroup}:{product.PackageCode}".ToLowerInvariant();
+        var phaseErrors = 0;
+        var initialErrors = job.ErrorCount;
+        for (var index = 0; index < rows.Count; index++)
+        {
+            var row = rows[index];
+            if (!blocked.Contains(row.Product.SourceRowHash))
+            {
+                try
+                {
+                    await operation(connection, row, cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    phaseErrors++;
+                    blocked.Add(row.Product.SourceRowHash);
+                    await _jobs.AddLogAsync(
+                        job,
+                        step,
+                        "product",
+                        row.Product.SourceRowHash,
+                        row.Product.Sku,
+                        "error",
+                        ex.Message,
+                        ex is WooCommerceProfileException woo ? woo.RequestUrl : null,
+                        ex is WooCommerceProfileException wooError ? wooError.ResponseCode : null,
+                        ex is WooCommerceProfileException wooBody ? wooBody.ResponseSummary : null,
+                        cancellationToken);
+                }
+            }
 
-        await ExecuteUpsertAsync(connection, @"
-INSERT INTO KHB_Category_Map (SourceKey, CategoryName, CategorySlug, WooCategoryId, CreatedAtUtc, UpdatedAtUtc)
+            var percent = rows.Count == 0
+                ? endPercent
+                : startPercent + (int)Math.Round((index + 1) * (endPercent - startPercent) / (double)rows.Count);
+            var processed = step == "Building WooCommerce sync queue"
+                ? Math.Max(0, index + 1 - blocked.Count)
+                : 0;
+            await _jobs.SetPhaseAsync(
+                job,
+                step,
+                percent,
+                rows.Count,
+                processed,
+                processed,
+                initialErrors + phaseErrors,
+                job.DraftCount,
+                job.SkippedCount,
+                $"{step}: {index + 1} of {rows.Count}",
+                cancellationToken);
+        }
+
+        return phaseErrors;
+    }
+
+    private static Task UpsertCategoryWorkflowAsync(MySqlConnection connection, PreparedSaleProduct row, CancellationToken cancellationToken)
+    {
+        var categorySlug = BuildEnglishSlug(FirstNotEmpty(row.Source.CategorySlug, row.Source.ProductEnglishName, row.Source.CategoryName));
+        var categoryName = FirstNotEmpty(row.Source.CategoryName, row.Source.MainProductName, categorySlug);
+        return ExecuteUpsertAsync(connection, @"
+INSERT INTO khb_category_map (SourceKey, CategoryName, CategorySlug, WooCategoryId, CreatedAtUtc, UpdatedAtUtc)
 VALUES (@SourceKey, @CategoryName, @CategorySlug, NULL, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6))
 ON DUPLICATE KEY UPDATE CategoryName = VALUES(CategoryName), CategorySlug = VALUES(CategorySlug), UpdatedAtUtc = UTC_TIMESTAMP(6);",
             cancellationToken,
             ("@SourceKey", $"cat:{categorySlug}"),
             ("@CategoryName", categoryName),
             ("@CategorySlug", categorySlug));
+    }
 
-        await ExecuteUpsertAsync(connection, @"
-INSERT INTO KHB_Commodity (SourceKey, CommodityName, CommoditySlug, WooCommodityId, CreatedAtUtc, UpdatedAtUtc)
+    private static Task UpsertCommodityWorkflowAsync(MySqlConnection connection, PreparedSaleProduct row, CancellationToken cancellationToken)
+    {
+        var commoditySlug = BuildEnglishSlug(FirstNotEmpty(row.Source.MainProductSlug, row.Source.ProductEnglishName, row.Source.MainProductName));
+        var commodityName = FirstNotEmpty(row.Source.MainProductName, row.Source.ProductName, commoditySlug);
+        return ExecuteUpsertAsync(connection, @"
+INSERT INTO khb_commodity (SourceKey, CommodityName, CommoditySlug, WooCommodityId, CreatedAtUtc, UpdatedAtUtc)
 VALUES (@SourceKey, @CommodityName, @CommoditySlug, NULL, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6))
 ON DUPLICATE KEY UPDATE CommodityName = VALUES(CommodityName), CommoditySlug = VALUES(CommoditySlug), UpdatedAtUtc = UTC_TIMESTAMP(6);",
             cancellationToken,
             ("@SourceKey", $"commodity:{commoditySlug}"),
             ("@CommodityName", commodityName),
             ("@CommoditySlug", commoditySlug));
+    }
 
-        await ExecuteUpsertAsync(connection, @"
-INSERT INTO KHB_Package_Type (SourceKey, PackageGroup, PackageCode, PackageTitle, UnitWeightKg, PacksPerCarton, PackagingPricePerPack, CreatedAtUtc, UpdatedAtUtc)
+    private static Task UpsertPackageWorkflowAsync(MySqlConnection connection, PreparedSaleProduct row, CancellationToken cancellationToken)
+    {
+        var product = row.Product;
+        var packageSourceKey = $"pkg:{product.PackagingGroup}:{product.PackageCode}".ToLowerInvariant();
+        return ExecuteUpsertAsync(connection, @"
+INSERT INTO khb_package_type (SourceKey, PackageGroup, PackageCode, PackageTitle, UnitWeightKg, PacksPerCarton, PackagingPricePerPack, CreatedAtUtc, UpdatedAtUtc)
 VALUES (@SourceKey, @PackageGroup, @PackageCode, @PackageTitle, @UnitWeightKg, @PacksPerCarton, @PackagingPricePerPack, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6))
 ON DUPLICATE KEY UPDATE PackageGroup = VALUES(PackageGroup), PackageCode = VALUES(PackageCode), PackageTitle = VALUES(PackageTitle), UnitWeightKg = VALUES(UnitWeightKg), PacksPerCarton = VALUES(PacksPerCarton), PackagingPricePerPack = VALUES(PackagingPricePerPack), UpdatedAtUtc = UTC_TIMESTAMP(6);",
             cancellationToken,
@@ -2261,43 +2548,27 @@ ON DUPLICATE KEY UPDATE PackageGroup = VALUES(PackageGroup), PackageCode = VALUE
             ("@UnitWeightKg", product.UnitWeight),
             ("@PacksPerCarton", product.PacksPerCarton),
             ("@PackagingPricePerPack", product.PackagingPricePerPack));
+    }
 
-        var payload = JsonSerializer.Serialize(new
-        {
-            name = product.ProductName,
-            slug = product.ProductSlug,
-            sku = product.Sku,
-            regular_price = product.SalePriceInstallment?.ToString("0", CultureInfo.InvariantCulture),
-            sale_price = string.Empty,
-            status = product.Status,
-            catalog_visibility = product.Status == "publish" ? "visible" : "hidden",
-            meta_data = new[]
-            {
-                new { key = "_kharbarchi_sale_cash_price", value = product.SalePriceCash?.ToString("0", CultureInfo.InvariantCulture) },
-                new { key = "_kharbarchi_sale_credit_price", value = product.SalePriceInstallment?.ToString("0", CultureInfo.InvariantCulture) },
-                new { key = "_kharbarchi_buy_cash_price", value = product.PurchasePriceCash?.ToString("0", CultureInfo.InvariantCulture) },
-                new { key = "_kharbarchi_buy_credit_price", value = product.PurchasePriceInstallment?.ToString("0", CultureInfo.InvariantCulture) },
-                new { key = "_kharbarchi_package_group", value = (string?)product.PackagingGroup },
-                new { key = "_kharbarchi_package_code", value = (string?)product.PackageCode },
-                new { key = "_khb_sale_mode", value = (string?)GetSaleMode(product.PackagingGroup) },
-                new { key = "_khb_price_calculation_basis", value = (string?)GetPriceCalculationBasis(product.PackagingGroup) },
-                new { key = "_kharbarchi_packs_per_carton", value = (string?)product.PacksPerCarton.ToString(CultureInfo.InvariantCulture) },
-                new { key = "_kharbarchi_unit_weight_kg", value = (string?)product.UnitWeight.ToString("0.####", CultureInfo.InvariantCulture) },
-                new { key = "_kharbarchi_kg_cash_price", value = product.KgPriceCash?.ToString("0", CultureInfo.InvariantCulture) },
-                new { key = "_kharbarchi_kg_credit_price", value = product.KgPriceInstallment?.ToString("0", CultureInfo.InvariantCulture) },
-                new { key = "_kharbarchi_packaging_price_per_pack", value = (string?)product.PackagingPricePerPack.ToString("0", CultureInfo.InvariantCulture) }
-            }
-        }, JsonOptions);
+    private static async Task UpsertFinalWorkflowAsync(MySqlConnection connection, PreparedSaleProduct row, CancellationToken cancellationToken)
+    {
+        var source = row.Source;
+        var product = row.Product;
+        var categorySlug = BuildEnglishSlug(FirstNotEmpty(source.CategorySlug, source.ProductEnglishName, source.CategoryName));
+        var commoditySlug = BuildEnglishSlug(FirstNotEmpty(source.MainProductSlug, source.ProductEnglishName, source.MainProductName));
+        var packageSourceKey = $"pkg:{product.PackagingGroup}:{product.PackageCode}".ToLowerInvariant();
+        var payload = BuildQueuePayload(product);
 
+        await UpsertSaleProductAsync(connection, row.GroupId, product, cancellationToken);
         await ExecuteUpsertAsync(connection, @"
-INSERT INTO KHB_Product_Final
+INSERT INTO khb_product_final
 (SourceKey, MainGroupId, CategorySourceKey, CommoditySourceKey, PackageSourceKey, ProductName, ProductEnglishName, ProductSlug, SKU, PackageGroup, PackageCode, SaleMode, PriceCalculationBasis, UnitWeightKg, PacksPerCarton, PackagingPricePerPack, KgCashPrice, KgCreditPrice, SaleCashPrice, SaleCreditPrice, BuyCashPrice, BuyCreditPrice, Status, CatalogVisibility, WooPayloadJson, CreatedAtUtc, UpdatedAtUtc)
 VALUES
 (@SourceKey, @MainGroupId, @CategorySourceKey, @CommoditySourceKey, @PackageSourceKey, @ProductName, @ProductEnglishName, @ProductSlug, @SKU, @PackageGroup, @PackageCode, @SaleMode, @PriceCalculationBasis, @UnitWeightKg, @PacksPerCarton, @PackagingPricePerPack, @KgCashPrice, @KgCreditPrice, @SaleCashPrice, @SaleCreditPrice, @BuyCashPrice, @BuyCreditPrice, @Status, @CatalogVisibility, @WooPayloadJson, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6))
-ON DUPLICATE KEY UPDATE ProductName = VALUES(ProductName), ProductEnglishName = VALUES(ProductEnglishName), ProductSlug = VALUES(ProductSlug), SKU = VALUES(SKU), PackageGroup = VALUES(PackageGroup), PackageCode = VALUES(PackageCode), SaleMode = VALUES(SaleMode), PriceCalculationBasis = VALUES(PriceCalculationBasis), UnitWeightKg = VALUES(UnitWeightKg), PacksPerCarton = VALUES(PacksPerCarton), PackagingPricePerPack = VALUES(PackagingPricePerPack), KgCashPrice = VALUES(KgCashPrice), KgCreditPrice = VALUES(KgCreditPrice), SaleCashPrice = VALUES(SaleCashPrice), SaleCreditPrice = VALUES(SaleCreditPrice), BuyCashPrice = VALUES(BuyCashPrice), BuyCreditPrice = VALUES(BuyCreditPrice), Status = VALUES(Status), CatalogVisibility = VALUES(CatalogVisibility), WooPayloadJson = VALUES(WooPayloadJson), UpdatedAtUtc = UTC_TIMESTAMP(6);",
+ON DUPLICATE KEY UPDATE MainGroupId = VALUES(MainGroupId), CategorySourceKey = VALUES(CategorySourceKey), CommoditySourceKey = VALUES(CommoditySourceKey), PackageSourceKey = VALUES(PackageSourceKey), ProductName = VALUES(ProductName), ProductEnglishName = VALUES(ProductEnglishName), ProductSlug = VALUES(ProductSlug), SKU = VALUES(SKU), PackageGroup = VALUES(PackageGroup), PackageCode = VALUES(PackageCode), SaleMode = VALUES(SaleMode), PriceCalculationBasis = VALUES(PriceCalculationBasis), UnitWeightKg = VALUES(UnitWeightKg), PacksPerCarton = VALUES(PacksPerCarton), PackagingPricePerPack = VALUES(PackagingPricePerPack), KgCashPrice = VALUES(KgCashPrice), KgCreditPrice = VALUES(KgCreditPrice), SaleCashPrice = VALUES(SaleCashPrice), SaleCreditPrice = VALUES(SaleCreditPrice), BuyCashPrice = VALUES(BuyCashPrice), BuyCreditPrice = VALUES(BuyCreditPrice), Status = VALUES(Status), CatalogVisibility = VALUES(CatalogVisibility), WooPayloadJson = VALUES(WooPayloadJson), UpdatedAtUtc = UTC_TIMESTAMP(6);",
             cancellationToken,
             ("@SourceKey", product.SourceRowHash),
-            ("@MainGroupId", groupId),
+            ("@MainGroupId", row.GroupId),
             ("@CategorySourceKey", $"cat:{categorySlug}"),
             ("@CommoditySourceKey", $"commodity:{commoditySlug}"),
             ("@PackageSourceKey", packageSourceKey),
@@ -2321,21 +2592,68 @@ ON DUPLICATE KEY UPDATE ProductName = VALUES(ProductName), ProductEnglishName = 
             ("@Status", product.Status),
             ("@CatalogVisibility", product.Status == "publish" ? "visible" : "hidden"),
             ("@WooPayloadJson", payload));
-
+        await RegisterPriceHistoryAsync(connection, product, cancellationToken);
         await ExecuteUpsertAsync(connection, @"
-INSERT INTO KHB_Product_Update_Queue
-(SourceKey, EntityType, QueueStatus, ActionType, SKU, ProductSlug, WooPayloadJson, CreatedAtUtc, UpdatedAtUtc)
+INSERT INTO khb_product_change_log (ProductId, ChangeType, Summary, Payload, CreatedAtUtc)
+SELECT Id, 'upsert', @Summary, @Payload, UTC_TIMESTAMP(6)
+FROM khb_product_final
+WHERE SourceKey = @SourceKey
+LIMIT 1;",
+            cancellationToken,
+            ("@Summary", $"CSV workflow upsert for SKU {product.Sku}"),
+            ("@Payload", payload),
+            ("@SourceKey", product.SourceRowHash));
+    }
+
+    private static Task QueueWorkflowAsync(
+        MySqlConnection connection,
+        PreparedSaleProduct row,
+        Guid jobId,
+        CancellationToken cancellationToken)
+    {
+        var product = row.Product;
+        return ExecuteUpsertAsync(connection, @"
+INSERT INTO khb_product_update_queue
+(SourceKey, EntityType, QueueStatus, ActionType, SKU, ProductSlug, WooPayloadJson, JobId, TryCount, CreatedAtUtc, UpdatedAtUtc)
 VALUES
-(@SourceKey, 'product', 'pending', 'upsert', @SKU, @ProductSlug, @WooPayloadJson, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6))
-ON DUPLICATE KEY UPDATE EntityType = 'product', QueueStatus = 'pending', ActionType = 'upsert', SKU = VALUES(SKU), ProductSlug = VALUES(ProductSlug), WooPayloadJson = VALUES(WooPayloadJson), LastError = NULL, UpdatedAtUtc = UTC_TIMESTAMP(6);",
+(@SourceKey, 'product', 'pending', 'upsert', @SKU, @ProductSlug, @WooPayloadJson, @JobId, 0, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6))
+ON DUPLICATE KEY UPDATE EntityType = 'product', QueueStatus = 'pending', ActionType = 'upsert', SKU = VALUES(SKU), ProductSlug = VALUES(ProductSlug), WooPayloadJson = VALUES(WooPayloadJson), JobId = VALUES(JobId), TryCount = 0, LastError = NULL, UpdatedAtUtc = UTC_TIMESTAMP(6);",
             cancellationToken,
             ("@SourceKey", product.SourceRowHash),
             ("@SKU", product.Sku),
             ("@ProductSlug", product.ProductSlug),
-            ("@WooPayloadJson", payload));
+            ("@WooPayloadJson", BuildQueuePayload(product)),
+            ("@JobId", jobId.ToString()));
     }
 
+    private static string BuildQueuePayload(SaleProductDraft product) =>
+        JsonSerializer.Serialize(new
+        {
+            name = product.ProductName,
+            slug = product.ProductSlug,
+            sku = product.Sku,
+            regular_price = product.SalePriceInstallment?.ToString("0", CultureInfo.InvariantCulture),
+            sale_price = string.Empty,
+            status = product.Status,
+            catalog_visibility = product.Status == "publish" ? "visible" : "hidden",
+            meta_data = new[]
+            {
+                new { key = "_kharbarchi_sale_cash_price", value = product.SalePriceCash?.ToString("0", CultureInfo.InvariantCulture) },
+                new { key = "_kharbarchi_sale_credit_price", value = product.SalePriceInstallment?.ToString("0", CultureInfo.InvariantCulture) },
+                new { key = "_kharbarchi_buy_cash_price", value = product.PurchasePriceCash?.ToString("0", CultureInfo.InvariantCulture) },
+                new { key = "_kharbarchi_buy_credit_price", value = product.PurchasePriceInstallment?.ToString("0", CultureInfo.InvariantCulture) },
+                new { key = "_kharbarchi_package_group", value = (string?)product.PackagingGroup },
+                new { key = "_kharbarchi_package_code", value = (string?)product.PackageCode },
+                new { key = "_khb_sale_mode", value = (string?)GetSaleMode(product.PackagingGroup) },
+                new { key = "_khb_price_calculation_basis", value = (string?)GetPriceCalculationBasis(product.PackagingGroup) },
+                new { key = "_kharbarchi_packs_per_carton", value = (string?)product.PacksPerCarton.ToString(CultureInfo.InvariantCulture) },
+                new { key = "_kharbarchi_unit_weight_kg", value = (string?)product.UnitWeight.ToString("0.####", CultureInfo.InvariantCulture) }
+            }
+        }, JsonOptions);
 
+#if false
+    // Legacy destructive helpers are intentionally excluded from compilation.
+    // Schema ownership belongs exclusively to reviewed EF Core migrations.
     private static Task ResetGeneratedProductTablesAsync(MySqlConnection connection, CancellationToken cancellationToken)
     {
         // KHB-SAFE: destructive reset is disabled. Workflow processing is upsert-only.
@@ -2360,6 +2678,7 @@ WHERE TABLE_SCHEMA = DATABASE()
         var result = await command.ExecuteScalarAsync(cancellationToken);
         return Convert.ToInt64(result, CultureInfo.InvariantCulture) > 0;
     }
+#endif
 
     private static async Task ExecuteUpsertAsync(MySqlConnection connection, string sql, CancellationToken cancellationToken, params (string Name, object? Value)[] parameters)
     {
@@ -2402,7 +2721,7 @@ WHERE TABLE_SCHEMA = DATABASE()
         await using var current = connection.CreateCommand();
         current.CommandText = @"
 SELECT Id, PriceAmount
-FROM KHB_Product_Price_History
+FROM khb_product_price_history
 WHERE ProductSourceKey = @ProductSourceKey
   AND ProductType = @ProductType
   AND PriceType = @PriceType
@@ -2427,7 +2746,7 @@ LIMIT 1;";
         if (currentId.HasValue && currentPrice.HasValue && currentPrice.Value == priceAmount.Value)
         {
             await ExecuteUpsertAsync(connection, @"
-UPDATE KHB_Product_Price_History
+UPDATE khb_product_price_history
 SET ProductName = @ProductName,
     SKU = @SKU,
     PackageGroup = @PackageGroup,
@@ -2445,14 +2764,14 @@ WHERE Id = @Id;", cancellationToken,
         if (currentId.HasValue)
         {
             await ExecuteUpsertAsync(connection, @"
-UPDATE KHB_Product_Price_History
+UPDATE khb_product_price_history
 SET ValidToUtc = UTC_TIMESTAMP(6), IsCurrent = 0, UpdatedAtUtc = UTC_TIMESTAMP(6)
 WHERE Id = @Id;", cancellationToken,
                 ("@Id", currentId.Value));
         }
 
         await ExecuteUpsertAsync(connection, @"
-INSERT INTO KHB_Product_Price_History
+INSERT INTO khb_product_price_history
 (
     ProductSourceKey,
     ProductName,
@@ -2636,438 +2955,105 @@ ON DUPLICATE KEY UPDATE
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
-    private static async Task EnsureAllProductTableAsync(MySqlConnection connection, string tableName, CancellationToken cancellationToken)
+    private static Task ValidateAllProductTableAsync(
+        MySqlConnection connection,
+        string tableName,
+        CancellationToken cancellationToken) =>
+        ValidateRequiredSchemaAsync(
+            connection,
+            new Dictionary<string, string[]>(StringComparer.Ordinal)
+            {
+                [tableName] =
+                [
+                    "Id", "ImportBatchId", "SourceRowNumber", "SourceRowHash", "RawJson",
+                    "MainProductName", "MainProductSlug", "GroupName", "CategoryName", "CategorySlug",
+                    "ProductName", "ProductEnglishName", "ProductSlug", "SKU", "BrandName",
+                    "BrandEnglishName", "PackageName", "UnitWeight", "PacksPerCarton", "CartonQuantity",
+                    "PackagingPricePerPack", "SalePriceCash", "SalePriceInstallment", "PurchasePriceCash",
+                    "PurchasePriceInstallment", "ShortDescription", "FullDescription", "ImageUrl",
+                    "GalleryJson", "Status", "WooProductId", "HaveOtherPackage", "PackageOne",
+                    "CreatedAtUtc", "UpdatedAtUtc"
+                ]
+            },
+            cancellationToken);
+
+    private static Task ValidateProductManagementTablesAsync(
+        MySqlConnection connection,
+        CancellationToken cancellationToken) =>
+        ValidateRequiredSchemaAsync(
+            connection,
+            new Dictionary<string, string[]>(StringComparer.Ordinal)
+            {
+                ["khb_product_main_groups"] = ["Id", "SourceKey", "Name", "MainProductName", "MainProductSlug", "CategoryName", "EnTaxonomic", "CategorySlug"],
+                ["khb_sale_products"] = ["Id", "MainGroupId", "SourceRowHash", "WooProductId", "ProductName", "ProductSlug", "SKU", "PackageName", "PackagingGroup", "PackageCode", "SaleMode", "PriceCalculationBasis", "Status"],
+                ["khb_source_product"] = ["Id", "SourceKey", "SourceRowId", "ProductName", "ProductEnglishName", "MainProductName", "CategoryName", "CategorySlug", "BrandName", "BrandEnglishName", "UnitWeightKg", "KgCashPrice", "KgCreditPrice"],
+                ["khb_category_map"] = ["Id", "SourceKey", "CategoryName", "CategorySlug", "WooCategoryId"],
+                ["khb_commodity"] = ["Id", "SourceKey", "CommodityName", "CommoditySlug", "WooCommodityId"],
+                ["khb_package_type"] = ["Id", "SourceKey", "PackageGroup", "PackageCode", "PackageTitle", "UnitWeightKg", "PacksPerCarton", "PackagingPricePerPack", "WooPackageId"],
+                ["khb_product_final"] = ["Id", "SourceKey", "MainGroupId", "CategorySourceKey", "CommoditySourceKey", "PackageSourceKey", "ProductName", "ProductEnglishName", "ProductSlug", "SKU", "WooProductId", "SaleMode", "PriceCalculationBasis", "Status", "WooPayloadJson"],
+                ["khb_product_update_queue"] = ["Id", "SourceKey", "EntityType", "QueueStatus", "ActionType", "SKU", "ProductSlug", "WooProductId", "WooPayloadJson", "LastError", "JobId", "TryCount"],
+                ["khb_product_price_history"] = ["Id", "ProductSourceKey", "ProductName", "SKU", "ProductType", "PriceType", "PriceAmount", "ValidFromUtc", "IsCurrent"],
+                ["khb_product_change_log"] = ["Id", "ProductId", "ChangeType", "CreatedAtUtc"],
+                ["khb_workflow_jobs"] = ["Id", "JobId", "Type", "Status", "CurrentStep", "ProgressPercent"],
+                ["khb_workflow_job_logs"] = ["Id", "JobId", "StepName", "Status", "CreatedAtUtc"],
+                ["khb_woocommerce_connection_profiles"] = ["Id", "ProfileName", "EnvironmentType", "BaseUrl", "ProtectedConsumerSecret", "VerifySsl", "IsActive"]
+            },
+            cancellationToken);
+
+    private static async Task ValidateRequiredSchemaAsync(
+        MySqlConnection connection,
+        IReadOnlyDictionary<string, string[]> requirements,
+        CancellationToken cancellationToken)
     {
-        await ExecuteAsync(connection, $@"
-CREATE TABLE IF NOT EXISTS `{tableName}` (
-    Id BIGINT NOT NULL AUTO_INCREMENT,
-    ImportBatchId VARCHAR(64) NULL,
-    SourceRowNumber INT NULL,
-    SourceRowHash CHAR(64) NOT NULL,
-    RawJson LONGTEXT NULL,
-    MainProductName VARCHAR(500) NULL,
-    MainProductSlug VARCHAR(500) NULL,
-    GroupName VARCHAR(500) NULL,
-    CategoryName VARCHAR(500) NULL,
-    CategorySlug VARCHAR(500) NULL,
-    ProductName VARCHAR(700) NULL,
-    ProductEnglishName VARCHAR(700) NULL,
-    ProductSlug VARCHAR(700) NULL,
-    SKU VARCHAR(191) NULL,
-    BrandName VARCHAR(300) NULL,
-    BrandEnglishName VARCHAR(300) NULL,
-    PackageName VARCHAR(300) NULL,
-    UnitWeight DECIMAL(18,6) NULL,
-    PacksPerCarton INT NULL,
-    CartonQuantity INT NULL,
-    PackagingPricePerPack DECIMAL(18,2) NULL,
-    SalePriceCash DECIMAL(18,2) NULL,
-    SalePriceInstallment DECIMAL(18,2) NULL,
-    PurchasePriceCash DECIMAL(18,2) NULL,
-    PurchasePriceInstallment DECIMAL(18,2) NULL,
-    ShortDescription LONGTEXT NULL,
-    FullDescription LONGTEXT NULL,
-    ImageUrl LONGTEXT NULL,
-    GalleryJson LONGTEXT NULL,
-    Status VARCHAR(100) NULL,
-    WooProductId BIGINT NULL,
-    HaveOtherPackage TINYINT(1) NULL,
-    PackageOne VARCHAR(300) NULL,
-    CreatedAtUtc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    UpdatedAtUtc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    PRIMARY KEY (Id),
-    UNIQUE KEY UX_All_Product_With_Process_SourceRowHash (SourceRowHash),
-    KEY IX_All_Product_With_Process_ProductName (ProductName(191)),
-    KEY IX_All_Product_With_Process_MainProductName (MainProductName(191)),
-    KEY IX_All_Product_With_Process_SKU (SKU)
-) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;", cancellationToken);
-
-        await EnsureAllProductColumnsAsync(connection, tableName, cancellationToken);
-    }
-
-    private static async Task EnsureProductManagementTablesAsync(MySqlConnection connection, CancellationToken cancellationToken)
-    {
-        await ExecuteAsync(connection, @"
-CREATE TABLE IF NOT EXISTS khb_product_main_groups (
-    Id BIGINT NOT NULL AUTO_INCREMENT,
-    MainProductName VARCHAR(500) NULL,
-    MainProductSlug VARCHAR(500) NULL,
-    CategoryName VARCHAR(500) NULL,
-    CategorySlug VARCHAR(500) NULL,
-    Description LONGTEXT NULL,
-    ImageUrl LONGTEXT NULL,
-    CreatedAtUtc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    UpdatedAtUtc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    PRIMARY KEY (Id),
-    UNIQUE KEY UX_khb_product_main_groups_slug (MainProductSlug)
-) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;", cancellationToken);
-
-        await ExecuteAsync(connection, @"
-CREATE TABLE IF NOT EXISTS khb_sale_products (
-    Id BIGINT NOT NULL AUTO_INCREMENT,
-    MainGroupId BIGINT NULL,
-    SourceRowHash CHAR(64) NOT NULL,
-    WooProductId BIGINT NULL,
-    ProductName VARCHAR(700) NULL,
-    ProductEnglishName VARCHAR(700) NULL,
-    ProductSlug VARCHAR(700) NULL,
-    SKU VARCHAR(191) NULL,
-    BrandName VARCHAR(300) NULL,
-    BrandEnglishName VARCHAR(300) NULL,
-    PackageName VARCHAR(300) NULL,
-    PackagingGroup VARCHAR(50) NULL,
-    PackageCode VARCHAR(50) NULL,
-    SaleMode VARCHAR(80) NULL,
-    PriceCalculationBasis VARCHAR(80) NULL,
-    UnitWeight DECIMAL(18,6) NULL,
-    PacksPerCarton INT NULL,
-    CartonQuantity INT NULL,
-    PackagingPricePerPack DECIMAL(18,2) NULL,
-    KgPriceCash DECIMAL(18,2) NULL,
-    KgPriceInstallment DECIMAL(18,2) NULL,
-    SalePriceCash DECIMAL(18,2) NULL,
-    SalePriceInstallment DECIMAL(18,2) NULL,
-    PurchasePriceCash DECIMAL(18,2) NULL,
-    PurchasePriceInstallment DECIMAL(18,2) NULL,
-    ShortDescription LONGTEXT NULL,
-    FullDescription LONGTEXT NULL,
-    ImageUrl LONGTEXT NULL,
-    GalleryJson LONGTEXT NULL,
-    Status VARCHAR(100) NOT NULL DEFAULT 'draft',
-    RawJson LONGTEXT NULL,
-    CreatedAtUtc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    UpdatedAtUtc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    PRIMARY KEY (Id),
-    UNIQUE KEY UX_khb_sale_products_hash (SourceRowHash),
-    KEY IX_khb_sale_products_woo (WooProductId),
-    KEY IX_khb_sale_products_sku (SKU),
-    KEY IX_khb_sale_products_name (ProductName(191))
-) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;", cancellationToken);
-
-
-        await ExecuteAsync(connection, @"
-CREATE TABLE IF NOT EXISTS KHB_Source_Product (
-    Id BIGINT NOT NULL AUTO_INCREMENT,
-    SourceKey CHAR(64) NOT NULL,
-    SourceRowId BIGINT NULL,
-    ProductName VARCHAR(700) NULL,
-    ProductEnglishName VARCHAR(700) NULL,
-    MainProductName VARCHAR(500) NULL,
-    CategoryName VARCHAR(500) NULL,
-    CategorySlug VARCHAR(500) NULL,
-    BrandName VARCHAR(300) NULL,
-    BrandEnglishName VARCHAR(300) NULL,
-    PackageOne VARCHAR(300) NULL,
-    UnitWeightKg DECIMAL(18,6) NULL,
-    KgCashPrice DECIMAL(18,2) NULL,
-    KgCreditPrice DECIMAL(18,2) NULL,
-    RawJson LONGTEXT NULL,
-    CreatedAtUtc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    UpdatedAtUtc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    PRIMARY KEY (Id),
-    UNIQUE KEY UX_KHB_Source_Product_SourceKey (SourceKey)
-) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;", cancellationToken);
-
-        await ExecuteAsync(connection, @"
-CREATE TABLE IF NOT EXISTS KHB_Category_Map (
-    Id BIGINT NOT NULL AUTO_INCREMENT,
-    SourceKey VARCHAR(500) NOT NULL,
-    CategoryName VARCHAR(500) NULL,
-    CategorySlug VARCHAR(500) NULL,
-    WooCategoryId BIGINT NULL,
-    CreatedAtUtc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    UpdatedAtUtc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    PRIMARY KEY (Id),
-    UNIQUE KEY UX_KHB_Category_Map_SourceKey (SourceKey)
-) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;", cancellationToken);
-
-        await ExecuteAsync(connection, @"
-CREATE TABLE IF NOT EXISTS KHB_Commodity (
-    Id BIGINT NOT NULL AUTO_INCREMENT,
-    SourceKey VARCHAR(500) NOT NULL,
-    CommodityName VARCHAR(500) NULL,
-    CommoditySlug VARCHAR(500) NULL,
-    WooCommodityId BIGINT NULL,
-    CreatedAtUtc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    UpdatedAtUtc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    PRIMARY KEY (Id),
-    UNIQUE KEY UX_KHB_Commodity_SourceKey (SourceKey)
-) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;", cancellationToken);
-
-        await ExecuteAsync(connection, @"
-CREATE TABLE IF NOT EXISTS KHB_Package_Type (
-    Id BIGINT NOT NULL AUTO_INCREMENT,
-    SourceKey VARCHAR(500) NOT NULL,
-    PackageGroup VARCHAR(50) NULL,
-    PackageCode VARCHAR(50) NULL,
-    PackageTitle VARCHAR(300) NULL,
-    UnitWeightKg DECIMAL(18,6) NULL,
-    PacksPerCarton INT NULL,
-    PackagingPricePerPack DECIMAL(18,2) NULL,
-    CreatedAtUtc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    UpdatedAtUtc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    PRIMARY KEY (Id),
-    UNIQUE KEY UX_KHB_Package_Type_SourceKey (SourceKey)
-) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;", cancellationToken);
-
-        await ExecuteAsync(connection, @"
-CREATE TABLE IF NOT EXISTS KHB_Product_Final (
-    Id BIGINT NOT NULL AUTO_INCREMENT,
-    SourceKey CHAR(64) NOT NULL,
-    MainGroupId BIGINT NULL,
-    CategorySourceKey VARCHAR(500) NULL,
-    CommoditySourceKey VARCHAR(500) NULL,
-    PackageSourceKey VARCHAR(500) NULL,
-    ProductName VARCHAR(700) NULL,
-    ProductEnglishName VARCHAR(700) NULL,
-    ProductSlug VARCHAR(700) NULL,
-    SKU VARCHAR(191) NULL,
-    PackageGroup VARCHAR(50) NULL,
-    PackageCode VARCHAR(50) NULL,
-    SaleMode VARCHAR(80) NULL,
-    PriceCalculationBasis VARCHAR(80) NULL,
-    UnitWeightKg DECIMAL(18,6) NULL,
-    PacksPerCarton INT NULL,
-    PackagingPricePerPack DECIMAL(18,2) NULL,
-    KgCashPrice DECIMAL(18,2) NULL,
-    KgCreditPrice DECIMAL(18,2) NULL,
-    SaleCashPrice DECIMAL(18,2) NULL,
-    SaleCreditPrice DECIMAL(18,2) NULL,
-    BuyCashPrice DECIMAL(18,2) NULL,
-    BuyCreditPrice DECIMAL(18,2) NULL,
-    Status VARCHAR(100) NULL,
-    CatalogVisibility VARCHAR(50) NULL,
-    WooPayloadJson LONGTEXT NULL,
-    CreatedAtUtc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    UpdatedAtUtc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    PRIMARY KEY (Id),
-    UNIQUE KEY UX_KHB_Product_Final_SourceKey (SourceKey),
-    KEY IX_KHB_Product_Final_SKU (SKU)
-) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;", cancellationToken);
-
-        await ExecuteAsync(connection, @"
-CREATE TABLE IF NOT EXISTS KHB_Product_Update_Queue (
-    Id BIGINT NOT NULL AUTO_INCREMENT,
-    SourceKey CHAR(64) NOT NULL,
-    EntityType VARCHAR(80) NOT NULL DEFAULT 'product',
-    QueueStatus VARCHAR(50) NOT NULL DEFAULT 'pending',
-    ActionType VARCHAR(50) NOT NULL DEFAULT 'upsert',
-    SKU VARCHAR(191) NULL,
-    ProductSlug VARCHAR(700) NULL,
-    WooProductId BIGINT NULL,
-    WooPayloadJson LONGTEXT NULL,
-    LastError LONGTEXT NULL,
-    CreatedAtUtc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    UpdatedAtUtc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    PRIMARY KEY (Id),
-    UNIQUE KEY UX_KHB_Product_Update_Queue_SourceKey (SourceKey),
-    KEY IX_KHB_Product_Update_Queue_Status (QueueStatus)
-) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;", cancellationToken);
-
-
-        await ExecuteAsync(connection, @"
-CREATE TABLE IF NOT EXISTS KHB_Product_Price_History (
-    Id BIGINT NOT NULL AUTO_INCREMENT,
-    ProductSourceKey CHAR(64) NOT NULL,
-    ProductName VARCHAR(700) NULL,
-    SKU VARCHAR(191) NULL,
-    ProductType VARCHAR(80) NOT NULL,
-    PackageGroup VARCHAR(50) NULL,
-    PackageCode VARCHAR(50) NULL,
-    PriceType VARCHAR(80) NOT NULL,
-    PriceAmount DECIMAL(18,2) NOT NULL,
-    CurrencyCode VARCHAR(20) NOT NULL DEFAULT 'TOMAN',
-    ValidFromUtc DATETIME(6) NOT NULL,
-    ValidToUtc DATETIME(6) NULL,
-    IsCurrent TINYINT(1) NOT NULL DEFAULT 1,
-    CreatedAtUtc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    UpdatedAtUtc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    PRIMARY KEY (Id),
-    KEY IX_KHB_Product_Price_History_Product (ProductSourceKey, ProductType, PriceType, IsCurrent),
-    KEY IX_KHB_Product_Price_History_SKU (SKU),
-    KEY IX_KHB_Product_Price_History_Date (ValidFromUtc, ValidToUtc)
-) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;", cancellationToken);
-
-        await EnsureProductManagementColumnsAsync(connection, cancellationToken);
-    }
-
-    private static async Task EnsureAllProductColumnsAsync(MySqlConnection connection, string tableName, CancellationToken cancellationToken)
-    {
-        await EnsureColumnAsync(connection, tableName, "ImportBatchId", "VARCHAR(64) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, tableName, "SourceRowNumber", "INT NULL", cancellationToken);
-        await EnsureColumnAsync(connection, tableName, "SourceRowHash", "CHAR(64) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, tableName, "RawJson", "LONGTEXT NULL", cancellationToken);
-        await EnsureColumnAsync(connection, tableName, "MainProductName", "VARCHAR(500) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, tableName, "MainProductSlug", "VARCHAR(500) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, tableName, "GroupName", "VARCHAR(500) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, tableName, "CategoryName", "VARCHAR(500) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, tableName, "CategorySlug", "VARCHAR(500) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, tableName, "ProductName", "VARCHAR(700) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, tableName, "ProductEnglishName", "VARCHAR(700) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, tableName, "ProductSlug", "VARCHAR(700) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, tableName, "SKU", "VARCHAR(191) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, tableName, "BrandName", "VARCHAR(300) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, tableName, "BrandEnglishName", "VARCHAR(300) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, tableName, "PackageName", "VARCHAR(300) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, tableName, "UnitWeight", "DECIMAL(18,6) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, tableName, "PacksPerCarton", "INT NULL", cancellationToken);
-        await EnsureColumnAsync(connection, tableName, "CartonQuantity", "INT NULL", cancellationToken);
-        await EnsureColumnAsync(connection, tableName, "PackagingPricePerPack", "DECIMAL(18,2) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, tableName, "SalePriceCash", "DECIMAL(18,2) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, tableName, "SalePriceInstallment", "DECIMAL(18,2) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, tableName, "PurchasePriceCash", "DECIMAL(18,2) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, tableName, "PurchasePriceInstallment", "DECIMAL(18,2) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, tableName, "ShortDescription", "LONGTEXT NULL", cancellationToken);
-        await EnsureColumnAsync(connection, tableName, "FullDescription", "LONGTEXT NULL", cancellationToken);
-        await EnsureColumnAsync(connection, tableName, "ImageUrl", "LONGTEXT NULL", cancellationToken);
-        await EnsureColumnAsync(connection, tableName, "GalleryJson", "LONGTEXT NULL", cancellationToken);
-        await EnsureColumnAsync(connection, tableName, "Status", "VARCHAR(100) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, tableName, "WooProductId", "BIGINT NULL", cancellationToken);
-        await EnsureColumnAsync(connection, tableName, "HaveOtherPackage", "TINYINT(1) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, tableName, "PackageOne", "VARCHAR(300) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, tableName, "CreatedAtUtc", "DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)", cancellationToken);
-        await EnsureColumnAsync(connection, tableName, "UpdatedAtUtc", "DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)", cancellationToken);
-    }
-
-    private static async Task EnsureProductManagementColumnsAsync(MySqlConnection connection, CancellationToken cancellationToken)
-    {
-        await EnsureColumnAsync(connection, "khb_product_main_groups", "SourceKey", "VARCHAR(500) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "khb_product_main_groups", "Name", "VARCHAR(500) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "khb_product_main_groups", "MainProductName", "VARCHAR(500) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "khb_product_main_groups", "MainProductSlug", "VARCHAR(500) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "khb_product_main_groups", "CategoryName", "VARCHAR(500) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "khb_product_main_groups", "CategorySlug", "VARCHAR(500) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "khb_product_main_groups", "Description", "LONGTEXT NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "khb_product_main_groups", "ImageUrl", "LONGTEXT NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "khb_product_main_groups", "CreatedAtUtc", "DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)", cancellationToken);
-        await EnsureColumnAsync(connection, "khb_product_main_groups", "UpdatedAtUtc", "DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)", cancellationToken);
-
-        await EnsureColumnAsync(connection, "khb_sale_products", "MainGroupId", "BIGINT NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "khb_sale_products", "SourceRowHash", "CHAR(64) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "khb_sale_products", "WooProductId", "BIGINT NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "khb_sale_products", "ProductName", "VARCHAR(700) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "khb_sale_products", "ProductEnglishName", "VARCHAR(700) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "khb_sale_products", "ProductSlug", "VARCHAR(700) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "khb_sale_products", "SKU", "VARCHAR(191) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "khb_sale_products", "BrandName", "VARCHAR(300) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "khb_sale_products", "BrandEnglishName", "VARCHAR(300) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "khb_sale_products", "PackageName", "VARCHAR(300) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "khb_sale_products", "PackagingGroup", "VARCHAR(50) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "khb_sale_products", "PackageCode", "VARCHAR(50) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "khb_sale_products", "SaleMode", "VARCHAR(80) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "khb_sale_products", "PriceCalculationBasis", "VARCHAR(80) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "khb_sale_products", "UnitWeight", "DECIMAL(18,6) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "khb_sale_products", "PacksPerCarton", "INT NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "khb_sale_products", "CartonQuantity", "INT NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "khb_sale_products", "PackagingPricePerPack", "DECIMAL(18,2) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "khb_sale_products", "KgPriceCash", "DECIMAL(18,2) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "khb_sale_products", "KgPriceInstallment", "DECIMAL(18,2) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "khb_sale_products", "SalePriceCash", "DECIMAL(18,2) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "khb_sale_products", "SalePriceInstallment", "DECIMAL(18,2) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "khb_sale_products", "PurchasePriceCash", "DECIMAL(18,2) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "khb_sale_products", "PurchasePriceInstallment", "DECIMAL(18,2) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "khb_sale_products", "ShortDescription", "LONGTEXT NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "khb_sale_products", "FullDescription", "LONGTEXT NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "khb_sale_products", "ImageUrl", "LONGTEXT NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "khb_sale_products", "GalleryJson", "LONGTEXT NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "khb_sale_products", "Status", "VARCHAR(100) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "khb_sale_products", "RawJson", "LONGTEXT NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "khb_sale_products", "CreatedAtUtc", "DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)", cancellationToken);
-        await EnsureColumnAsync(connection, "khb_sale_products", "UpdatedAtUtc", "DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)", cancellationToken);
-
-
-        await EnsureColumnAsync(connection, "KHB_Package_Type", "PackageTitle", "VARCHAR(300) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "KHB_Product_Update_Queue", "EntityType", "VARCHAR(80) NOT NULL DEFAULT 'product'", cancellationToken);
-        await EnsureColumnAsync(connection, "KHB_Product_Update_Queue", "QueueStatus", "VARCHAR(50) NOT NULL DEFAULT 'pending'", cancellationToken);
-        await EnsureColumnAsync(connection, "KHB_Product_Update_Queue", "ActionType", "VARCHAR(50) NOT NULL DEFAULT 'upsert'", cancellationToken);
-        await EnsureColumnAsync(connection, "KHB_Product_Update_Queue", "SKU", "VARCHAR(191) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "KHB_Product_Update_Queue", "ProductSlug", "VARCHAR(700) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "KHB_Product_Update_Queue", "WooProductId", "BIGINT NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "KHB_Product_Update_Queue", "WooPayloadJson", "LONGTEXT NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "KHB_Product_Update_Queue", "LastError", "LONGTEXT NULL", cancellationToken);
-        await ExecuteAsync(connection, "ALTER TABLE `KHB_Product_Update_Queue` MODIFY COLUMN `EntityType` VARCHAR(80) NOT NULL DEFAULT 'product';", cancellationToken);
-
-        await CopyColumnIfExistsAsync(connection, "khb_sale_products", "ProductSku", "SKU", cancellationToken);
-        await EnsureColumnAsync(connection, "KHB_Product_Final", "PackageGroup", "VARCHAR(50) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "KHB_Product_Final", "PackageCode", "VARCHAR(50) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "KHB_Product_Final", "SaleMode", "VARCHAR(80) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "KHB_Product_Final", "PriceCalculationBasis", "VARCHAR(80) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "KHB_Product_Final", "UnitWeightKg", "DECIMAL(18,6) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "KHB_Product_Final", "PacksPerCarton", "INT NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "KHB_Product_Final", "PackagingPricePerPack", "DECIMAL(18,2) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "KHB_Product_Final", "KgCashPrice", "DECIMAL(18,2) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "KHB_Product_Final", "KgCreditPrice", "DECIMAL(18,2) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "KHB_Product_Final", "WooProductId", "BIGINT NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "KHB_Product_Final", "BrandName", "VARCHAR(300) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "KHB_Product_Final", "BrandEnglishName", "VARCHAR(300) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "KHB_Product_Final", "PackageTitle", "VARCHAR(300) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "KHB_Product_Final", "BulkWeightKg", "DECIMAL(18,6) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "KHB_Product_Final", "MinPurchaseKg", "DECIMAL(18,6) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "KHB_Product_Final", "ImageTag", "VARCHAR(300) NULL", cancellationToken);
-        await CopyColumnIfExistsAsync(connection, "khb_sale_products", "Slug", "ProductSlug", cancellationToken);
-        await CopyColumnIfExistsAsync(connection, "khb_product_main_groups", "Name", "MainProductName", cancellationToken);
-
-        await EnsureColumnAsync(connection, "KHB_Product_Price_History", "ProductSourceKey", "CHAR(64) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "KHB_Product_Price_History", "ProductName", "VARCHAR(700) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "KHB_Product_Price_History", "SKU", "VARCHAR(191) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "KHB_Product_Price_History", "ProductType", "VARCHAR(80) NOT NULL DEFAULT 'carton_weight'", cancellationToken);
-        await EnsureColumnAsync(connection, "KHB_Product_Price_History", "PackageGroup", "VARCHAR(50) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "KHB_Product_Price_History", "PackageCode", "VARCHAR(50) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "KHB_Product_Price_History", "PriceType", "VARCHAR(80) NOT NULL DEFAULT 'sale_credit'", cancellationToken);
-        await EnsureColumnAsync(connection, "KHB_Product_Price_History", "PriceAmount", "DECIMAL(18,2) NOT NULL DEFAULT 0", cancellationToken);
-        await EnsureColumnAsync(connection, "KHB_Product_Price_History", "CurrencyCode", "VARCHAR(20) NOT NULL DEFAULT 'TOMAN'", cancellationToken);
-        await EnsureColumnAsync(connection, "KHB_Product_Price_History", "ValidFromUtc", "DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)", cancellationToken);
-        await EnsureColumnAsync(connection, "KHB_Product_Price_History", "ValidToUtc", "DATETIME(6) NULL", cancellationToken);
-        await EnsureColumnAsync(connection, "KHB_Product_Price_History", "IsCurrent", "TINYINT(1) NOT NULL DEFAULT 1", cancellationToken);
-        await EnsureColumnAsync(connection, "KHB_Product_Price_History", "CreatedAtUtc", "DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)", cancellationToken);
-        await EnsureColumnAsync(connection, "KHB_Product_Price_History", "UpdatedAtUtc", "DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)", cancellationToken);
-        await CopyColumnIfExistsAsync(connection, "khb_product_main_groups", "Slug", "MainProductSlug", cancellationToken);
-    }
-
-    private static async Task EnsureColumnAsync(MySqlConnection connection, string tableName, string columnName, string columnDefinition, CancellationToken cancellationToken)
-    {
-        await using var check = connection.CreateCommand();
-        check.CommandText = @"
-SELECT COUNT(*)
-FROM INFORMATION_SCHEMA.COLUMNS
-WHERE TABLE_SCHEMA = DATABASE()
-  AND TABLE_NAME = @TableName
-  AND COLUMN_NAME = @ColumnName;";
-        Add(check, "@TableName", tableName);
-        Add(check, "@ColumnName", columnName);
-        var exists = Convert.ToInt64(await check.ExecuteScalarAsync(cancellationToken), CultureInfo.InvariantCulture) > 0;
-        if (exists) return;
-
-        await using var alter = connection.CreateCommand();
-        alter.CommandText = $"ALTER TABLE `{tableName}` ADD COLUMN `{columnName}` {columnDefinition};";
-        await alter.ExecuteNonQueryAsync(cancellationToken);
-    }
-
-    private static async Task CopyColumnIfExistsAsync(MySqlConnection connection, string tableName, string sourceColumn, string targetColumn, CancellationToken cancellationToken)
-    {
-        await using var check = connection.CreateCommand();
-        check.CommandText = @"
-SELECT COUNT(*)
-FROM INFORMATION_SCHEMA.COLUMNS
-WHERE TABLE_SCHEMA = DATABASE()
-  AND TABLE_NAME = @TableName
-  AND COLUMN_NAME = @SourceColumn;";
-        Add(check, "@TableName", tableName);
-        Add(check, "@SourceColumn", sourceColumn);
-        var sourceExists = Convert.ToInt64(await check.ExecuteScalarAsync(cancellationToken), CultureInfo.InvariantCulture) > 0;
-        if (!sourceExists) return;
-
-        await EnsureColumnAsync(connection, tableName, targetColumn, "LONGTEXT NULL", cancellationToken);
-        await using var update = connection.CreateCommand();
-        update.CommandText = $"UPDATE `{tableName}` SET `{targetColumn}` = NULLIF(TRIM(`{sourceColumn}`), '') WHERE (`{targetColumn}` IS NULL OR `{targetColumn}` = '');";
-        await update.ExecuteNonQueryAsync(cancellationToken);
-    }
-
-    private static async Task ExecuteAsync(MySqlConnection connection, string sql, CancellationToken cancellationToken)
-    {
+        var tableParameters = requirements.Keys.Select((_, index) => $"@Table{index}").ToArray();
         await using var command = connection.CreateCommand();
-        command.CommandText = sql;
-        await command.ExecuteNonQueryAsync(cancellationToken);
+        command.CommandText = $@"
+SELECT TABLE_NAME, COLUMN_NAME
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_SCHEMA = DATABASE()
+  AND TABLE_NAME IN ({string.Join(", ", tableParameters)});";
+        var parameterIndex = 0;
+        foreach (var table in requirements.Keys)
+        {
+            Add(command, tableParameters[parameterIndex++], table);
+        }
+
+        var actual = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+        await using (var reader = await command.ExecuteReaderAsync(cancellationToken))
+        {
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var table = reader.GetString(0);
+                var column = reader.GetString(1);
+                if (!actual.TryGetValue(table, out var columns))
+                {
+                    columns = new HashSet<string>(StringComparer.Ordinal);
+                    actual[table] = columns;
+                }
+                columns.Add(column);
+            }
+        }
+
+        var missing = new List<string>();
+        foreach (var requirement in requirements)
+        {
+            if (!actual.TryGetValue(requirement.Key, out var columns))
+            {
+                missing.Add($"table:{requirement.Key}");
+                continue;
+            }
+
+            missing.AddRange(requirement.Value
+                .Where(column => !columns.Contains(column))
+                .Select(column => $"{requirement.Key}.{column}"));
+        }
+
+        if (missing.Count > 0)
+        {
+            throw new InvalidOperationException(
+                "Canonical KHB schema is incomplete. Apply the reviewed EF Core migration first. Missing: "
+                + string.Join(", ", missing));
+        }
     }
 
     private string GetConnectionString()
@@ -3088,11 +3074,11 @@ WHERE TABLE_SCHEMA = DATABASE()
     private static string NormalizeTableName(string? tableName)
     {
         var name = string.IsNullOrWhiteSpace(tableName) ? DefaultTableName : tableName.Trim();
-        if (name.Any(ch => !(char.IsLetterOrDigit(ch) || ch == '_')))
+        if (!string.Equals(name, DefaultTableName, StringComparison.OrdinalIgnoreCase))
         {
-            throw new ArgumentException("Table name can only contain letters, digits and underscore.");
+            throw new ArgumentException($"Only the canonical table '{DefaultTableName}' is supported.");
         }
-        return name;
+        return DefaultTableName;
     }
 
     private static async Task<string> ReadCsvAsUtf8Async(IFormFile file, CancellationToken cancellationToken)

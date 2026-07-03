@@ -36,6 +36,21 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRo
     public DbSet<WooCommerceOrderItemSnapshot> WooCommerceOrderItemSnapshots => Set<WooCommerceOrderItemSnapshot>();
     public DbSet<BarookPaymentSession> BarookPaymentSessions => Set<BarookPaymentSession>();
     public DbSet<ManualPaymentReceipt> ManualPaymentReceipts => Set<ManualPaymentReceipt>();
+    public DbSet<AllProductWithProcess> AllProductsWithProcess => Set<AllProductWithProcess>();
+    public DbSet<KhbProductMainGroup> KhbProductMainGroups => Set<KhbProductMainGroup>();
+    public DbSet<KhbSaleProduct> KhbSaleProducts => Set<KhbSaleProduct>();
+    public DbSet<KhbSourceProduct> KhbSourceProducts => Set<KhbSourceProduct>();
+    public DbSet<KhbCategoryMap> KhbCategoryMaps => Set<KhbCategoryMap>();
+    public DbSet<KhbCommodity> KhbCommodities => Set<KhbCommodity>();
+    public DbSet<KhbPackageType> KhbPackageTypes => Set<KhbPackageType>();
+    public DbSet<KhbProductFinal> KhbProductFinals => Set<KhbProductFinal>();
+    public DbSet<KhbProductUpdateQueue> KhbProductUpdateQueue => Set<KhbProductUpdateQueue>();
+    public DbSet<KhbProductPriceHistory> KhbProductPriceHistory => Set<KhbProductPriceHistory>();
+    public DbSet<KhbProductChangeLog> KhbProductChangeLogs => Set<KhbProductChangeLog>();
+    public DbSet<KhbImportedWooCommerceRecord> KhbImportedWooCommerceRecords => Set<KhbImportedWooCommerceRecord>();
+    public DbSet<KhbWorkflowJob> KhbWorkflowJobs => Set<KhbWorkflowJob>();
+    public DbSet<KhbWorkflowJobLog> KhbWorkflowJobLogs => Set<KhbWorkflowJobLog>();
+    public DbSet<WooCommerceConnectionProfile> WooCommerceConnectionProfiles => Set<WooCommerceConnectionProfile>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -47,25 +62,26 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRo
         ConfigureWorkflow(modelBuilder);
         ConfigureWooCommerceSupport(modelBuilder);
         ConfigureOrderWorkflow(modelBuilder);
+        modelBuilder.ConfigureKharbarchiWorkflow();
         SeedBaseData(modelBuilder);
     }
 
     private static void ConfigureIdentity(ModelBuilder modelBuilder)
     {
-        modelBuilder.Entity<ApplicationUser>().ToTable("sec_AspNetUsers");
-        modelBuilder.Entity<IdentityRole>().ToTable("sec_AspNetRoles");
-        modelBuilder.Entity<IdentityUserRole<string>>().ToTable("sec_AspNetUserRoles");
-        modelBuilder.Entity<IdentityUserClaim<string>>().ToTable("sec_AspNetUserClaims");
-        modelBuilder.Entity<IdentityUserLogin<string>>().ToTable("sec_AspNetUserLogins");
-        modelBuilder.Entity<IdentityRoleClaim<string>>().ToTable("sec_AspNetRoleClaims");
-        modelBuilder.Entity<IdentityUserToken<string>>().ToTable("sec_AspNetUserTokens");
+        modelBuilder.Entity<ApplicationUser>().ToTable("sec_aspnetusers");
+        modelBuilder.Entity<IdentityRole>().ToTable("sec_aspnetroles");
+        modelBuilder.Entity<IdentityUserRole<string>>().ToTable("sec_aspnetuserroles");
+        modelBuilder.Entity<IdentityUserClaim<string>>().ToTable("sec_aspnetuserclaims");
+        modelBuilder.Entity<IdentityUserLogin<string>>().ToTable("sec_aspnetuserlogins");
+        modelBuilder.Entity<IdentityRoleClaim<string>>().ToTable("sec_aspnetroleclaims");
+        modelBuilder.Entity<IdentityUserToken<string>>().ToTable("sec_aspnetusertokens");
     }
 
     private static void ConfigureCatalog(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Brand>(entity =>
         {
-            entity.ToTable("gnr_Brands");
+            entity.ToTable("gnr_brands");
             entity.HasIndex(x => x.Slug).IsUnique();
             entity.Property(x => x.Name).HasMaxLength(160).IsRequired();
             entity.Property(x => x.Slug).HasMaxLength(180).IsRequired();
@@ -75,7 +91,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRo
 
         modelBuilder.Entity<Commodity>(entity =>
         {
-            entity.ToTable("gnr_Commodities");
+            entity.ToTable("gnr_commodities");
             entity.HasIndex(x => x.Slug).IsUnique();
             entity.Property(x => x.Name).HasMaxLength(180).IsRequired();
             entity.Property(x => x.Slug).HasMaxLength(200).IsRequired();
@@ -86,7 +102,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRo
 
         modelBuilder.Entity<ProductTag>(entity =>
         {
-            entity.ToTable("gnr_ProductTags");
+            entity.ToTable("gnr_producttags");
             entity.HasIndex(x => x.Slug).IsUnique();
             entity.Property(x => x.Name).HasMaxLength(120).IsRequired();
             entity.Property(x => x.Slug).HasMaxLength(140).IsRequired();
@@ -94,7 +110,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRo
 
         modelBuilder.Entity<ProductProductTag>(entity =>
         {
-            entity.ToTable("gnr_ProductProductTags");
+            entity.ToTable("gnr_productproducttags");
             entity.HasKey(x => new { x.ProductId, x.ProductTagId });
             entity.HasOne(x => x.Product)
                 .WithMany(x => x.ProductTags)
@@ -108,7 +124,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRo
 
         modelBuilder.Entity<ProductSpecDefinition>(entity =>
         {
-            entity.ToTable("gnr_ProductSpecDefinitions");
+            entity.ToTable("gnr_productspecdefinitions");
             entity.HasIndex(x => x.Slug).IsUnique();
             entity.Property(x => x.Name).HasMaxLength(140).IsRequired();
             entity.Property(x => x.Slug).HasMaxLength(160).IsRequired();
@@ -117,7 +133,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRo
 
         modelBuilder.Entity<ProductSpecValue>(entity =>
         {
-            entity.ToTable("gnr_ProductSpecValues");
+            entity.ToTable("gnr_productspecvalues");
             entity.HasIndex(x => new { x.ProductId, x.SpecDefinitionId }).IsUnique();
             entity.Property(x => x.Value).HasMaxLength(500).IsRequired();
             entity.HasOne(x => x.Product)
@@ -135,7 +151,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRo
     {
         modelBuilder.Entity<Category>(entity =>
         {
-            entity.ToTable("gnr_Categories");
+            entity.ToTable("gnr_categories");
             entity.HasIndex(x => x.Slug).IsUnique();
             entity.HasIndex(x => x.WooCommerceCategoryId).IsUnique();
             entity.Property(x => x.Name).HasMaxLength(150).IsRequired();
@@ -144,7 +160,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRo
 
         modelBuilder.Entity<Product>(entity =>
         {
-            entity.ToTable("gnr_Products");
+            entity.ToTable("gnr_products");
             entity.HasIndex(x => x.Slug).IsUnique();
             entity.HasIndex(x => x.Sku).IsUnique();
             entity.HasIndex(x => x.WooCommerceProductId).IsUnique();
@@ -181,7 +197,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRo
 
         modelBuilder.Entity<ProductVariant>(entity =>
         {
-            entity.ToTable("gnr_ProductVariants");
+            entity.ToTable("gnr_productvariants");
             entity.HasIndex(x => new { x.ProductId, x.Name }).IsUnique();
             entity.HasIndex(x => x.Sku).IsUnique();
             entity.HasIndex(x => new { x.WooCommerceProductId, x.WooCommerceVariationId }).IsUnique();
@@ -194,7 +210,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRo
 
         modelBuilder.Entity<ProductWooControlProfile>(entity =>
         {
-            entity.ToTable("khb_ProductWooControlProfiles");
+            entity.ToTable("khb_productwoocontrolprofiles");
             entity.HasIndex(x => x.ProductId).IsUnique();
             entity.HasIndex(x => x.PriceCheckStatus);
             entity.HasIndex(x => x.WooSyncStatus);
@@ -235,7 +251,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRo
 
         modelBuilder.Entity<Customer>(entity =>
         {
-            entity.ToTable("cbi_Customers");
+            entity.ToTable("cbi_customers");
             entity.Property(x => x.FullName).HasMaxLength(250).IsRequired();
             entity.Property(x => x.PhoneNumber).HasMaxLength(30).IsRequired();
             entity.Property(x => x.Email).HasMaxLength(320);
@@ -246,7 +262,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRo
 
         modelBuilder.Entity<Order>(entity =>
         {
-            entity.ToTable("com_Orders");
+            entity.ToTable("com_orders");
             entity.Property(x => x.TotalAmount).HasPrecision(18, 2);
             entity.Property(x => x.Status).HasMaxLength(50).IsRequired();
             entity.Property(x => x.PaymentMethod).HasMaxLength(50).IsRequired();
@@ -259,7 +275,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRo
 
         modelBuilder.Entity<OrderItem>(entity =>
         {
-            entity.ToTable("com_OrderItems");
+            entity.ToTable("com_orderitems");
             entity.Property(x => x.VariantName).HasMaxLength(150);
             entity.Property(x => x.Sku).HasMaxLength(120);
             entity.Property(x => x.UnitPrice).HasPrecision(18, 2);
@@ -270,7 +286,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRo
     {
         modelBuilder.Entity<PriceProposal>(entity =>
         {
-            entity.ToTable("wf_PriceProposals");
+            entity.ToTable("wf_priceproposals");
             entity.Property(x => x.CurrentSalePrice).HasPrecision(18, 2);
             entity.Property(x => x.ProposedSalePrice).HasPrecision(18, 2);
             entity.Property(x => x.CurrentPurchasePrice).HasPrecision(18, 2);
@@ -289,7 +305,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRo
 
         modelBuilder.Entity<InventoryProposal>(entity =>
         {
-            entity.ToTable("wf_InventoryProposals");
+            entity.ToTable("wf_inventoryproposals");
             entity.Property(x => x.CreatedByUserName).HasMaxLength(256).IsRequired();
             entity.Property(x => x.ManagerApprovedByUserName).HasMaxLength(256);
             entity.Property(x => x.SuperAdminApprovedByUserName).HasMaxLength(256);
@@ -304,7 +320,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRo
 
         modelBuilder.Entity<ApprovalAuditLog>(entity =>
         {
-            entity.ToTable("wf_ApprovalAuditLogs");
+            entity.ToTable("wf_approvalauditlogs");
             entity.Property(x => x.EntityType).HasMaxLength(80).IsRequired();
             entity.Property(x => x.Action).HasMaxLength(80).IsRequired();
             entity.Property(x => x.UserName).HasMaxLength(256).IsRequired();
@@ -316,7 +332,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRo
 
         modelBuilder.Entity<SyncOutboxMessage>(entity =>
         {
-            entity.ToTable("sync_OutboxMessages");
+            entity.ToTable("sync_outboxmessages");
             entity.Property(x => x.EventType).HasMaxLength(120).IsRequired();
             entity.Property(x => x.AggregateType).HasMaxLength(120).IsRequired();
             entity.Property(x => x.PayloadJson).HasColumnType("longtext").IsRequired();
@@ -334,7 +350,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRo
     {
         modelBuilder.Entity<WooCommerceSyncLog>(entity =>
         {
-            entity.ToTable("sup_WooCommerceSyncLogs");
+            entity.ToTable("sup_woocommercesynclogs");
             entity.Property(x => x.Operation).HasMaxLength(80).IsRequired();
             entity.Property(x => x.Status).HasMaxLength(40).IsRequired();
             entity.Property(x => x.EntityType).HasMaxLength(80);
@@ -347,7 +363,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRo
 
         modelBuilder.Entity<GatewayPaymentReceipt>(entity =>
         {
-            entity.ToTable("sup_GatewayPaymentReceipts");
+            entity.ToTable("sup_gatewaypaymentreceipts");
             entity.Property(x => x.Amount).HasPrecision(18, 2);
             entity.Property(x => x.Currency).HasMaxLength(8).IsRequired();
             entity.Property(x => x.GatewayName).HasMaxLength(80).IsRequired();
@@ -369,7 +385,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRo
     {
         modelBuilder.Entity<WooCommerceOrderSnapshot>(entity =>
         {
-            entity.ToTable("ord_WooCommerceOrderSnapshots");
+            entity.ToTable("ord_woocommerceordersnapshots");
             entity.HasIndex(x => x.WooCommerceOrderId).IsUnique();
             entity.HasIndex(x => x.WooCommerceOrderNumber);
             entity.HasIndex(x => x.WooCommerceStatus);
@@ -408,7 +424,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRo
 
         modelBuilder.Entity<WooCommerceOrderItemSnapshot>(entity =>
         {
-            entity.ToTable("ord_WooCommerceOrderItemSnapshots");
+            entity.ToTable("ord_woocommerceorderitemsnapshots");
             entity.HasIndex(x => new { x.WooCommerceOrderSnapshotId, x.WooCommerceLineItemId }).IsUnique();
             entity.HasIndex(x => x.WooCommerceProductId);
             entity.HasIndex(x => x.WooCommerceVariationId);
@@ -423,7 +439,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRo
 
         modelBuilder.Entity<BarookPaymentSession>(entity =>
         {
-            entity.ToTable("pay_BarookPaymentSessions");
+            entity.ToTable("pay_barookpaymentsessions");
             entity.HasIndex(x => x.ExternalCode).IsUnique();
             entity.HasIndex(x => x.Token);
             entity.HasIndex(x => x.WooCommerceOrderId);
@@ -451,7 +467,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRo
 
         modelBuilder.Entity<ManualPaymentReceipt>(entity =>
         {
-            entity.ToTable("pay_ManualPaymentReceipts");
+            entity.ToTable("pay_manualpaymentreceipts");
             entity.HasIndex(x => x.ReceiptNumber).IsUnique();
             entity.HasIndex(x => x.WooCommerceOrderId);
             entity.Property(x => x.Amount).HasPrecision(18, 2);

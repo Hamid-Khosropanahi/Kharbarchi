@@ -338,9 +338,9 @@
         {
             baseUrl = await GetLocal("khb.woo.baseUrl") ?? "https://localhost:4433/Kharbarchi",
             consumerKey = await GetLocal("khb.woo.consumerKey"),
-            consumerSecret = await GetLocal("khb.woo.consumerSecret"),
+            consumerSecret = (string?)null,
             wordPressUsername = await GetLocal("khb.woo.wpUsername"),
-            wordPressPassword = await GetLocal("khb.woo.wpPassword"),
+            wordPressPassword = (string?)null,
             timeoutSeconds = 600,
             allowInsecureLocalhostSsl = true,
             page,

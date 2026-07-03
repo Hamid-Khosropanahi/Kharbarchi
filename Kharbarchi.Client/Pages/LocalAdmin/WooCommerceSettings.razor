@@ -15,7 +15,7 @@
         <div>
             <span class="khb-eyebrow">WooCommerce Integration Lab</span>
             <h1>تنظیمات اتصال و تست API ووکامرس</h1>
-            <p>آدرس سایت، کلیدهای WooCommerce و اطلاعات کاربر WordPress را اینجا وارد کن. مقادیر در مرورگر ذخیره موقت می‌شوند و صفحه Import هم همین مقادیر را می‌خواند.</p>
+            <p>این صفحه آزمایشگاه قدیمی API است. Secret و رمز WordPress در مرورگر ذخیره نمی‌شوند؛ برای اتصال پایدار از پروفایل‌های امن صفحه ورود CSV استفاده کنید.</p>
         </div>
         <div class="khb-hero-actions">
             <button class="khb-btn khb-btn-ghost" @onclick="LoadSettings">بارگذاری تنظیمات ذخیره‌شده</button>
@@ -110,9 +110,7 @@
     {
         Model.BaseUrl = await GetLocal("khb.woo.baseUrl") ?? Model.BaseUrl;
         Model.ConsumerKey = await GetLocal("khb.woo.consumerKey") ?? Model.ConsumerKey;
-        Model.ConsumerSecret = await GetLocal("khb.woo.consumerSecret") ?? Model.ConsumerSecret;
         Model.WordPressUsername = await GetLocal("khb.woo.wpUsername") ?? Model.WordPressUsername;
-        Model.WordPressPassword = await GetLocal("khb.woo.wpPassword") ?? Model.WordPressPassword;
         LastMessage = "تنظیمات ذخیره‌شده از مرورگر خوانده شد.";
         LastOk = true;
     }
@@ -121,9 +119,7 @@
     {
         await SetLocal("khb.woo.baseUrl", Model.BaseUrl);
         await SetLocal("khb.woo.consumerKey", Model.ConsumerKey);
-        await SetLocal("khb.woo.consumerSecret", Model.ConsumerSecret);
         await SetLocal("khb.woo.wpUsername", Model.WordPressUsername);
-        await SetLocal("khb.woo.wpPassword", Model.WordPressPassword);
         LastMessage = "تنظیمات به‌صورت موقت در مرورگر ذخیره شد.";
         LastOk = true;
     }

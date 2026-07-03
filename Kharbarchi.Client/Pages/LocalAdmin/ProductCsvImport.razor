@@ -1,5 +1,10 @@
 @page "/local-admin/product-csv-import"
+@attribute [Authorize(Policy = "ProductImportWrite")]
+@implements IAsyncDisposable
 @using System.Net.Http.Json
+@using Kharbarchi.Shared.Contracts.ProductWorkflow
+@using Kharbarchi.Shared.Contracts.WooCommerce
+@using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Forms
 @inject IHttpClientFactory ClientFactory
 
@@ -23,9 +28,52 @@
     </section>
 
     <section class="khb-card khb-control-panel">
+        <div class="khb-toolbar">
+            <div>
+                <h2>پروفایل اتصال WooCommerce</h2>
+                <p class="khb-muted">کلیدها فقط در سرور نگهداری می‌شوند. Secret در مرورگر یا localStorage ذخیره نمی‌شود.</p>
+            </div>
+            <button class="khb-btn" @onclick="NewProfile" disabled="@busy">پروفایل جدید</button>
+        </div>
+
+        <div class="khb-inline-controls">
+            <select value="@selectedProfileId" @onchange="SelectProfile" disabled="@busy">
+                <option value="0">انتخاب پروفایل...</option>
+                @foreach (var profile in wooProfiles)
+                {
+                    <option value="@profile.Id">@profile.ProfileName - @profile.EnvironmentType @(profile.IsActive ? "(فعال)" : "")</option>
+                }
+            </select>
+            <button class="khb-btn" @onclick="TestWooConnectionFromButton" disabled="@(busy || selectedProfileId <= 0)">تست اتصال</button>
+        </div>
+
+        <div class="khb-inline-fields">
+            <label>نام پروفایل<input @bind="profileEditor.ProfileName" /></label>
+            <label>
+                محیط
+                <select @bind="profileEditor.EnvironmentType">
+                    <option value="Local">Local</option>
+                    <option value="Production">Production</option>
+                </select>
+            </label>
+            <label>BaseUrl<input class="ltr" @bind="profileEditor.BaseUrl" /></label>
+            <label>Consumer Key<input class="ltr" @bind="profileEditor.ConsumerKey" placeholder="@selectedProfileKeyMask" autocomplete="off" /></label>
+            <label>Consumer Secret<input class="ltr" type="password" @bind="profileEditor.ConsumerSecret" placeholder="برای حفظ Secret فعلی خالی بگذارید" autocomplete="new-password" /></label>
+            <label>API Version<input class="ltr" @bind="profileEditor.ApiVersion" /></label>
+            <label>Timeout<input type="number" min="5" max="180" @bind="profileEditor.TimeoutSeconds" /></label>
+        </div>
+        <label class="khb-check-row">
+            <input type="checkbox" @bind="profileEditor.VerifySsl" disabled="@(profileEditor.EnvironmentType == "Production")" />
+            <span>بررسی گواهی SSL؛ برای Production همیشه فعال است.</span>
+        </label>
+        <label class="khb-check-row"><input type="checkbox" @bind="profileEditor.IsActive" /><span>پروفایل فعال این محیط</span></label>
+        <button class="khb-btn primary" @onclick="SaveProfile" disabled="@busy">ذخیره پروفایل</button>
+    </section>
+
+    <section class="khb-card khb-control-panel">
         <label>
             نام جدول منبع
-            <input @bind="tableName" />
+            <input @bind="tableName" readonly />
         </label>
 
         <div class="khb-warning">
@@ -86,28 +134,55 @@
     <section class="khb-card khb-woo-progress-card">
         <div class="khb-toolbar">
             <div>
-                <h2>وضعیت ارسال به WooCommerce</h2>
-                <p class="khb-muted">قبل از شروع ارسال، اتصال تست می‌شود. محصولات به‌صورت batch ارسال می‌شوند تا نوار پیشرفت واقعی و قابل پیگیری باشد.</p>
+                <h2>وضعیت عملیات Import / Process / Sync</h2>
+                <p class="khb-muted">شناسه عملیات: @(activeJob?.JobId.ToString() ?? "-")</p>
                 @if (!string.IsNullOrWhiteSpace(wooConnectionMessage))
                 {
                     <p class="khb-muted">@wooConnectionMessage</p>
                 }
             </div>
-            <button class="khb-btn" @onclick="RefreshWooProgress" disabled="@busy">به‌روزرسانی پیشرفت</button>
+            <button class="khb-btn" @onclick="RefreshActiveJob" disabled="@(activeJob is null)">به‌روزرسانی پیشرفت</button>
         </div>
         <div class="khb-sync-grid">
-            <article><span>کل</span><strong>@wooProgress.Total</strong></article>
-            <article><span>ارسال‌شده</span><strong>@wooProgress.Synced</strong></article>
-            <article><span>خطادار</span><strong>@wooProgress.Failed</strong></article>
-            <article><span>در انتظار</span><strong>@wooProgress.Pending</strong></article>
-            <article><span>درصد</span><strong>@wooProgress.Percent%</strong></article>
+            <article><span>مرحله</span><strong>@(activeJob?.CurrentStep ?? "-")</strong></article>
+            <article><span>کل</span><strong>@(activeJob?.TotalItems ?? 0)</strong></article>
+            <article><span>پردازش‌شده</span><strong>@(activeJob?.ProcessedItems ?? 0)</strong></article>
+            <article><span>موفق</span><strong>@(activeJob?.SuccessCount ?? 0)</strong></article>
+            <article><span>خطا</span><strong>@(activeJob?.ErrorCount ?? 0)</strong></article>
+            <article><span>Draft</span><strong>@(activeJob?.DraftCount ?? 0)</strong></article>
+            <article><span>ردشده</span><strong>@(activeJob?.SkippedCount ?? 0)</strong></article>
+            <article><span>در انتظار</span><strong>@(activeJob?.PendingCount ?? 0)</strong></article>
+            <article><span>درصد</span><strong>@(activeJob?.ProgressPercent ?? 0)%</strong></article>
         </div>
-        <div class="khb-progress-line" aria-label="WooCommerce sync progress">
-            <span style="width:@(Math.Clamp(wooProgress.Percent, 0, 100))%"></span>
+        <div class="khb-progress-line" aria-label="Workflow job progress">
+            <span style="width:@(Math.Clamp(activeJob?.ProgressPercent ?? 0, 0, 100))%"></span>
         </div>
-        @if (wooSyncRunning)
+        @if (!string.IsNullOrWhiteSpace(activeJob?.Message))
         {
-            <p class="khb-muted">ارسال در حال انجام است؛ صفحه را نبند.</p>
+            <p class="khb-muted">@activeJob.Message</p>
+        }
+
+        @if (jobLogs.Count > 0)
+        {
+            <div class="khb-table-wrap">
+                <table>
+                    <thead><tr><th>زمان</th><th>مرحله</th><th>نوع</th><th>SKU</th><th>وضعیت</th><th>پیام</th><th>HTTP</th></tr></thead>
+                    <tbody>
+                        @foreach (var log in jobLogs)
+                        {
+                            <tr>
+                                <td class="ltr">@log.CreatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</td>
+                                <td>@log.StepName</td>
+                                <td>@log.EntityType</td>
+                                <td class="ltr">@log.Sku</td>
+                                <td>@log.Status</td>
+                                <td>@log.Message</td>
+                                <td>@log.ResponseCode</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
         }
     </section>
 
@@ -367,17 +442,23 @@
 
 @code
 {
-    private string tableName = "All_Product_With_Process";
+    private string tableName = "all_product_with_process";
     private IBrowserFile? selectedFile;
     private const bool truncateBeforeImport = false;
     private const bool clearGeneratedBeforeProcess = false;
     private string priceUnit = "rial";
     private bool busy;
     private string? message;
-    private bool wooSyncRunning;
     private string? wooConnectionMessage;
     private int wooBatchTake = 10;
     private WooSyncProgress wooProgress = new();
+    private readonly CancellationTokenSource pageCancellation = new();
+    private List<WooConnectionProfileDto> wooProfiles = new();
+    private WooConnectionProfileUpsertRequest profileEditor = NewProfileEditor();
+    private int selectedProfileId;
+    private string selectedProfileKeyMask = string.Empty;
+    private WorkflowJobDto? activeJob;
+    private List<WorkflowJobLogDto> jobLogs = new();
 
     private int sourcePage = 1;
     private int sourcePageSize = 50;
@@ -396,6 +477,16 @@
     private int ProductTotalPages => Math.Max(1, (int)Math.Ceiling(totalProducts / (double)productPageSize));
     private HttpClient Api => ClientFactory.CreateClient("KharbarchiAPI");
 
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProfiles();
+        activeJob = await Api.GetFromJsonAsync<WorkflowJobDto?>("api/product-csv/jobs/latest", pageCancellation.Token);
+        if (activeJob is not null)
+        {
+            await RefreshActiveJob();
+        }
+    }
+
     private void OnFileSelected(InputFileChangeEventArgs args)
     {
         selectedFile = args.File;
@@ -412,31 +503,35 @@
 
         await Run(async () =>
         {
-            using var content = new MultipartFormDataContent();
-            await using var stream = selectedFile.OpenReadStream(100_000_000);
-            using var fileContent = new StreamContent(stream);
-            fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("text/csv");
-            content.Add(fileContent, "file", selectedFile.Name);
-
-            var url = $"api/product-csv/import-all-product-with-process?tableName={Uri.EscapeDataString(tableName)}&truncate=false";
-            using var response = await Api.PostAsync(url, content);
-            message = await ReadResponse(response);
+            message = await RunTrackedOperationAsync("import", async jobId =>
+            {
+                using var content = new MultipartFormDataContent();
+                await using var stream = selectedFile.OpenReadStream(100_000_000, pageCancellation.Token);
+                using var fileContent = new StreamContent(stream);
+                fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("text/csv");
+                content.Add(fileContent, "file", selectedFile.Name);
+                var url = $"api/product-csv/import-all-product-with-process?tableName={Uri.EscapeDataString(tableName)}&truncate=false&jobId={jobId}";
+                return await Api.PostAsync(url, content, pageCancellation.Token);
+            });
             sourcePage = 1;
             await LoadSourceRows();
-        });
+        }, showOk: false);
     }
 
     private async Task ProcessTable()
     {
         await Run(async () =>
         {
-            using var response = await Api.PostAsync($"api/product-csv/process-all-product-with-process?tableName={Uri.EscapeDataString(tableName)}&priceUnit={Uri.EscapeDataString(priceUnit)}&clearTargets=false", null);
-            message = await ReadResponse(response);
+            message = await RunTrackedOperationAsync("process", jobId =>
+                Api.PostAsync(
+                    $"api/product-csv/process-all-product-with-process?tableName={Uri.EscapeDataString(tableName)}&priceUnit={Uri.EscapeDataString(priceUnit)}&clearTargets=false&jobId={jobId}",
+                    null,
+                    pageCancellation.Token));
             productPage = 1;
             await LoadProducts();
             workflowPage = 1;
             await LoadWorkflowTab();
-        });
+        }, showOk: false);
     }
 
     private async Task TestWooConnectionFromButton()
@@ -444,14 +539,24 @@
         await Run(async () =>
         {
             await TestWooConnection(showSuccessMessage: true);
-            await RefreshWooProgress();
         }, showOk: false);
     }
 
     private async Task<bool> TestWooConnection(bool showSuccessMessage)
     {
-        using var response = await Api.GetAsync("api/product-csv/woocommerce/test-connection");
-        var result = await response.Content.ReadFromJsonAsync<WooConnectionTestResult>();
+        if (selectedProfileId <= 0)
+        {
+            wooConnectionMessage = "ابتدا یک پروفایل WooCommerce انتخاب کنید.";
+            message = wooConnectionMessage;
+            return false;
+        }
+
+        using var response = await Api.PostAsync(
+            $"api/admin/woocommerce-profiles/{selectedProfileId}/test",
+            null,
+            pageCancellation.Token);
+        var result = await response.Content.ReadFromJsonAsync<WooConnectionProfileTestResultDto>(
+            cancellationToken: pageCancellation.Token);
 
         if (!response.IsSuccessStatusCode || result?.Success != true)
         {
@@ -472,37 +577,40 @@
 
     private async Task SyncWooCommerceAll()
     {
+        if (selectedProfileId <= 0)
+        {
+            message = "ابتدا پروفایل Local یا Production را انتخاب کنید.";
+            return;
+        }
+
         await Run(async () =>
         {
-            wooSyncRunning = true;
-            message = "در حال تست اتصال WooCommerce...";
-            if (!await TestWooConnection(showSuccessMessage: false))
-            {
-                return;
-            }
-
-            message = "اتصال موفق بود. در حال ارسال دسته‌ها، کالاهای پایه و بسته‌بندی‌ها...";
-            using (var setupResponse = await Api.PostAsync("api/product-csv/woocommerce/sync-catalog-setup?skipConnectionTest=true", null))
-            {
-                await EnsureSuccess(setupResponse);
-            }
-
-            await RunWooProductBatchLoop();
+            message = await RunTrackedOperationAsync("sync", jobId =>
+                Api.PostAsync(
+                    $"api/product-csv/woocommerce/sync-all?profileId={selectedProfileId}&productsOnly=false&skipConnectionTest=false&jobId={jobId}",
+                    null,
+                    pageCancellation.Token));
+            activeWorkflowTab = "queue";
+            workflowPage = 1;
+            await LoadWorkflowTab();
         }, showOk: false);
     }
 
     private async Task SyncWooCommerceProducts()
     {
+        if (selectedProfileId <= 0)
+        {
+            message = "ابتدا پروفایل Local یا Production را انتخاب کنید.";
+            return;
+        }
+
         await Run(async () =>
         {
-            wooSyncRunning = true;
-            message = "در حال تست اتصال WooCommerce...";
-            if (!await TestWooConnection(showSuccessMessage: false))
-            {
-                return;
-            }
-
-            await RunWooProductBatchLoop();
+            message = await RunTrackedOperationAsync("sync", jobId =>
+                Api.PostAsync(
+                    $"api/product-csv/woocommerce/sync-products?profileId={selectedProfileId}&skipConnectionTest=false&jobId={jobId}",
+                    null,
+                    pageCancellation.Token));
         }, showOk: false);
     }
 
@@ -541,7 +649,6 @@
             }
         }
 
-        wooSyncRunning = false;
         message = $"ارسال WooCommerce تمام شد. ارسال‌شده: {wooProgress.Synced}، خطادار: {wooProgress.Failed}، در انتظار: {wooProgress.Pending}";
         activeWorkflowTab = "queue";
         workflowPage = 1;
@@ -552,6 +659,141 @@
     {
         var result = await Api.GetFromJsonAsync<WooSyncProgress>("api/product-csv/woocommerce/sync-progress");
         wooProgress = result ?? new WooSyncProgress();
+    }
+
+    private async Task<string> RunTrackedOperationAsync(
+        string type,
+        Func<Guid, Task<HttpResponseMessage>> operation)
+    {
+        using var startResponse = await Api.PostAsync(
+            $"api/product-csv/jobs/{Uri.EscapeDataString(type)}/start",
+            null,
+            pageCancellation.Token);
+        await EnsureSuccess(startResponse);
+        activeJob = await startResponse.Content.ReadFromJsonAsync<WorkflowJobDto>(
+            cancellationToken: pageCancellation.Token)
+            ?? throw new InvalidOperationException("Server did not return a JobId.");
+        jobLogs.Clear();
+        await InvokeAsync(StateHasChanged);
+
+        var operationTask = operation(activeJob.JobId);
+        while (!operationTask.IsCompleted)
+        {
+            await RefreshActiveJob();
+            await Task.Delay(600, pageCancellation.Token);
+        }
+
+        using var response = await operationTask;
+        var result = await ReadResponse(response);
+        await RefreshActiveJob();
+        return result;
+    }
+
+    private async Task RefreshActiveJob()
+    {
+        if (activeJob is null)
+        {
+            return;
+        }
+
+        activeJob = await Api.GetFromJsonAsync<WorkflowJobDto>(
+            $"api/product-csv/jobs/{activeJob.JobId}",
+            pageCancellation.Token) ?? activeJob;
+        jobLogs = await Api.GetFromJsonAsync<List<WorkflowJobLogDto>>(
+            $"api/product-csv/jobs/{activeJob.JobId}/logs?take=200",
+            pageCancellation.Token) ?? new();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task LoadProfiles()
+    {
+        wooProfiles = await Api.GetFromJsonAsync<List<WooConnectionProfileDto>>(
+            "api/admin/woocommerce-profiles",
+            pageCancellation.Token) ?? new();
+        var selected = wooProfiles.FirstOrDefault(x => x.Id == selectedProfileId)
+            ?? wooProfiles.FirstOrDefault(x => x.IsActive)
+            ?? wooProfiles.FirstOrDefault();
+        if (selected is not null)
+        {
+            ApplyProfile(selected);
+        }
+    }
+
+    private void SelectProfile(ChangeEventArgs args)
+    {
+        if (!int.TryParse(args.Value?.ToString(), out var id))
+        {
+            id = 0;
+        }
+
+        var profile = wooProfiles.FirstOrDefault(x => x.Id == id);
+        if (profile is null)
+        {
+            NewProfile();
+            return;
+        }
+
+        ApplyProfile(profile);
+    }
+
+    private void ApplyProfile(WooConnectionProfileDto profile)
+    {
+        selectedProfileId = profile.Id;
+        selectedProfileKeyMask = profile.ConsumerKeyMasked;
+        profileEditor = new WooConnectionProfileUpsertRequest
+        {
+            Id = profile.Id,
+            ProfileName = profile.ProfileName,
+            EnvironmentType = profile.EnvironmentType,
+            BaseUrl = profile.BaseUrl,
+            ConsumerKey = string.Empty,
+            ConsumerSecret = string.Empty,
+            ApiVersion = profile.ApiVersion,
+            VerifySsl = profile.VerifySsl,
+            TimeoutSeconds = profile.TimeoutSeconds,
+            IsActive = profile.IsActive
+        };
+    }
+
+    private void NewProfile()
+    {
+        selectedProfileId = 0;
+        selectedProfileKeyMask = string.Empty;
+        profileEditor = NewProfileEditor();
+    }
+
+    private async Task SaveProfile()
+    {
+        await Run(async () =>
+        {
+            if (profileEditor.EnvironmentType == "Production")
+            {
+                profileEditor.VerifySsl = true;
+            }
+
+            using var response = await Api.PostAsJsonAsync(
+                "api/admin/woocommerce-profiles",
+                profileEditor,
+                pageCancellation.Token);
+            message = await ReadResponse(response);
+            await LoadProfiles();
+        }, showOk: false);
+    }
+
+    private static WooConnectionProfileUpsertRequest NewProfileEditor() => new()
+    {
+        EnvironmentType = "Local",
+        BaseUrl = "https://localhost:4433/Kharbarchi",
+        ApiVersion = "wc/v3",
+        VerifySsl = false,
+        TimeoutSeconds = 30
+    };
+
+    public ValueTask DisposeAsync()
+    {
+        pageCancellation.Cancel();
+        pageCancellation.Dispose();
+        return ValueTask.CompletedTask;
     }
 
     private async Task SearchSourceRows()
@@ -643,7 +885,6 @@
         finally
         {
             busy = false;
-            wooSyncRunning = false;
         }
     }
 
@@ -837,12 +1078,12 @@
 
     private string WorkflowTabTitle => activeWorkflowTab switch
     {
-        "source" => "KHB_Source_Product",
-        "category" => "KHB_Category_Map",
-        "commodity" => "KHB_Commodity",
-        "package" => "KHB_Package_Type",
-        "product" => "KHB_Product_Final",
-        "queue" => "KHB_Product_Update_Queue",
+        "source" => "khb_source_product",
+        "category" => "khb_category_map",
+        "commodity" => "khb_commodity",
+        "package" => "khb_package_type",
+        "product" => "khb_product_final",
+        "queue" => "khb_product_update_queue",
         _ => "Workflow Table"
     };
 

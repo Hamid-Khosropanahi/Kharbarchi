@@ -86,6 +86,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
         options.EnableSensitiveDataLogging();
     }
 });
+builder.Services.AddDataProtection();
 
 builder.Services
     .AddIdentity<ApplicationUser, IdentityRole>(options =>
@@ -279,6 +280,8 @@ builder.Services.AddScoped<KharbarchiWooPayloadFactory>();
 builder.Services.AddScoped<KharbarchiWooCatalogSyncService>();
 builder.Services.AddScoped<BarookPaymentService>();
 builder.Services.AddScoped<AccountingReceiptService>();
+builder.Services.AddScoped<WorkflowJobService>();
+builder.Services.AddScoped<WooCommerceProfileService>();
 
 builder.Services.AddHttpClient<WooCommerceApiClient>((sp, client) =>
 {
@@ -349,8 +352,6 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-builder.Services.AddScoped<Kharbarchi.Server.Services.WooCommerceRuntimeSettingsStore>();
-
 builder.Services.AddSingleton<WooCommerceRuntimeSettingsStore>();
 var app = builder.Build();
 
@@ -390,14 +391,16 @@ app.MapControllers();
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    await dbContext.Database.MigrateAsync();
+    if (app.Configuration.GetValue<bool>("Database:ApplyMigrationsOnStartup"))
+    {
+        await dbContext.Database.MigrateAsync();
+    }
 
     var seeder = scope.ServiceProvider.GetRequiredService<IdentityDataSeeder>();
     await seeder.SeedAsync();
 }
 
 app.Run();
-
 
 
 
