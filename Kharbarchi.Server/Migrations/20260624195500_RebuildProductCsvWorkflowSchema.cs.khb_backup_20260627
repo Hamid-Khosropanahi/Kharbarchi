@@ -4,20 +4,64 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace Kharbarchi.Server.Migrations
 {
-    [Migration("20260624204500_RebuildHardcodedProductWorkflowTables")]
-    public partial class RebuildHardcodedProductWorkflowTables : Migration
+    [Migration("20260624195500_RebuildProductCsvWorkflowSchema")]
+    public partial class RebuildProductCsvWorkflowSchema : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.Sql(@"
--- KHB-SAFE: DROP TABLE IF EXISTS `KHB_Product_Update_Queue`;
--- KHB-SAFE: DROP TABLE IF EXISTS `KHB_Product_Final`;
--- KHB-SAFE: DROP TABLE IF EXISTS `KHB_Package_Type`;
--- KHB-SAFE: DROP TABLE IF EXISTS `KHB_Commodity`;
--- KHB-SAFE: DROP TABLE IF EXISTS `KHB_Category_Map`;
--- KHB-SAFE: DROP TABLE IF EXISTS `KHB_Source_Product`;
--- KHB-SAFE: DROP TABLE IF EXISTS `khb_sale_products`;
--- KHB-SAFE: DROP TABLE IF EXISTS `khb_product_main_groups`;
+DROP TABLE IF EXISTS `KHB_Product_Update_Queue`;
+DROP TABLE IF EXISTS `KHB_Product_Final`;
+DROP TABLE IF EXISTS `KHB_Package_Type`;
+DROP TABLE IF EXISTS `KHB_Commodity`;
+DROP TABLE IF EXISTS `KHB_Category_Map`;
+DROP TABLE IF EXISTS `khb_sale_products`;
+DROP TABLE IF EXISTS `khb_product_main_groups`;
+");
+
+            migrationBuilder.Sql(@"
+CREATE TABLE IF NOT EXISTS `All_Product_With_Process` (
+    `Id` BIGINT NOT NULL AUTO_INCREMENT,
+    `ImportBatchId` VARCHAR(64) NULL,
+    `SourceRowNumber` INT NULL,
+    `SourceRowHash` CHAR(64) NOT NULL,
+    `RawJson` LONGTEXT NULL,
+    `MainProductName` VARCHAR(500) NULL,
+    `MainProductSlug` VARCHAR(500) NULL,
+    `GroupName` VARCHAR(500) NULL,
+    `CategoryName` VARCHAR(500) NULL,
+    `CategorySlug` VARCHAR(500) NULL,
+    `ProductName` VARCHAR(700) NULL,
+    `ProductEnglishName` VARCHAR(700) NULL,
+    `ProductSlug` VARCHAR(700) NULL,
+    `SKU` VARCHAR(191) NULL,
+    `BrandName` VARCHAR(300) NULL,
+    `BrandEnglishName` VARCHAR(300) NULL,
+    `PackageName` VARCHAR(300) NULL,
+    `UnitWeight` DECIMAL(18,6) NULL,
+    `PacksPerCarton` INT NULL,
+    `CartonQuantity` INT NULL,
+    `PackagingPricePerPack` DECIMAL(18,2) NULL,
+    `SalePriceCash` DECIMAL(18,2) NULL,
+    `SalePriceInstallment` DECIMAL(18,2) NULL,
+    `PurchasePriceCash` DECIMAL(18,2) NULL,
+    `PurchasePriceInstallment` DECIMAL(18,2) NULL,
+    `ShortDescription` LONGTEXT NULL,
+    `FullDescription` LONGTEXT NULL,
+    `ImageUrl` LONGTEXT NULL,
+    `GalleryJson` LONGTEXT NULL,
+    `Status` VARCHAR(100) NULL,
+    `WooProductId` BIGINT NULL,
+    `HaveOtherPackage` TINYINT(1) NULL,
+    `PackageOne` VARCHAR(300) NULL,
+    `CreatedAtUtc` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    `UpdatedAtUtc` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    PRIMARY KEY (`Id`),
+    UNIQUE KEY `UX_All_Product_With_Process_SourceRowHash` (`SourceRowHash`),
+    KEY `IX_All_Product_With_Process_ProductName` (`ProductName`(191)),
+    KEY `IX_All_Product_With_Process_MainProductName` (`MainProductName`(191)),
+    KEY `IX_All_Product_With_Process_SKU` (`SKU`)
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ");
 
             migrationBuilder.Sql(@"
@@ -82,30 +126,6 @@ CREATE TABLE `khb_sale_products` (
 ");
 
             migrationBuilder.Sql(@"
-CREATE TABLE `KHB_Source_Product` (
-    `Id` BIGINT NOT NULL AUTO_INCREMENT,
-    `SourceKey` CHAR(64) NOT NULL,
-    `SourceRowId` BIGINT NULL,
-    `ProductName` VARCHAR(700) NULL,
-    `ProductEnglishName` VARCHAR(700) NULL,
-    `MainProductName` VARCHAR(500) NULL,
-    `CategoryName` VARCHAR(500) NULL,
-    `CategorySlug` VARCHAR(500) NULL,
-    `BrandName` VARCHAR(300) NULL,
-    `BrandEnglishName` VARCHAR(300) NULL,
-    `PackageOne` VARCHAR(300) NULL,
-    `UnitWeightKg` DECIMAL(18,6) NULL,
-    `KgCashPrice` DECIMAL(18,2) NULL,
-    `KgCreditPrice` DECIMAL(18,2) NULL,
-    `RawJson` LONGTEXT NULL,
-    `CreatedAtUtc` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    `UpdatedAtUtc` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    PRIMARY KEY (`Id`),
-    UNIQUE KEY `UX_KHB_Source_Product_SourceKey` (`SourceKey`)
-) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-");
-
-            migrationBuilder.Sql(@"
 CREATE TABLE `KHB_Category_Map` (
     `Id` BIGINT NOT NULL AUTO_INCREMENT,
     `SourceKey` VARCHAR(500) NOT NULL,
@@ -162,13 +182,6 @@ CREATE TABLE `KHB_Product_Final` (
     `ProductEnglishName` VARCHAR(700) NULL,
     `ProductSlug` VARCHAR(700) NULL,
     `SKU` VARCHAR(191) NULL,
-    `PackageGroup` VARCHAR(50) NULL,
-    `PackageCode` VARCHAR(50) NULL,
-    `UnitWeightKg` DECIMAL(18,6) NULL,
-    `PacksPerCarton` INT NULL,
-    `PackagingPricePerPack` DECIMAL(18,2) NULL,
-    `KgCashPrice` DECIMAL(18,2) NULL,
-    `KgCreditPrice` DECIMAL(18,2) NULL,
     `SaleCashPrice` DECIMAL(18,2) NULL,
     `SaleCreditPrice` DECIMAL(18,2) NULL,
     `BuyCashPrice` DECIMAL(18,2) NULL,
@@ -206,7 +219,15 @@ CREATE TABLE `KHB_Product_Update_Queue` (
 
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            // KHB-SAFE: rollback intentionally does not drop data-bearing tables, columns, or indexes.
+            migrationBuilder.Sql(@"
+DROP TABLE IF EXISTS `KHB_Product_Update_Queue`;
+DROP TABLE IF EXISTS `KHB_Product_Final`;
+DROP TABLE IF EXISTS `KHB_Package_Type`;
+DROP TABLE IF EXISTS `KHB_Commodity`;
+DROP TABLE IF EXISTS `KHB_Category_Map`;
+DROP TABLE IF EXISTS `khb_sale_products`;
+DROP TABLE IF EXISTS `khb_product_main_groups`;
+");
         }
     }
 }

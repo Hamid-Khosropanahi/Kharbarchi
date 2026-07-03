@@ -5,20 +5,23 @@
 namespace Kharbarchi.Server.Migrations
 {
     /// <inheritdoc />
-    public partial class AddEnTaxonomicToKharbarchiMainGroups : Migration
+    public partial class AddSourceRowIdToKharbarchiSourceProduct : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.Sql(@"
-ALTER TABLE `khb_product_main_groups`
-ADD COLUMN `EnTaxonomic` VARCHAR(500) NULL AFTER `CategoryName`;
+ALTER TABLE `KHB_Source_Product`
+ADD COLUMN `SourceRowId` BIGINT NULL;
 ");
         }
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            // KHB-SAFE: rollback intentionally does not drop data-bearing tables, columns, or indexes.
+            migrationBuilder.Sql(@"
+ALTER TABLE `KHB_Source_Product`
+DROP COLUMN `SourceRowId`;
+");
         }
     }
 }

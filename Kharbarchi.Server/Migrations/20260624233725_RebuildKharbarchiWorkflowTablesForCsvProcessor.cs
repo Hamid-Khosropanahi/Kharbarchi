@@ -10,12 +10,12 @@ namespace Kharbarchi.Server.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.Sql("DROP TABLE IF EXISTS `KHB_Product_Update_Queue`;");
-            migrationBuilder.Sql("DROP TABLE IF EXISTS `KHB_Product_Final`;");
-            migrationBuilder.Sql("DROP TABLE IF EXISTS `KHB_Package_Type`;");
-            migrationBuilder.Sql("DROP TABLE IF EXISTS `KHB_Commodity`;");
-            migrationBuilder.Sql("DROP TABLE IF EXISTS `KHB_Category_Map`;");
-            migrationBuilder.Sql("DROP TABLE IF EXISTS `KHB_Source_Product`;");
+            migrationBuilder.Sql("-- KHB-SAFE: DROP TABLE IF EXISTS `KHB_Product_Update_Queue`;");
+            migrationBuilder.Sql("-- KHB-SAFE: DROP TABLE IF EXISTS `KHB_Product_Final`;");
+            migrationBuilder.Sql("-- KHB-SAFE: DROP TABLE IF EXISTS `KHB_Package_Type`;");
+            migrationBuilder.Sql("-- KHB-SAFE: DROP TABLE IF EXISTS `KHB_Commodity`;");
+            migrationBuilder.Sql("-- KHB-SAFE: DROP TABLE IF EXISTS `KHB_Category_Map`;");
+            migrationBuilder.Sql("-- KHB-SAFE: DROP TABLE IF EXISTS `KHB_Source_Product`;");
 
             migrationBuilder.Sql(@"
 CREATE TABLE `KHB_Source_Product` (
@@ -290,12 +290,7 @@ CREATE TABLE `KHB_Product_Update_Queue` (
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.Sql("DROP TABLE IF EXISTS `KHB_Product_Update_Queue`;");
-            migrationBuilder.Sql("DROP TABLE IF EXISTS `KHB_Product_Final`;");
-            migrationBuilder.Sql("DROP TABLE IF EXISTS `KHB_Package_Type`;");
-            migrationBuilder.Sql("DROP TABLE IF EXISTS `KHB_Commodity`;");
-            migrationBuilder.Sql("DROP TABLE IF EXISTS `KHB_Category_Map`;");
-            migrationBuilder.Sql("DROP TABLE IF EXISTS `KHB_Source_Product`;");
+            // KHB-SAFE: rollback intentionally does not drop data-bearing tables, columns, or indexes.
         }
     }
 }

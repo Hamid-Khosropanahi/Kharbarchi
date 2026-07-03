@@ -11,7 +11,7 @@
             <p class="khb-kicker">مرکز کنترل محصول خواربارچی</p>
             <h1>ورود CSV، ویرایش داده خام، ساخت محصول نهایی و صف ووکامرس</h1>
             <p>
-                این صفحه همان فایل CSV را وارد می‌کند، قبل از پردازش اجازه ویرایش می‌دهد، سپس جداول سخت‌کدشده KHB را می‌سازد. واحد قیمت را قبل از پردازش مشخص کن؛ خروجی نهایی همیشه تومان است.
+                این صفحه همان فایل CSV را وارد می‌کند، قبل از پردازش اجازه ویرایش می‌دهد، سپس جداول KHB را با روش upsert و بدون پاک‌سازی می‌سازد. خروجی نهایی همیشه تومان است.
             </p>
         </div>
         <div class="khb-steps">
@@ -28,15 +28,9 @@
             <input @bind="tableName" />
         </label>
 
-        <label class="khb-check">
-            <InputCheckbox @bind-Value="truncateBeforeImport" />
-            پاک کردن داده‌های قبلی جدول قبل از import
-        </label>
-
-        <label class="khb-check">
-            <InputCheckbox @bind-Value="clearGeneratedBeforeProcess" />
-            پاکسازی جداول خروجی قبل از ساخت دوباره
-        </label>
+        <div class="khb-warning">
+            طبق قوانین پروژه، import و پردازش هیچ جدول خروجی را پاک نمی‌کند. همه عملیات این صفحه upsert و غیرمخرب است.
+        </div>
 
         <label>
             واحد قیمت‌های فایل/جدول هنگام پردازش
@@ -44,7 +38,7 @@
                 <option value="rial">ریال - هنگام پردازش تقسیم بر ۱۰ شود</option>
                 <option value="toman">تومان - بدون تبدیل استفاده شود</option>
             </select>
-            <small>قیمت نقد، شرایطی و قیمت بسته‌بندی اگر از CSV آمده باشند بر اساس این گزینه تفسیر می‌شوند.</small>
+            <small>برای کارتن وزنی، قیمت ورودی قیمت کیلویی است. برای کارتن بسته‌ای، قیمت ورودی قیمت هر بسته است. هزینه بسته‌بندی فقط meta/گزارش است و در محاسبه فروش کارتنی لحاظ نمی‌شود.</small>
         </label>
 
         <div class="khb-price-status">
@@ -73,9 +67,48 @@
             <button class="khb-btn" @onclick="LoadSourceRows" disabled="@busy">نمایش جدول واردشده</button>
             <button class="khb-btn accent" @onclick="ProcessTable" disabled="@busy">ساخت جداول اصلی</button>
             <button class="khb-btn" @onclick="LoadProducts" disabled="@busy">نمایش محصولات نهایی</button>
-            <button class="khb-btn primary" @onclick="SyncWooCommerceAll" disabled="@busy">ارسال همه به WooCommerce</button>
-            <button class="khb-btn" @onclick="SyncWooCommerceProducts" disabled="@busy">ارسال فقط محصولات</button>
+            <button class="khb-btn" @onclick="TestWooConnectionFromButton" disabled="@busy">تست اتصال WooCommerce</button>
+            <label class="khb-batch-size">
+                اندازه batch ارسال
+                <select @bind="wooBatchTake" disabled="@busy">
+                    <option value="1">1</option>
+                    <option value="5">5</option>
+                    <option value="10">10</option>
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                </select>
+            </label>
+            <button class="khb-btn primary" @onclick="SyncWooCommerceAll" disabled="@busy">تست + ارسال مرحله‌ای همه</button>
+            <button class="khb-btn" @onclick="SyncWooCommerceProducts" disabled="@busy">تست + ارسال مرحله‌ای محصولات</button>
         </div>
+    </section>
+
+    <section class="khb-card khb-woo-progress-card">
+        <div class="khb-toolbar">
+            <div>
+                <h2>وضعیت ارسال به WooCommerce</h2>
+                <p class="khb-muted">قبل از شروع ارسال، اتصال تست می‌شود. محصولات به‌صورت batch ارسال می‌شوند تا نوار پیشرفت واقعی و قابل پیگیری باشد.</p>
+                @if (!string.IsNullOrWhiteSpace(wooConnectionMessage))
+                {
+                    <p class="khb-muted">@wooConnectionMessage</p>
+                }
+            </div>
+            <button class="khb-btn" @onclick="RefreshWooProgress" disabled="@busy">به‌روزرسانی پیشرفت</button>
+        </div>
+        <div class="khb-sync-grid">
+            <article><span>کل</span><strong>@wooProgress.Total</strong></article>
+            <article><span>ارسال‌شده</span><strong>@wooProgress.Synced</strong></article>
+            <article><span>خطادار</span><strong>@wooProgress.Failed</strong></article>
+            <article><span>در انتظار</span><strong>@wooProgress.Pending</strong></article>
+            <article><span>درصد</span><strong>@wooProgress.Percent%</strong></article>
+        </div>
+        <div class="khb-progress-line" aria-label="WooCommerce sync progress">
+            <span style="width:@(Math.Clamp(wooProgress.Percent, 0, 100))%"></span>
+        </div>
+        @if (wooSyncRunning)
+        {
+            <p class="khb-muted">ارسال در حال انجام است؛ صفحه را نبند.</p>
+        }
     </section>
 
     @if (!string.IsNullOrWhiteSpace(message))
@@ -280,9 +313,9 @@
                         <th>Slug</th>
                         <th>بسته‌بندی</th>
                         <th>تعداد کارتن</th>
-                        <th>قیمت نقد کیلویی / تومان</th>
-                        <th>قیمت شرایطی کیلویی / تومان</th>
-                        <th>بسته‌بندی هر بسته / تومان</th>
+                        <th>قیمت پایه نقد / تومان</th>
+                        <th>قیمت پایه شرایطی / تومان</th>
+                        <th>هزینه بسته‌بندی اطلاعاتی / تومان</th>
                         <th>قیمت نقد نهایی / تومان</th>
                         <th>قیمت شرایطی نهایی / تومان</th>
                         <th>وضعیت</th>
@@ -336,11 +369,15 @@
 {
     private string tableName = "All_Product_With_Process";
     private IBrowserFile? selectedFile;
-    private bool truncateBeforeImport;
-    private bool clearGeneratedBeforeProcess = true;
+    private const bool truncateBeforeImport = false;
+    private const bool clearGeneratedBeforeProcess = false;
     private string priceUnit = "rial";
     private bool busy;
     private string? message;
+    private bool wooSyncRunning;
+    private string? wooConnectionMessage;
+    private int wooBatchTake = 10;
+    private WooSyncProgress wooProgress = new();
 
     private int sourcePage = 1;
     private int sourcePageSize = 50;
@@ -381,7 +418,7 @@
             fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("text/csv");
             content.Add(fileContent, "file", selectedFile.Name);
 
-            var url = $"api/product-csv/import-all-product-with-process?tableName={Uri.EscapeDataString(tableName)}&truncate={truncateBeforeImport.ToString().ToLowerInvariant()}";
+            var url = $"api/product-csv/import-all-product-with-process?tableName={Uri.EscapeDataString(tableName)}&truncate=false";
             using var response = await Api.PostAsync(url, content);
             message = await ReadResponse(response);
             sourcePage = 1;
@@ -393,8 +430,7 @@
     {
         await Run(async () =>
         {
-            var clearOutputValue = clearGeneratedBeforeProcess.ToString().ToLowerInvariant();
-            using var response = await Api.PostAsync($"api/product-csv/process-all-product-with-process?tableName={Uri.EscapeDataString(tableName)}&priceUnit={Uri.EscapeDataString(priceUnit)}&clearTargets={clearOutputValue}", null);
+            using var response = await Api.PostAsync($"api/product-csv/process-all-product-with-process?tableName={Uri.EscapeDataString(tableName)}&priceUnit={Uri.EscapeDataString(priceUnit)}&clearTargets=false", null);
             message = await ReadResponse(response);
             productPage = 1;
             await LoadProducts();
@@ -403,28 +439,119 @@
         });
     }
 
+    private async Task TestWooConnectionFromButton()
+    {
+        await Run(async () =>
+        {
+            await TestWooConnection(showSuccessMessage: true);
+            await RefreshWooProgress();
+        }, showOk: false);
+    }
+
+    private async Task<bool> TestWooConnection(bool showSuccessMessage)
+    {
+        using var response = await Api.GetAsync("api/product-csv/woocommerce/test-connection");
+        var result = await response.Content.ReadFromJsonAsync<WooConnectionTestResult>();
+
+        if (!response.IsSuccessStatusCode || result?.Success != true)
+        {
+            var detail = result?.Message ?? await response.Content.ReadAsStringAsync();
+            wooConnectionMessage = "اتصال WooCommerce برقرار نشد: " + detail;
+            message = wooConnectionMessage;
+            return false;
+        }
+
+        wooConnectionMessage = $"اتصال WooCommerce موفق بود. Status={result.StatusCode}، زمان پاسخ={result.ElapsedMilliseconds} ms";
+        if (showSuccessMessage)
+        {
+            message = wooConnectionMessage;
+        }
+
+        return true;
+    }
+
     private async Task SyncWooCommerceAll()
     {
         await Run(async () =>
         {
-            using var response = await Api.PostAsync("api/product-csv/woocommerce/sync-all", null);
-            message = await ReadResponse(response);
-            activeWorkflowTab = "queue";
-            workflowPage = 1;
-            await LoadWorkflowTab();
-        });
+            wooSyncRunning = true;
+            message = "در حال تست اتصال WooCommerce...";
+            if (!await TestWooConnection(showSuccessMessage: false))
+            {
+                return;
+            }
+
+            message = "اتصال موفق بود. در حال ارسال دسته‌ها، کالاهای پایه و بسته‌بندی‌ها...";
+            using (var setupResponse = await Api.PostAsync("api/product-csv/woocommerce/sync-catalog-setup?skipConnectionTest=true", null))
+            {
+                await EnsureSuccess(setupResponse);
+            }
+
+            await RunWooProductBatchLoop();
+        }, showOk: false);
     }
 
     private async Task SyncWooCommerceProducts()
     {
         await Run(async () =>
         {
-            using var response = await Api.PostAsync("api/product-csv/woocommerce/sync-products", null);
-            message = await ReadResponse(response);
-            activeWorkflowTab = "queue";
-            workflowPage = 1;
-            await LoadWorkflowTab();
-        });
+            wooSyncRunning = true;
+            message = "در حال تست اتصال WooCommerce...";
+            if (!await TestWooConnection(showSuccessMessage: false))
+            {
+                return;
+            }
+
+            await RunWooProductBatchLoop();
+        }, showOk: false);
+    }
+
+    private async Task RunWooProductBatchLoop()
+    {
+        await RefreshWooProgress();
+        var guard = 0;
+
+        while (guard++ < 10000)
+        {
+            if (wooProgress.Total > 0 && wooProgress.Pending <= 0)
+            {
+                break;
+            }
+
+            message = $"ارسال batch شماره {guard}؛ باقی‌مانده: {wooProgress.Pending} از {wooProgress.Total}";
+            await InvokeAsync(StateHasChanged);
+
+            using var response = await Api.PostAsync($"api/product-csv/woocommerce/sync-products-batch?take={wooBatchTake}&skipConnectionTest=true", null);
+            var batch = await ReadBatchResponse(response);
+
+            wooProgress = new WooSyncProgress
+            {
+                Total = batch.Total,
+                Synced = batch.Synced,
+                Failed = batch.Failed,
+                Pending = batch.Pending,
+                Percent = batch.Percent
+            };
+
+            await InvokeAsync(StateHasChanged);
+
+            if (batch.ProductsSynced == 0 && batch.ProductsFailed == 0)
+            {
+                break;
+            }
+        }
+
+        wooSyncRunning = false;
+        message = $"ارسال WooCommerce تمام شد. ارسال‌شده: {wooProgress.Synced}، خطادار: {wooProgress.Failed}، در انتظار: {wooProgress.Pending}";
+        activeWorkflowTab = "queue";
+        workflowPage = 1;
+        await LoadWorkflowTab();
+    }
+
+    private async Task RefreshWooProgress()
+    {
+        var result = await Api.GetFromJsonAsync<WooSyncProgress>("api/product-csv/woocommerce/sync-progress");
+        wooProgress = result ?? new WooSyncProgress();
     }
 
     private async Task SearchSourceRows()
@@ -516,6 +643,7 @@
         finally
         {
             busy = false;
+            wooSyncRunning = false;
         }
     }
 
@@ -527,6 +655,27 @@
             throw new InvalidOperationException($"HTTP {(int)response.StatusCode} {response.ReasonPhrase}\n{text}");
         }
         return string.IsNullOrWhiteSpace(text) ? "OK" : text;
+    }
+
+
+    private static async Task EnsureSuccess(HttpResponseMessage response)
+    {
+        if (!response.IsSuccessStatusCode)
+        {
+            var text = await response.Content.ReadAsStringAsync();
+            throw new InvalidOperationException($"HTTP {(int)response.StatusCode} {response.ReasonPhrase}\n{text}");
+        }
+    }
+
+    private static async Task<WooBatchResult> ReadBatchResponse(HttpResponseMessage response)
+    {
+        if (!response.IsSuccessStatusCode)
+        {
+            var text = await response.Content.ReadAsStringAsync();
+            throw new InvalidOperationException($"HTTP {(int)response.StatusCode} {response.ReasonPhrase}\n{text}");
+        }
+
+        return await response.Content.ReadFromJsonAsync<WooBatchResult>() ?? new WooBatchResult();
     }
 
     private string SourcePriceUnitText =>
@@ -582,6 +731,32 @@
             ? decimal.Truncate(number)
             : null;
     }
+    private sealed class WooConnectionTestResult
+    {
+        public bool Success { get; set; }
+        public int StatusCode { get; set; }
+        public string? Url { get; set; }
+        public string? Message { get; set; }
+        public long ElapsedMilliseconds { get; set; }
+        public string? ResponsePreview { get; set; }
+    }
+
+    private class WooSyncProgress
+    {
+        public int Total { get; set; }
+        public int Synced { get; set; }
+        public int Failed { get; set; }
+        public int Pending { get; set; }
+        public int Percent { get; set; }
+    }
+
+    private sealed class WooBatchResult : WooSyncProgress
+    {
+        public int ProductsSynced { get; set; }
+        public int ProductsFailed { get; set; }
+        public List<string> Errors { get; set; } = new();
+    }
+
     private sealed class SourceRowsResult
     {
         public int Page { get; set; }

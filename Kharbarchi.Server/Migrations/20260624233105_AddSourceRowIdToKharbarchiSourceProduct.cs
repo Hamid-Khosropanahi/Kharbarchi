@@ -18,10 +18,7 @@ ADD COLUMN `SourceRowId` BIGINT NULL;
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.Sql(@"
-ALTER TABLE `KHB_Source_Product`
-DROP COLUMN `SourceRowId`;
-");
+            // KHB-SAFE: rollback intentionally does not drop data-bearing tables, columns, or indexes.
         }
     }
 }

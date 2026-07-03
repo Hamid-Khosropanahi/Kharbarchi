@@ -13,7 +13,7 @@ namespace Kharbarchi.Server.Migrations
 
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            // Intentionally left empty.
+            // KHB-SAFE: rollback intentionally does not drop data-bearing tables, columns, or indexes.
         }
     }
 }

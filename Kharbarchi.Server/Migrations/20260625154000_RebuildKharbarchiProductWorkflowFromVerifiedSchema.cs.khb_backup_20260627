@@ -245,7 +245,15 @@ ALTER TABLE `khb_product_update_queue`
     }
 
     protected override void Down(MigrationBuilder migrationBuilder)
-        {
-            // KHB-SAFE: rollback intentionally does not drop data-bearing tables, columns, or indexes.
-        }
+    {
+        migrationBuilder.Sql("DROP TABLE IF EXISTS `khb_product_update_queue`;");
+        migrationBuilder.Sql("DROP TABLE IF EXISTS `khb_product_final`;");
+        migrationBuilder.Sql("DROP TABLE IF EXISTS `khb_package_type`;");
+        migrationBuilder.Sql("DROP TABLE IF EXISTS `khb_commodity`;");
+        migrationBuilder.Sql("DROP TABLE IF EXISTS `khb_category_map`;");
+        migrationBuilder.Sql("DROP TABLE IF EXISTS `khb_source_product`;");
+        migrationBuilder.Sql("DROP TABLE IF EXISTS `khb_sale_products`;");
+        migrationBuilder.Sql("DROP TABLE IF EXISTS `khb_product_main_groups`;");
+        migrationBuilder.Sql("DROP TABLE IF EXISTS `all_product_with_process`;");
+    }
 }

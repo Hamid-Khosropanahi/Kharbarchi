@@ -1201,7 +1201,92 @@ namespace Kharbarchi.Server.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            // KHB-SAFE: rollback intentionally does not drop data-bearing tables, columns, or indexes.
+            migrationBuilder.DropTable(
+                name: "com_OrderItems");
+
+            migrationBuilder.DropTable(
+                name: "gnr_ProductProductTags");
+
+            migrationBuilder.DropTable(
+                name: "gnr_ProductSpecValues");
+
+            migrationBuilder.DropTable(
+                name: "ord_WooCommerceOrderItemSnapshots");
+
+            migrationBuilder.DropTable(
+                name: "pay_BarookPaymentSessions");
+
+            migrationBuilder.DropTable(
+                name: "pay_ManualPaymentReceipts");
+
+            migrationBuilder.DropTable(
+                name: "sec_AspNetRoleClaims");
+
+            migrationBuilder.DropTable(
+                name: "sec_AspNetUserClaims");
+
+            migrationBuilder.DropTable(
+                name: "sec_AspNetUserLogins");
+
+            migrationBuilder.DropTable(
+                name: "sec_AspNetUserRoles");
+
+            migrationBuilder.DropTable(
+                name: "sec_AspNetUserTokens");
+
+            migrationBuilder.DropTable(
+                name: "sup_GatewayPaymentReceipts");
+
+            migrationBuilder.DropTable(
+                name: "sup_WooCommerceSyncLogs");
+
+            migrationBuilder.DropTable(
+                name: "sync_OutboxMessages");
+
+            migrationBuilder.DropTable(
+                name: "wf_ApprovalAuditLogs");
+
+            migrationBuilder.DropTable(
+                name: "wf_InventoryProposals");
+
+            migrationBuilder.DropTable(
+                name: "wf_PriceProposals");
+
+            migrationBuilder.DropTable(
+                name: "com_Orders");
+
+            migrationBuilder.DropTable(
+                name: "gnr_ProductTags");
+
+            migrationBuilder.DropTable(
+                name: "gnr_ProductSpecDefinitions");
+
+            migrationBuilder.DropTable(
+                name: "ord_WooCommerceOrderSnapshots");
+
+            migrationBuilder.DropTable(
+                name: "sec_AspNetRoles");
+
+            migrationBuilder.DropTable(
+                name: "sec_AspNetUsers");
+
+            migrationBuilder.DropTable(
+                name: "gnr_ProductVariants");
+
+            migrationBuilder.DropTable(
+                name: "cbi_Customers");
+
+            migrationBuilder.DropTable(
+                name: "gnr_Products");
+
+            migrationBuilder.DropTable(
+                name: "gnr_Brands");
+
+            migrationBuilder.DropTable(
+                name: "gnr_Categories");
+
+            migrationBuilder.DropTable(
+                name: "gnr_Commodities");
         }
     }
 }

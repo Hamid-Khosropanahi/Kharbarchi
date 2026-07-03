@@ -1,0 +1,66 @@
+.kharbarchi-product-info {
+    margin: 15px 0;
+    padding: 12px;
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+    background: #fafafa;
+    line-height: 2;
+    font-size: 14px;
+}
+
+.kharbarchi-product-info strong {
+    font-weight: 700;
+}
+
+.kharbarchi-image-tag {
+    position: absolute;
+    z-index: 20;
+    top: 12px;
+    right: 12px;
+    background: #222;
+    color: #fff;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.4;
+}
+
+.woocommerce ul.products li.product,
+.woocommerce div.product div.images {
+    position: relative;
+}
+.kharbarchi-payment-type {
+    padding: 15px;
+    margin-bottom: 15px;
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+    background: #fafafa;
+}
+
+.kharbarchi-cash-discount {
+    color: #168a3a;
+    font-weight: 700;
+}
+
+.kharbarchi-total-cash-discount td,
+.kharbarchi-total-cash-discount th {
+    color: #168a3a;
+    font-weight: 700;
+}
+
+.kharbarchi-product-info {
+    margin: 14px 0;
+    padding: 12px 14px;
+    border: 1px solid rgba(15, 23, 42, .10);
+    border-radius: 12px;
+    background: #fff;
+    line-height: 2;
+}
+.kharbarchi-product-info .khb-public-price {
+    font-weight: 700;
+}
+.kharbarchi-product-info .khb-public-cash-discount {
+    color: #166534;
+    font-weight: 700;
+}

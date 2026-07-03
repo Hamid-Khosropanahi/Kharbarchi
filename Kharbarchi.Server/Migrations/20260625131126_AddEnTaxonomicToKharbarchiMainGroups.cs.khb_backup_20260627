@@ -18,7 +18,10 @@ ADD COLUMN `EnTaxonomic` VARCHAR(500) NULL AFTER `CategoryName`;
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            // KHB-SAFE: rollback intentionally does not drop data-bearing tables, columns, or indexes.
+            migrationBuilder.Sql(@"
+ALTER TABLE `khb_product_main_groups`
+DROP COLUMN `EnTaxonomic`;
+");
         }
     }
 }

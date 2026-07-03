@@ -10,13 +10,13 @@ namespace Kharbarchi.Server.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.Sql(@"
-DROP TABLE IF EXISTS `KHB_Product_Update_Queue`;
-DROP TABLE IF EXISTS `KHB_Product_Final`;
-DROP TABLE IF EXISTS `KHB_Package_Type`;
-DROP TABLE IF EXISTS `KHB_Commodity`;
-DROP TABLE IF EXISTS `KHB_Category_Map`;
-DROP TABLE IF EXISTS `khb_sale_products`;
-DROP TABLE IF EXISTS `khb_product_main_groups`;
+-- KHB-SAFE: DROP TABLE IF EXISTS `KHB_Product_Update_Queue`;
+-- KHB-SAFE: DROP TABLE IF EXISTS `KHB_Product_Final`;
+-- KHB-SAFE: DROP TABLE IF EXISTS `KHB_Package_Type`;
+-- KHB-SAFE: DROP TABLE IF EXISTS `KHB_Commodity`;
+-- KHB-SAFE: DROP TABLE IF EXISTS `KHB_Category_Map`;
+-- KHB-SAFE: DROP TABLE IF EXISTS `khb_sale_products`;
+-- KHB-SAFE: DROP TABLE IF EXISTS `khb_product_main_groups`;
 ");
 
             migrationBuilder.Sql(@"
@@ -219,15 +219,7 @@ CREATE TABLE `KHB_Product_Update_Queue` (
 
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.Sql(@"
-DROP TABLE IF EXISTS `KHB_Product_Update_Queue`;
-DROP TABLE IF EXISTS `KHB_Product_Final`;
-DROP TABLE IF EXISTS `KHB_Package_Type`;
-DROP TABLE IF EXISTS `KHB_Commodity`;
-DROP TABLE IF EXISTS `KHB_Category_Map`;
-DROP TABLE IF EXISTS `khb_sale_products`;
-DROP TABLE IF EXISTS `khb_product_main_groups`;
-");
+            // KHB-SAFE: rollback intentionally does not drop data-bearing tables, columns, or indexes.
         }
     }
 }

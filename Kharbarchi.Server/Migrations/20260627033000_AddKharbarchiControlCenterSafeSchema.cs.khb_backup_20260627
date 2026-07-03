@@ -70,7 +70,7 @@ CREATE TABLE IF NOT EXISTS `khb_ProductWooControlProfiles` (
 
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            // KHB-SAFE: rollback intentionally does not drop data-bearing tables, columns, or indexes.
+            // Safe rollback intentionally does not drop data-bearing tables or columns.
         }
 
         private static void AddColumnIfMissing(MigrationBuilder migrationBuilder, string tableName, string columnName, string columnDefinition)

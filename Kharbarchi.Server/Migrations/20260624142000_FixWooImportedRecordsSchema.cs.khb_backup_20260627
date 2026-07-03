@@ -72,7 +72,8 @@ CREATE TABLE IF NOT EXISTS `khb_imported_woocommerce_records` (
     }
 
     protected override void Down(MigrationBuilder migrationBuilder)
-        {
-            // KHB-SAFE: rollback intentionally does not drop data-bearing tables, columns, or indexes.
-        }
+    {
+        // This migration repairs an import/audit table used for raw WooCommerce snapshots.
+        // Do not drop or make columns NOT NULL in Down, because that could destroy imported data.
+    }
 }

@@ -696,3 +696,66 @@ body[data-theme="dark"] .khb-btn,
         padding: 10px;
     }
 }
+
+/* WooCommerce staged sync progress - KHB safe sync UX */
+.khb-woo-progress-card {
+    display: grid;
+    gap: 14px;
+}
+
+.khb-batch-size {
+    display: inline-grid !important;
+    gap: 4px !important;
+    min-width: 135px;
+    max-width: 160px;
+}
+
+.khb-sync-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(120px, 1fr));
+    gap: 10px;
+}
+
+.khb-sync-grid article {
+    border: 1px solid var(--khb-border);
+    border-radius: 16px;
+    padding: 12px;
+    background: rgba(31, 122, 77, 0.06);
+}
+
+.khb-sync-grid span {
+    display: block;
+    color: var(--khb-muted);
+    font-weight: 800;
+    margin-bottom: 5px;
+}
+
+.khb-sync-grid strong {
+    display: block;
+    font-size: 1.4rem;
+    color: var(--khb-heading);
+}
+
+.khb-progress-line {
+    height: 18px;
+    width: 100%;
+    background: rgba(15, 23, 42, 0.10);
+    border-radius: 999px;
+    overflow: hidden;
+    border: 1px solid var(--khb-border);
+}
+
+.khb-progress-line span {
+    display: block;
+    height: 100%;
+    min-width: 0;
+    background: linear-gradient(90deg, var(--khb-green), var(--khb-accent));
+    border-radius: inherit;
+    transition: width .25s ease;
+}
+
+@media (max-width: 900px) {
+    .khb-sync-grid {
+        grid-template-columns: repeat(2, minmax(120px, 1fr));
+    }
+}

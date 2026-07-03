@@ -1,0 +1,68 @@
+.kharbarchi-admin-box {
+    padding: 10px;
+}
+
+.kharbarchi-admin-box p {
+    margin-bottom: 18px;
+}
+
+.kharbarchi-admin-box label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+.kharbarchi-admin-box input[type="text"],
+.kharbarchi-admin-box input[type="number"] {
+    width: 100%;
+    max-width: 420px;
+}
+.kharbarchi-media-field img {
+    border: 1px solid #ddd;
+    padding: 3px;
+    background: #fff;
+    border-radius: 4px;
+}
+
+.kharbarchi-base-image-preview,
+.kharbarchi-base-gallery-preview {
+    margin: 8px 0;
+}
+
+.kharbarchi-base-gallery-preview img {
+    display: inline-block;
+    vertical-align: middle;
+}
+
+/* Kharbarchi automated price-control status */
+.khb-price-check-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    font-weight: 700;
+    border: 1px solid rgba(0,0,0,.08);
+    background: #f8fafc;
+}
+.khb-price-check-badge code {
+    direction: ltr;
+    font-size: 11px;
+    background: rgba(255,255,255,.7);
+    padding: 1px 5px;
+    border-radius: 999px;
+}
+.khb-price-check-green { color: #166534; background: #dcfce7; }
+.khb-price-check-yellow { color: #92400e; background: #fef3c7; }
+.khb-price-check-red { color: #991b1b; background: #fee2e2; }
+.khb-price-check-readonly span,
+.khb-price-check-note span {
+    display: inline-block;
+    padding: 6px 8px;
+    border-radius: 8px;
+    background: #f8fafc;
+}
+.khb-price-check-note span {
+    color: #7f1d1d;
+    background: #fff7ed;
+}
