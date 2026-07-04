@@ -17,18 +17,23 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
+var bindingEnvironment = EnvironmentBindingRules.NormalizeEnvironmentName(builder.Environment.EnvironmentName);
+var requiredProfileEnvironment = EnvironmentBindingRules.GetRequiredProfileEnvironmentType(bindingEnvironment);
 const string KharbarchiLocalClientsCors = "KharbarchiLocalClients";
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(KharbarchiLocalClientsCors, policy =>
     {
-        policy.WithOrigins(
-                "https://localhost:3030",
-                "http://localhost:3030",
-                "https://localhost:3131",
-                "http://localhost:3131")
-            .AllowAnyHeader()
-            .AllowAnyMethod();
+        if (builder.Environment.IsDevelopment())
+        {
+            policy.WithOrigins(
+                    "https://localhost:3030",
+                    "http://localhost:3030",
+                    "https://localhost:3131",
+                    "http://localhost:3131")
+                .AllowAnyHeader()
+                .AllowAnyMethod();
+        }
     });
 });
 
@@ -50,10 +55,22 @@ builder.Services.AddOptions<SeedAdminOptions>()
 
 builder.Services.AddOptions<WooCommerceOptions>()
     .Bind(builder.Configuration.GetSection(WooCommerceOptions.SectionName))
-    .Validate(o => Uri.TryCreate(o.BaseUrl, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps,
-        "WooCommerce:BaseUrl must be an absolute HTTPS URL.")
-    .Validate(o => !string.IsNullOrWhiteSpace(o.ConsumerKey), "WooCommerce:ConsumerKey is required.")
-    .Validate(o => !string.IsNullOrWhiteSpace(o.ConsumerSecret), "WooCommerce:ConsumerSecret is required.")
+    .Validate(
+        o => string.Equals(o.EnvironmentType, requiredProfileEnvironment, StringComparison.Ordinal),
+        $"WooCommerce__EnvironmentType must be exactly '{requiredProfileEnvironment}' when ASPNETCORE_ENVIRONMENT={bindingEnvironment}.")
+    .Validate(
+        o => builder.Environment.IsDevelopment()
+            ? EnvironmentBindingRules.IsLocalDevelopmentUrl(o.BaseUrl)
+            : EnvironmentBindingRules.IsCanonicalProductionSiteUrl(o.BaseUrl),
+        builder.Environment.IsDevelopment()
+            ? "WooCommerce__BaseUrl must be an absolute local-development URL in Development."
+            : $"WooCommerce__BaseUrl must be exactly '{EnvironmentBindingRules.CanonicalProductionSiteUrl}' in Production.")
+    .Validate(o => !builder.Environment.IsProduction() || o.VerifySsl,
+        "WooCommerce__VerifySsl must be true in Production.")
+    .Validate(o => !string.IsNullOrWhiteSpace(o.ConsumerKey),
+        "WooCommerce__ConsumerKey is required; configure it in /etc/kharbarchi-api.env.")
+    .Validate(o => !string.IsNullOrWhiteSpace(o.ConsumerSecret),
+        "WooCommerce__ConsumerSecret is required; configure it in /etc/kharbarchi-api.env.")
     .ValidateOnStart();
 
 builder.Services.AddOptions<GatewayOptions>()
@@ -96,14 +113,18 @@ builder.Services.AddSingleton<EnvironmentSafetyGuard>();
     // Use the same guard instance to validate global WooCommerce options during startup
     var startupGuardLogger = LoggerFactory.Create(b => b.AddConsole()).CreateLogger<EnvironmentSafetyGuard>();
     var startupGuard = new EnvironmentSafetyGuard(startupGuardLogger, builder.Environment);
+    var sitePublicUrl = builder.Configuration["Site:PublicUrl"];
+    startupGuard.ValidateSiteUrl(sitePublicUrl, "Site__PublicUrl");
 
-    // Determine verifySsl: prefer explicit VerifySsl, fall back to existing AllowInsecureLocalhostSsl only for local development
     var verifySsl = wooOptions.VerifySsl;
-
-    var envType = string.IsNullOrWhiteSpace(wooOptions.EnvironmentType) ? "Local" : wooOptions.EnvironmentType;
+    var envType = wooOptions.EnvironmentType;
 
     // Validate and fail fast if unsafe
-    startupGuard.ValidateWooProfile(wooOptions.BaseUrl, verifySsl, envType);
+    startupGuard.ValidateWooProfile(
+        wooOptions.BaseUrl,
+        verifySsl,
+        envType,
+        expectedProductionBaseUrl: sitePublicUrl);
 }
 
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -236,6 +257,24 @@ builder.Services.Configure<BrotliCompressionProviderOptions>(options => options.
 builder.Services.Configure<GzipCompressionProviderOptions>(options => options.Level = CompressionLevel.Fastest);
 
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+if (builder.Environment.IsProduction() && allowedOrigins.Length > 0)
+{
+    throw new InvalidOperationException(
+        "EnvironmentSafetyGuard: Cors__AllowedOrigins must be empty in Production because browsers must not call the ERP API directly.");
+}
+
+if (builder.Environment.IsDevelopment())
+{
+    foreach (var origin in allowedOrigins)
+    {
+        if (!EnvironmentBindingRules.IsLocalDevelopmentUrl(origin))
+        {
+            throw new InvalidOperationException(
+                $"EnvironmentSafetyGuard: Development CORS origin '{origin}' is not a local-development URL.");
+        }
+    }
+}
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("TrustedClients", policy =>
@@ -411,7 +450,10 @@ app.UseResponseCompression();
 app.UseHttpsRedirection();
 app.UseCors("TrustedClients");
 app.UseRateLimiter();
-app.UseCors(KharbarchiLocalClientsCors);
+if (app.Environment.IsDevelopment())
+{
+    app.UseCors(KharbarchiLocalClientsCors);
+}
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -426,11 +468,12 @@ using (var scope = app.Services.CreateScope())
         await dbContext.Database.MigrateAsync();
     }
 
+    var wooProfiles = scope.ServiceProvider.GetRequiredService<WooCommerceProfileService>();
+    await wooProfiles.EnsureEnvironmentCompatibleDefaultAsync(CancellationToken.None);
+
     var seeder = scope.ServiceProvider.GetRequiredService<IdentityDataSeeder>();
     await seeder.SeedAsync();
 }
 
 app.Run();
-
-
 

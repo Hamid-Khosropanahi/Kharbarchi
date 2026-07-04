@@ -29,14 +29,14 @@ public sealed class WooCommerceApiClient
         _guard = guard;
 
         // Validate global client target against environment safety policies.
-        // Prefer explicit VerifySsl and EnvironmentType options; AllowInsecureLocalhostSsl remains supported for backward compatibility but does not weaken Production safety.
         var verifySsl = _options.VerifySsl;
-        var envType = string.IsNullOrWhiteSpace(_options.EnvironmentType)
-            ? "Local"
-            : _options.EnvironmentType;
 
         // If VerifySsl is false but AllowInsecureLocalhostSsl is true, allow insecure SSL only when running against localhost in Development. The guard enforces Production rules regardless.
-        _guard.ValidateWooProfile(_options.BaseUrl, verifySsl, envType);
+        _guard.ValidateWooProfile(
+            _options.BaseUrl,
+            verifySsl,
+            _options.EnvironmentType,
+            expectedProductionBaseUrl: _options.BaseUrl);
 
         ConfigureAuthenticationHeader();
     }

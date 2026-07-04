@@ -3,8 +3,11 @@ using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Kharbarchi.Server.Infrastructure.Safety;
+using Kharbarchi.Server.Options;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using MySql.Data.MySqlClient;
 
 namespace Kharbarchi.Server.Controllers;
@@ -16,7 +19,8 @@ public sealed class WooLabController : ControllerBase
 {
     private readonly IConfiguration _configuration;
     private readonly ILogger<WooLabController> _logger;
-    private readonly Infrastructure.Safety.EnvironmentSafetyGuard _guard;
+    private readonly EnvironmentSafetyGuard _guard;
+    private readonly WooCommerceOptions _wooOptions;
 
     private static readonly JsonSerializerOptions PrettyJsonOptions = new()
     {
@@ -24,11 +28,16 @@ public sealed class WooLabController : ControllerBase
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
     };
 
-    public WooLabController(IConfiguration configuration, ILogger<WooLabController> logger, Infrastructure.Safety.EnvironmentSafetyGuard guard)
+    public WooLabController(
+        IConfiguration configuration,
+        ILogger<WooLabController> logger,
+        EnvironmentSafetyGuard guard,
+        IOptions<WooCommerceOptions> wooOptions)
     {
         _configuration = configuration;
         _logger = logger;
         _guard = guard;
+        _wooOptions = wooOptions.Value;
     }
 
     [HttpGet("server-health")]
@@ -54,7 +63,7 @@ public sealed class WooLabController : ControllerBase
         }
 
         // Validate WooCommerce target against environment safety policies
-        _guard.ValidateWooProfile(settings.BaseUrl, !settings.AllowInsecureLocalhostSsl, "Local");
+        ValidateWooTarget(settings);
 
         var targetPath = string.IsNullOrWhiteSpace(request?.EndpointPath) ? "wp-json/" : request!.EndpointPath!.TrimStart('/');
         var url = BuildUrl(settings, targetPath, requiresWooKeys: targetPath.Contains("wc/v", StringComparison.OrdinalIgnoreCase));
@@ -101,7 +110,7 @@ public sealed class WooLabController : ControllerBase
         await EnsureImportTableAsync(cancellationToken);
 
         // Validate WooCommerce target before importing
-        _guard.ValidateWooProfile(settings.BaseUrl, !settings.AllowInsecureLocalhostSsl, "Local");
+        ValidateWooTarget(settings);
 
         using var http = CreateHttpClient(settings);
         var result = new WooImportResultDto();
@@ -124,6 +133,15 @@ public sealed class WooLabController : ControllerBase
                 hasWordPressBasicAuth = !string.IsNullOrWhiteSpace(settings.WordPressUsername) && !string.IsNullOrWhiteSpace(settings.WordPressPassword)
             }
         });
+    }
+
+    private void ValidateWooTarget(WooResolvedSettings settings)
+    {
+        _guard.ValidateWooProfile(
+            settings.BaseUrl ?? string.Empty,
+            !settings.AllowInsecureLocalhostSsl,
+            _wooOptions.EnvironmentType,
+            expectedProductionBaseUrl: _wooOptions.BaseUrl);
     }
 
     [HttpGet("imported-summary")]

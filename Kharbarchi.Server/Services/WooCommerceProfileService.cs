@@ -5,9 +5,11 @@ using System.Text.Json;
 using Kharbarchi.Server.Data;
 using Kharbarchi.Server.Infrastructure.Safety;
 using Kharbarchi.Server.Models;
+using Kharbarchi.Server.Options;
 using Kharbarchi.Shared.Contracts.WooCommerce;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace Kharbarchi.Server.Services;
 
@@ -16,12 +18,96 @@ public sealed class WooCommerceProfileService
     private readonly AppDbContext _context;
     private readonly IDataProtector _protector;
     private readonly EnvironmentSafetyGuard _guard;
+    private readonly IHostEnvironment _environment;
+    private readonly WooCommerceOptions _configuredOptions;
+    private readonly ILogger<WooCommerceProfileService> _logger;
 
-    public WooCommerceProfileService(AppDbContext context, IDataProtectionProvider protectionProvider, EnvironmentSafetyGuard guard)
+    public WooCommerceProfileService(
+        AppDbContext context,
+        IDataProtectionProvider protectionProvider,
+        EnvironmentSafetyGuard guard,
+        IHostEnvironment environment,
+        IOptions<WooCommerceOptions> configuredOptions,
+        ILogger<WooCommerceProfileService> logger)
     {
         _context = context;
         _protector = protectionProvider.CreateProtector("Kharbarchi.WooCommerce.ConnectionProfile.v1");
         _guard = guard;
+        _environment = environment;
+        _configuredOptions = configuredOptions.Value;
+        _logger = logger;
+    }
+
+    public async Task EnsureEnvironmentCompatibleDefaultAsync(CancellationToken cancellationToken)
+    {
+        var requiredEnvironment = _environment.IsProduction()
+            ? EnvironmentBindingRules.ProductionProfileEnvironmentType
+            : _environment.IsDevelopment()
+                ? EnvironmentBindingRules.LocalProfileEnvironmentType
+                : NormalizeEnvironment(_configuredOptions.EnvironmentType);
+
+        _guard.ValidateWooProfile(
+            _configuredOptions.BaseUrl,
+            _configuredOptions.VerifySsl,
+            requiredEnvironment,
+            expectedProductionBaseUrl: _configuredOptions.BaseUrl);
+
+        List<WooCommerceConnectionProfile> profiles;
+        try
+        {
+            profiles = await _context.WooCommerceConnectionProfiles
+                .OrderByDescending(x => x.IsActive)
+                .ThenBy(x => x.Id)
+                .ToListAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException(
+                "Cannot validate WooCommerce connection profiles in table 'khb_woocommerce_connection_profiles'. "
+                + "Apply the reviewed EF Core migrations to ConnectionStrings__MySqlConnection, then restart the service.",
+                ex);
+        }
+
+        var compatibleProfile = profiles.FirstOrDefault(profile =>
+            IsCompatibleWithConfiguredEnvironment(profile, requiredEnvironment));
+
+        if (compatibleProfile is null)
+        {
+            compatibleProfile = await CreateOrRefreshConfigurationProfileAsync(
+                profiles,
+                requiredEnvironment,
+                cancellationToken);
+        }
+
+        var changed = false;
+        foreach (var profile in profiles)
+        {
+            var shouldBeActive = profile.Id == compatibleProfile.Id;
+            if (profile.IsActive != shouldBeActive)
+            {
+                profile.IsActive = shouldBeActive;
+                profile.UpdatedAtUtc = DateTime.UtcNow;
+                changed = true;
+            }
+        }
+
+        if (changed)
+        {
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+
+        _guard.ValidateWooProfile(
+            compatibleProfile.BaseUrl,
+            compatibleProfile.VerifySsl,
+            compatibleProfile.EnvironmentType,
+            compatibleProfile.Id,
+            _configuredOptions.BaseUrl);
+
+        _logger.LogInformation(
+            "WooCommerce profile validation completed. ProfileId={ProfileId}, EnvironmentType={EnvironmentType}, Endpoint={Endpoint}",
+            compatibleProfile.Id,
+            compatibleProfile.EnvironmentType,
+            ToSafeEndpoint(compatibleProfile.BaseUrl));
     }
 
     public async Task<IReadOnlyList<WooConnectionProfileDto>> GetProfilesAsync(CancellationToken cancellationToken)
@@ -39,6 +125,16 @@ public sealed class WooCommerceProfileService
     {
         Validate(request);
         var environmentType = NormalizeEnvironment(request.EnvironmentType);
+        var normalizedBaseUrl = request.BaseUrl.Trim();
+        var verifySsl = environmentType == EnvironmentBindingRules.ProductionProfileEnvironmentType
+            || request.VerifySsl;
+        _guard.ValidateWooProfile(
+            normalizedBaseUrl,
+            verifySsl,
+            environmentType,
+            request.Id.GetValueOrDefault(),
+            _configuredOptions.BaseUrl);
+
         var now = DateTime.UtcNow;
         WooCommerceConnectionProfile profile;
 
@@ -59,7 +155,7 @@ public sealed class WooCommerceProfileService
 
         profile.ProfileName = request.ProfileName.Trim();
         profile.EnvironmentType = environmentType;
-        profile.BaseUrl = request.BaseUrl.Trim().TrimEnd('/');
+        profile.BaseUrl = normalizedBaseUrl;
         if (!string.IsNullOrWhiteSpace(request.ConsumerKey))
         {
             profile.ConsumerKey = request.ConsumerKey.Trim();
@@ -76,7 +172,7 @@ public sealed class WooCommerceProfileService
         }
 
         profile.ApiVersion = NormalizeApiVersion(request.ApiVersion);
-        profile.VerifySsl = environmentType == "Production" || request.VerifySsl;
+        profile.VerifySsl = verifySsl;
         profile.TimeoutSeconds = Math.Clamp(request.TimeoutSeconds, 5, 180);
         profile.IsActive = request.IsActive;
         profile.UpdatedAtUtc = now;
@@ -103,17 +199,16 @@ public sealed class WooCommerceProfileService
             .AsNoTracking()
             .SingleOrDefaultAsync(x => x.Id == profileId, cancellationToken)
             ?? throw new KeyNotFoundException("WooCommerce connection profile was not found.");
-        var secret = _protector.Unprotect(profile.ProtectedConsumerSecret);
 
-        // Validate profile against environment safety guard before returning a live connection
-        try
-        {
-            _guard.ValidateWooProfile(profile.BaseUrl, profile.VerifySsl, profile.EnvironmentType, profile.Id);
-        }
-        catch (Exception ex)
-        {
-            throw new InvalidOperationException("WooCommerce profile is not allowed by environment safety policies.", ex);
-        }
+        // Reject an environment-incompatible profile before attempting to decrypt its secret.
+        _guard.ValidateWooProfile(
+            profile.BaseUrl,
+            profile.VerifySsl,
+            profile.EnvironmentType,
+            profile.Id,
+            _configuredOptions.BaseUrl);
+
+        var secret = _protector.Unprotect(profile.ProtectedConsumerSecret);
         return new WooProfileConnection(
             profile.Id,
             profile.ProfileName,
@@ -169,14 +264,132 @@ public sealed class WooCommerceProfileService
             throw new ArgumentException("BaseUrl must be an absolute HTTP or HTTPS URL.");
         }
 
-        if (NormalizeEnvironment(request.EnvironmentType) == "Production" && uri.Scheme != Uri.UriSchemeHttps)
+        if (NormalizeEnvironment(request.EnvironmentType) == EnvironmentBindingRules.ProductionProfileEnvironmentType
+            && uri.Scheme != Uri.UriSchemeHttps)
         {
             throw new ArgumentException("Production WooCommerce profiles require HTTPS.");
         }
     }
 
-    private static string NormalizeEnvironment(string? value) =>
-        string.Equals(value?.Trim(), "Production", StringComparison.OrdinalIgnoreCase) ? "Production" : "Local";
+    private static string NormalizeEnvironment(string? value)
+    {
+        if (string.Equals(
+                value?.Trim(),
+                EnvironmentBindingRules.ProductionProfileEnvironmentType,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return EnvironmentBindingRules.ProductionProfileEnvironmentType;
+        }
+
+        if (string.Equals(
+                value?.Trim(),
+                EnvironmentBindingRules.LocalProfileEnvironmentType,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return EnvironmentBindingRules.LocalProfileEnvironmentType;
+        }
+
+        throw new ArgumentException("EnvironmentType must be either 'Local' or 'Production'.");
+    }
+
+    private bool IsCompatibleWithConfiguredEnvironment(
+        WooCommerceConnectionProfile profile,
+        string requiredEnvironment)
+    {
+        if (!string.Equals(profile.EnvironmentType, requiredEnvironment, StringComparison.Ordinal)
+            || !AreEquivalentBaseUrls(profile.BaseUrl, _configuredOptions.BaseUrl)
+            || string.IsNullOrWhiteSpace(profile.ConsumerKey)
+            || string.IsNullOrWhiteSpace(profile.ProtectedConsumerSecret)
+            || (requiredEnvironment == EnvironmentBindingRules.ProductionProfileEnvironmentType
+                && (!profile.VerifySsl
+                    || !EnvironmentBindingRules.IsCanonicalProductionSiteUrl(profile.BaseUrl)))
+            || (requiredEnvironment == EnvironmentBindingRules.LocalProfileEnvironmentType
+                && !EnvironmentBindingRules.IsLocalDevelopmentUrl(profile.BaseUrl)))
+        {
+            return false;
+        }
+
+        try
+        {
+            return !string.IsNullOrWhiteSpace(_protector.Unprotect(profile.ProtectedConsumerSecret));
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private async Task<WooCommerceConnectionProfile> CreateOrRefreshConfigurationProfileAsync(
+        List<WooCommerceConnectionProfile> profiles,
+        string requiredEnvironment,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(_configuredOptions.ConsumerKey)
+            || string.IsNullOrWhiteSpace(_configuredOptions.ConsumerSecret))
+        {
+            throw new InvalidOperationException(
+                "No valid environment-compatible row exists in 'khb_woocommerce_connection_profiles', "
+                + "and a default profile cannot be created. Configure WooCommerce__ConsumerKey and "
+                + "WooCommerce__ConsumerSecret in /etc/kharbarchi-api.env, then restart the service.");
+        }
+
+        var profileName = $"{requiredEnvironment} default (environment)";
+        var profile = profiles.FirstOrDefault(
+            x => string.Equals(x.ProfileName, profileName, StringComparison.OrdinalIgnoreCase));
+        var now = DateTime.UtcNow;
+
+        if (profile is null)
+        {
+            profile = new WooCommerceConnectionProfile
+            {
+                ProfileName = profileName,
+                CreatedAtUtc = now
+            };
+            profiles.Add(profile);
+            _context.WooCommerceConnectionProfiles.Add(profile);
+        }
+
+        profile.EnvironmentType = requiredEnvironment;
+        profile.BaseUrl = _configuredOptions.BaseUrl.Trim();
+        profile.ConsumerKey = _configuredOptions.ConsumerKey.Trim();
+        profile.ProtectedConsumerSecret = _protector.Protect(_configuredOptions.ConsumerSecret.Trim());
+        profile.ApiVersion = "wc/v3";
+        profile.VerifySsl = requiredEnvironment == EnvironmentBindingRules.ProductionProfileEnvironmentType
+            || _configuredOptions.VerifySsl;
+        profile.TimeoutSeconds = Math.Clamp(_configuredOptions.TimeoutSeconds, 5, 180);
+        profile.IsActive = true;
+        profile.UpdatedAtUtc = now;
+
+        await _context.SaveChangesAsync(cancellationToken);
+        return profile;
+    }
+
+    private static bool AreEquivalentBaseUrls(string left, string right)
+    {
+        if (!Uri.TryCreate(left?.Trim(), UriKind.Absolute, out var leftUri)
+            || !Uri.TryCreate(right?.Trim(), UriKind.Absolute, out var rightUri))
+        {
+            return false;
+        }
+
+        static string Normalize(Uri uri)
+        {
+            var port = uri.IsDefaultPort ? string.Empty : $":{uri.Port}";
+            return $"{uri.Scheme.ToLowerInvariant()}://{uri.IdnHost.ToLowerInvariant()}{port}{uri.AbsolutePath.TrimEnd('/')}";
+        }
+
+        return string.Equals(Normalize(leftUri), Normalize(rightUri), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string ToSafeEndpoint(string value)
+    {
+        if (!Uri.TryCreate(value, UriKind.Absolute, out var uri))
+        {
+            return "[invalid-url]";
+        }
+
+        return uri.GetLeftPart(UriPartial.Authority);
+    }
 
     private static string NormalizeApiVersion(string? value)
     {

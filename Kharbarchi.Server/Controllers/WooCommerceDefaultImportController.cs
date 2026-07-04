@@ -4,12 +4,15 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using Kharbarchi.Server.Data;
+using Kharbarchi.Server.Infrastructure.Safety;
 using Kharbarchi.Server.Models;
+using Kharbarchi.Server.Options;
 using Kharbarchi.Server.Services;
 using Kharbarchi.Shared.Contracts.WooCommerce;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace Kharbarchi.Server.Controllers;
 
@@ -21,18 +24,21 @@ public sealed class WooCommerceDefaultImportController : ControllerBase
     private readonly WooCommerceRuntimeSettingsStore _settingsStore;
     private readonly AppDbContext _db;
     private readonly ILogger<WooCommerceDefaultImportController> _logger;
-    private readonly Infrastructure.Safety.EnvironmentSafetyGuard _guard;
+    private readonly EnvironmentSafetyGuard _guard;
+    private readonly WooCommerceOptions _wooOptions;
 
     public WooCommerceDefaultImportController(
         WooCommerceRuntimeSettingsStore settingsStore,
         AppDbContext db,
         ILogger<WooCommerceDefaultImportController> logger,
-        Infrastructure.Safety.EnvironmentSafetyGuard guard)
+        EnvironmentSafetyGuard guard,
+        IOptions<WooCommerceOptions> wooOptions)
     {
         _settingsStore = settingsStore;
         _db = db;
         _logger = logger;
         _guard = guard;
+        _wooOptions = wooOptions.Value;
     }
 
     [HttpPost("run")]
@@ -45,7 +51,11 @@ public sealed class WooCommerceDefaultImportController : ControllerBase
         try
         {
             var settings = await MergeSettingsAsync(request, cancellationToken);
-            _guard.ValidateWooProfile(settings.BaseUrl, !settings.AllowInsecureLocalhostSsl, "Local");
+            _guard.ValidateWooProfile(
+                settings.BaseUrl,
+                !settings.AllowInsecureLocalhostSsl,
+                _wooOptions.EnvironmentType,
+                expectedProductionBaseUrl: _wooOptions.BaseUrl);
             if (!IsValidBaseUrl(settings.BaseUrl, out var message))
             {
                 return BadRequest(new WooDefaultImportResultDto { Success = false, Message = message });
@@ -205,7 +215,7 @@ ON DUPLICATE KEY UPDATE
         var saved = await _settingsStore.LoadAsync(cancellationToken);
         return new WooCommerceRuntimeSettings
         {
-            BaseUrl = string.IsNullOrWhiteSpace(request.BaseUrl) ? saved.BaseUrl : request.BaseUrl.Trim().TrimEnd('/'),
+            BaseUrl = string.IsNullOrWhiteSpace(request.BaseUrl) ? saved.BaseUrl : request.BaseUrl.Trim(),
             ConsumerKey = string.IsNullOrWhiteSpace(request.ConsumerKey) ? saved.ConsumerKey : request.ConsumerKey.Trim(),
             ConsumerSecret = string.IsNullOrWhiteSpace(request.ConsumerSecret) ? saved.ConsumerSecret : request.ConsumerSecret.Trim(),
             TimeoutSeconds = request.TimeoutSeconds.GetValueOrDefault(saved.TimeoutSeconds) is var timeout and >= 5 and <= 180 ? timeout : 30,

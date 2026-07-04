@@ -15,12 +15,12 @@ public sealed class WooCommerceOptions
     [Required]
     public string ConsumerSecret { get; init; } = string.Empty;
 
-    // New explicit fields
-    // "Local" or "Production" (case-insensitive). Default: Local
-    public string EnvironmentType { get; set; } = "Local";
+    // Must be explicitly configured as "Local" or "Production".
+    // An empty default prevents Production from silently inheriting a Local profile.
+    public string EnvironmentType { get; init; } = string.Empty;
 
-    // Whether SSL should be verified when contacting WooCommerce. Default: true
-    public bool VerifySsl { get; set; } = true;
+    // Whether SSL should be verified when contacting WooCommerce.
+    public bool VerifySsl { get; init; } = true;
 
     [Range(5, 120)]
     public int TimeoutSeconds { get; init; } = 30;

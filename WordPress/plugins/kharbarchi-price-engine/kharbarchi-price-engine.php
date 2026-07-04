@@ -1,11 +1,11 @@
 <?php
 /*
 Plugin Name: Kharbarchi Price Engine
-Plugin URI: https://kharbarchi.ir
+Plugin URI: https://www.Kharbarchi.ir/
 Description: Direct Price Engine With Automated Price Control And Gateway Payment Mapping For Kharbarchi WooCommerce
 Version: 1.3.0-payment-map
 Author: Hamid Khosropanahi
-Author URI: https://kharbarchi.ir
+Author URI: https://www.Kharbarchi.ir/
 Text Domain: kharbarchi-price-engine
 */
 

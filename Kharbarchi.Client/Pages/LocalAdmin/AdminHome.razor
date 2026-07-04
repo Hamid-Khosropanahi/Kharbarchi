@@ -4,6 +4,7 @@
 @using System.Net.Http.Json
 @using Microsoft.AspNetCore.Authorization
 @inject IHttpClientFactory HttpClientFactory
+@inject IConfiguration Configuration
 
 <PageTitle>داشبورد مدیریت خواربارچی</PageTitle>
 
@@ -16,7 +17,7 @@
         </div>
         <div class="khb-hero-actions">
             <a class="khb-btn khb-btn-primary" href="/local-admin/woocommerce-import">دریافت اطلاعات از WooCommerce</a>
-            <a class="khb-btn khb-btn-ghost" href="https://localhost:3131" target="_blank">مشاهده فروشگاه</a>
+            <a class="khb-btn khb-btn-ghost" href="@Configuration["Site:ShopUrl"]" target="_blank">مشاهده فروشگاه</a>
         </div>
     </div>
 

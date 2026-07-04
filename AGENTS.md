@@ -178,7 +178,7 @@ Kharbarchi production architecture uses two logical servers:
 
 #### Server 1 — Public shop server
 - Public access: yes
-- Website: `https://kharbarchi.ir/`
+- Website: `https://www.Kharbarchi.ir/`
 - Main software: WordPress + WooCommerce
 - Role: storefront, customer checkout, public-facing shop
 
@@ -219,7 +219,20 @@ Preferred access methods:
 - localhost-only binding
 - private/internal IP allowlist
 
-### 4.4 Outbound direction
+### 4.4 Binding environment separation
+Development bindings:
+
+- every website/shop/WooCommerce URL must be localhost, loopback, `*.localhost`, or `*.local`
+- database name must be exactly `Kharbarchi_Local`
+- Production URLs and database names are forbidden
+
+Production bindings:
+
+- canonical website/shop/WooCommerce URL must be exactly `https://www.Kharbarchi.ir/`
+- database name must be exactly `Kharbarchi_erp`
+- Local URLs and database names are forbidden
+
+### 4.5 Outbound direction
 Where possible, ERP should initiate outbound HTTPS calls to the shop/WooCommerce rather than exposing inbound public APIs.
 
 ---
@@ -671,10 +684,10 @@ If sales price is zero, missing, invalid, or not active:
 Production shop URL:
 
 ```text
-https://kharbarchi.ir/
+https://www.Kharbarchi.ir/
 ```
 
-Do not assume `www` unless configuration explicitly uses it.
+The `www` host, casing, scheme, and trailing slash above are binding.
 
 ### 11.2 Local development shop
 Known local WordPress/WooCommerce URL:
@@ -894,7 +907,7 @@ Python import/sync scripts should have:
 ### 14.2 Local SSL
 For local WordPress at `https://localhost:4433/Kharbarchi`, self-signed SSL may require `verify=False` in Python requests.
 
-Never use `verify=False` for production `https://kharbarchi.ir/`.
+Never use `verify=False` for production `https://www.Kharbarchi.ir/`.
 
 ### 14.3 Persian terminal output
 When a Python script displays Persian text in terminal, use Arabic reshaper and bidi display if needed.

@@ -8,6 +8,7 @@
 @using Microsoft.AspNetCore.Authorization
 @inject IHttpClientFactory HttpClientFactory
 @inject IJSRuntime JS
+@inject IConfiguration Configuration
 
 <PageTitle>مدیریت حرفه‌ای محصولات</PageTitle>
 
@@ -334,15 +335,22 @@
 
     private async Task<object> BuildWooRequest(int page, int perPage)
     {
+        var configuredBaseUrl = Configuration["WooCommerce:BaseUrl"]
+            ?? throw new InvalidOperationException("Client configuration WooCommerce:BaseUrl is missing.");
+        var isLocal = Uri.TryCreate(configuredBaseUrl, UriKind.Absolute, out var uri)
+            && (uri.IsLoopback
+                || uri.Host.EndsWith(".localhost", StringComparison.OrdinalIgnoreCase)
+                || uri.Host.EndsWith(".local", StringComparison.OrdinalIgnoreCase));
+
         return new
         {
-            baseUrl = await GetLocal("khb.woo.baseUrl") ?? "https://localhost:4433/Kharbarchi",
+            baseUrl = configuredBaseUrl,
             consumerKey = await GetLocal("khb.woo.consumerKey"),
             consumerSecret = (string?)null,
             wordPressUsername = await GetLocal("khb.woo.wpUsername"),
             wordPressPassword = (string?)null,
             timeoutSeconds = 600,
-            allowInsecureLocalhostSsl = true,
+            allowInsecureLocalhostSsl = isLocal,
             page,
             perPage
         };

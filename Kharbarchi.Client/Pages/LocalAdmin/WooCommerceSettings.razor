@@ -7,6 +7,7 @@
 @using Microsoft.AspNetCore.Authorization
 @inject IHttpClientFactory HttpClientFactory
 @inject IJSRuntime JS
+@inject IConfiguration Configuration
 
 <PageTitle>تنظیمات اتصال ووکامرس</PageTitle>
 
@@ -27,7 +28,7 @@
         <div class="khb-glass-card khb-form-card">
             <h2>اطلاعات اتصال</h2>
             <label>آدرس اصلی سایت WooCommerce</label>
-            <input class="khb-input" @bind="Model.BaseUrl" placeholder="https://localhost:4433/Kharbarchi" />
+            <input class="khb-input" @bind="Model.BaseUrl" readonly />
 
             <label>Consumer Key</label>
             <input class="khb-input ltr" @bind="Model.ConsumerKey" placeholder="ck_xxxxxxxxxxxxxxxxx" autocomplete="off" />
@@ -58,7 +59,7 @@
             </div>
 
             <label class="khb-check-row">
-                <input type="checkbox" @bind="Model.AllowInsecureLocalhostSsl" />
+                <input type="checkbox" @bind="Model.AllowInsecureLocalhostSsl" disabled="@IsProductionShop" />
                 <span>برای localhost گواهی SSL self-signed را قبول کن</span>
             </label>
         </div>
@@ -84,10 +85,8 @@
 @code {
     private readonly WooLabRequest Model = new()
     {
-        BaseUrl = "https://localhost:4433/Kharbarchi",
         EndpointPath = "wp-json/wc/v3/products?per_page=5",
-        TimeoutSeconds = 600,
-        AllowInsecureLocalhostSsl = true
+        TimeoutSeconds = 600
     };
 
     private bool Busy;
@@ -105,10 +104,16 @@
     }
 
     private HttpClient Api => HttpClientFactory.CreateClient("KharbarchiAPI");
+    private string ConfiguredWooBaseUrl => Configuration["WooCommerce:BaseUrl"]
+        ?? throw new InvalidOperationException("Client configuration WooCommerce:BaseUrl is missing.");
+    private bool IsProductionShop => string.Equals(
+        ConfiguredWooBaseUrl,
+        "https://www.Kharbarchi.ir/",
+        StringComparison.Ordinal);
 
     private async Task LoadSettings()
     {
-        Model.BaseUrl = await GetLocal("khb.woo.baseUrl") ?? Model.BaseUrl;
+        ApplyEnvironmentBinding();
         Model.ConsumerKey = await GetLocal("khb.woo.consumerKey") ?? Model.ConsumerKey;
         Model.WordPressUsername = await GetLocal("khb.woo.wpUsername") ?? Model.WordPressUsername;
         // Do not load or persist ConsumerSecret or WordPressPassword from localStorage for security reasons.
@@ -118,12 +123,18 @@
 
     private async Task SaveSettings()
     {
-        await SetLocal("khb.woo.baseUrl", Model.BaseUrl);
+        ApplyEnvironmentBinding();
         await SetLocal("khb.woo.consumerKey", Model.ConsumerKey);
         await SetLocal("khb.woo.wpUsername", Model.WordPressUsername);
         // Do not save ConsumerSecret or WordPressPassword to localStorage. Secrets must be stored server-side in protected profiles.
         LastMessage = "تنظیمات به‌صورت موقت در مرورگر ذخیره شد.";
         LastOk = true;
+    }
+
+    private void ApplyEnvironmentBinding()
+    {
+        Model.BaseUrl = ConfiguredWooBaseUrl;
+        Model.AllowInsecureLocalhostSsl = !IsProductionShop;
     }
 
     private async Task TestServer()
@@ -222,7 +233,7 @@
         public string? WordPressPassword { get; set; }
         public string? EndpointPath { get; set; }
         public int TimeoutSeconds { get; set; } = 60;
-        public bool AllowInsecureLocalhostSsl { get; set; } = true;
+        public bool AllowInsecureLocalhostSsl { get; set; }
         public int PerPage { get; set; } = 100;
         public int MaxPages { get; set; } = 3;
     }

@@ -10,6 +10,12 @@ var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
+if (!builder.HostEnvironment.IsDevelopment())
+{
+    throw new InvalidOperationException(
+        "Kharbarchi.Store is a local-development client and must not run in Production with a localhost API URL.");
+}
+
 // آدرس API – برای توسعه:
 var apiBase = "https://localhost:7100/";
 

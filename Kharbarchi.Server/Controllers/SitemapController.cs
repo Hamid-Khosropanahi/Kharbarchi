@@ -1,6 +1,7 @@
 using System.Security;
 using System.Text;
 using Kharbarchi.Server.Data;
+using Kharbarchi.Server.Infrastructure.Safety;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -24,7 +25,8 @@ public sealed class SitemapController : ControllerBase
     [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any)]
     public async Task<IActionResult> GetSitemap(CancellationToken cancellationToken = default)
     {
-        var siteUrl = (_configuration["Site:PublicUrl"] ?? "https://kharbarchi.com").TrimEnd('/');
+        var siteUrl = (_configuration["Site:PublicUrl"]
+            ?? EnvironmentBindingRules.CanonicalProductionSiteUrl).TrimEnd('/');
 
         var products = await _context.Products
             .AsNoTracking()

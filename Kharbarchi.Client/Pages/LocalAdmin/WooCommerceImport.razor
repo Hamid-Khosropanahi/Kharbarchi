@@ -7,6 +7,7 @@
 @using Microsoft.AspNetCore.Authorization
 @inject IHttpClientFactory HttpClientFactory
 @inject IJSRuntime JS
+@inject IConfiguration Configuration
 
 <PageTitle>دریافت اطلاعات ووکامرس</PageTitle>
 
@@ -45,7 +46,7 @@
             <p class="khb-muted">Secret و رمز WordPress در localStorage نگهداری نمی‌شوند. برای Import/Sync اصلی از پروفایل امن پایگاه‌داده استفاده کنید.</p>
 
             <label>BaseUrl</label>
-            <input class="khb-input ltr" @bind="Model.BaseUrl" />
+            <input class="khb-input ltr" @bind="Model.BaseUrl" readonly />
 
             <label>Consumer Key</label>
             <input class="khb-input ltr" @bind="Model.ConsumerKey" autocomplete="off" />
@@ -88,9 +89,7 @@
 @code {
     private readonly WooLabRequest Model = new()
     {
-        BaseUrl = "https://localhost:4433/Kharbarchi",
         TimeoutSeconds = 600,
-        AllowInsecureLocalhostSsl = true,
         PerPage = 100,
         MaxPages = 3
     };
@@ -101,6 +100,12 @@
     private string RawResult = "";
     private bool HasKeys => !string.IsNullOrWhiteSpace(Model.ConsumerKey) && !string.IsNullOrWhiteSpace(Model.ConsumerSecret);
     private HttpClient Api => HttpClientFactory.CreateClient("KharbarchiAPI");
+    private string ConfiguredWooBaseUrl => Configuration["WooCommerce:BaseUrl"]
+        ?? throw new InvalidOperationException("Client configuration WooCommerce:BaseUrl is missing.");
+    private bool IsProductionShop => string.Equals(
+        ConfiguredWooBaseUrl,
+        "https://www.Kharbarchi.ir/",
+        StringComparison.Ordinal);
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -113,7 +118,7 @@
 
     private async Task LoadSettings()
     {
-        Model.BaseUrl = await GetLocal("khb.woo.baseUrl") ?? Model.BaseUrl;
+        ApplyEnvironmentBinding();
         Model.ConsumerKey = await GetLocal("khb.woo.consumerKey") ?? Model.ConsumerKey;
         Model.WordPressUsername = await GetLocal("khb.woo.wpUsername") ?? Model.WordPressUsername;
         LastOk = true;
@@ -122,11 +127,17 @@
 
     private async Task SaveSettings()
     {
-        await SetLocal("khb.woo.baseUrl", Model.BaseUrl);
+        ApplyEnvironmentBinding();
         await SetLocal("khb.woo.consumerKey", Model.ConsumerKey);
         await SetLocal("khb.woo.wpUsername", Model.WordPressUsername);
         LastOk = true;
         LastMessage = "تنظیمات ذخیره شد.";
+    }
+
+    private void ApplyEnvironmentBinding()
+    {
+        Model.BaseUrl = ConfiguredWooBaseUrl;
+        Model.AllowInsecureLocalhostSsl = !IsProductionShop;
     }
 
     private async Task ImportData()
@@ -217,7 +228,7 @@
         public string? WordPressUsername { get; set; }
         public string? WordPressPassword { get; set; }
         public int TimeoutSeconds { get; set; } = 60;
-        public bool AllowInsecureLocalhostSsl { get; set; } = true;
+        public bool AllowInsecureLocalhostSsl { get; set; }
         public int PerPage { get; set; } = 100;
         public int MaxPages { get; set; } = 3;
     }

@@ -1,6 +1,8 @@
 @page "/local-admin/settings"
 @attribute [Authorize(Roles = "SuperAdmin,Admin")]
 @using Microsoft.AspNetCore.Authorization
+@inject IConfiguration Configuration
+@inject NavigationManager Navigation
 
 <PageTitle>تنظیمات سامانه</PageTitle>
 
@@ -11,9 +13,9 @@
 <section class="khb-two-col">
     <article class="khb-panel khb-panel-elevated">
         <div class="khb-panel-title"><span>01</span><div><h2>آدرس‌ها</h2><p>لینک‌های اصلی محیط توسعه.</p></div></div>
-        <label class="khb-field">پنل مدیریت <input class="khb-input ltr" readonly value="https://localhost:3030/local-admin" /></label>
-        <label class="khb-field">فروشگاه قدیمی <input class="khb-input ltr" readonly value="https://localhost:3131" /></label>
-        <label class="khb-field">API Server <input class="khb-input ltr" readonly value="https://localhost:7100" /></label>
+        <label class="khb-field">پنل مدیریت <input class="khb-input ltr" readonly value="@($"{Navigation.BaseUri.TrimEnd('/')}/local-admin")" /></label>
+        <label class="khb-field">فروشگاه قدیمی <input class="khb-input ltr" readonly value="@Configuration["Site:ShopUrl"]" /></label>
+        <label class="khb-field">API Server <input class="khb-input ltr" readonly value="@Configuration["Api:BaseUrl"]" /></label>
     </article>
     <article class="khb-panel khb-panel-elevated">
         <div class="khb-panel-title"><span>02</span><div><h2>ظاهر و تجربه کاربری</h2><p>تم روشن/تاریک از منوی بالا تغییر می‌کند و در مرورگر ذخیره می‌شود.</p></div></div>

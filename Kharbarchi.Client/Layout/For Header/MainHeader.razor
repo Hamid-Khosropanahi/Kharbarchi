@@ -20,7 +20,7 @@
             try
             {
                 // 2. Import the file as a Module (Note the "./" path)
-                _rotateModule = await JS.InvokeAsync<IJSObjectReference>("import", "./JS/Rotate.js");
+                _rotateModule = await JS.InvokeAsync<IJSObjectReference>("import", "./assets/js/rotate.js");
 
                 // 3. Call the exported function from the module
                 await _rotateModule.InvokeVoidAsync("init3DLogo");

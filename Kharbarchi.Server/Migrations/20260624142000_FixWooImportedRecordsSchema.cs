@@ -16,17 +16,38 @@ public partial class FixWooImportedRecordsSchema : Migration
 CREATE TABLE IF NOT EXISTS `khb_imported_woocommerce_records` (
     `Id` BIGINT NOT NULL AUTO_INCREMENT,
     `SourceType` VARCHAR(64) NOT NULL,
-    `SourceUrl` TEXT NULL,
     `ExternalId` VARCHAR(191) NULL,
-    `Name` VARCHAR(512) NULL,
-    `Status` VARCHAR(128) NULL,
+    `Slug` VARCHAR(255) NULL,
+    `Title` VARCHAR(512) NULL,
     `RawJson` LONGTEXT NOT NULL,
     `ImportedAtUtc` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    `CreatedAtUtc` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `SourceUrl` TEXT NULL,
+    `Name` VARCHAR(512) NULL,
+    `Status` VARCHAR(128) NULL,
+    `CreatedAtUtc` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     CONSTRAINT `PK_khb_imported_woocommerce_records` PRIMARY KEY (`Id`),
-    INDEX `IX_khb_imported_woocommerce_records_SourceType` (`SourceType`),
-    INDEX `IX_khb_imported_woocommerce_records_ExternalId` (`ExternalId`)
+    UNIQUE INDEX `UX_khb_imported_woocommerce_records_Source_External` (`SourceType`, `ExternalId`)
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;");
+
+        // MySQL DDL is not fully transactional. A previous failed attempt can therefore leave
+        // the table present but missing one or more columns. Add every mapped column before any
+        // UPDATE or MODIFY so rerunning this unapplied migration is safe.
+        AddColumnIfMissing(migrationBuilder, "SourceType", "`SourceType` VARCHAR(64) NULL");
+        AddColumnIfMissing(migrationBuilder, "ExternalId", "`ExternalId` VARCHAR(191) NULL");
+        AddColumnIfMissing(migrationBuilder, "Slug", "`Slug` VARCHAR(255) NULL");
+        AddColumnIfMissing(migrationBuilder, "Title", "`Title` VARCHAR(512) NULL");
+        AddColumnIfMissing(migrationBuilder, "RawJson", "`RawJson` LONGTEXT NULL");
+        AddColumnIfMissing(
+            migrationBuilder,
+            "ImportedAtUtc",
+            "`ImportedAtUtc` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)");
+        AddColumnIfMissing(migrationBuilder, "SourceUrl", "`SourceUrl` TEXT NULL");
+        AddColumnIfMissing(migrationBuilder, "Name", "`Name` VARCHAR(512) NULL");
+        AddColumnIfMissing(migrationBuilder, "Status", "`Status` VARCHAR(128) NULL");
+        AddColumnIfMissing(
+            migrationBuilder,
+            "CreatedAtUtc",
+            "`CreatedAtUtc` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)");
 
         migrationBuilder.Sql(@"UPDATE `khb_imported_woocommerce_records` SET `SourceType` = 'unknown' WHERE `SourceType` IS NULL OR `SourceType` = ''; ");
         migrationBuilder.Sql(@"UPDATE `khb_imported_woocommerce_records` SET `RawJson` = '{}' WHERE `RawJson` IS NULL OR `RawJson` = ''; ");
@@ -34,107 +55,40 @@ CREATE TABLE IF NOT EXISTS `khb_imported_woocommerce_records` (
         migrationBuilder.Sql(@"ALTER TABLE `khb_imported_woocommerce_records` MODIFY COLUMN `SourceType` VARCHAR(64) NOT NULL;");
         migrationBuilder.Sql(@"ALTER TABLE `khb_imported_woocommerce_records` MODIFY COLUMN `SourceUrl` TEXT NULL;");
         migrationBuilder.Sql(@"ALTER TABLE `khb_imported_woocommerce_records` MODIFY COLUMN `ExternalId` VARCHAR(191) NULL;");
+        migrationBuilder.Sql(@"ALTER TABLE `khb_imported_woocommerce_records` MODIFY COLUMN `Slug` VARCHAR(255) NULL;");
+        migrationBuilder.Sql(@"ALTER TABLE `khb_imported_woocommerce_records` MODIFY COLUMN `Title` VARCHAR(512) NULL;");
         migrationBuilder.Sql(@"ALTER TABLE `khb_imported_woocommerce_records` MODIFY COLUMN `Name` VARCHAR(512) NULL;");
         migrationBuilder.Sql(@"ALTER TABLE `khb_imported_woocommerce_records` MODIFY COLUMN `Status` VARCHAR(128) NULL;");
         migrationBuilder.Sql(@"ALTER TABLE `khb_imported_woocommerce_records` MODIFY COLUMN `RawJson` LONGTEXT NOT NULL;");
-        migrationBuilder.Sql(@"ALTER TABLE `khb_imported_woocommerce_records` MODIFY COLUMN `CreatedAtUtc` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP;");
-
-
-                // Apply safe conditional ALTERs: only run MODIFY if the column exists.
-                migrationBuilder.Sql(@"
-SET @has := (
-  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
-  WHERE TABLE_SCHEMA = DATABASE()
-    AND TABLE_NAME = 'khb_imported_woocommerce_records'
-    AND COLUMN_NAME = 'ImportedAtUtc'
-);
-SET @ddl := IF(
-  @has = 0,
-  'ALTER TABLE `khb_imported_woocommerce_records` ADD COLUMN `ImportedAtUtc` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6);',
-  'ALTER TABLE `khb_imported_woocommerce_records` MODIFY COLUMN `ImportedAtUtc` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6);'
-);
-PREPARE stmt FROM @ddl;
-EXECUTE stmt;
-DEALLOCATE PREPARE stmt;
-");
-
-                migrationBuilder.Sql(@"
-SET @has := (
-  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
-  WHERE TABLE_SCHEMA = DATABASE()
-    AND TABLE_NAME = 'khb_imported_woocommerce_records'
-    AND COLUMN_NAME = 'ExternalId'
-);
-SET @ddl := IF(
-  @has = 1,
-  'ALTER TABLE `khb_imported_woocommerce_records` MODIFY COLUMN `ExternalId` VARCHAR(191) NULL;',
-  'SELECT 1'
-);
-PREPARE stmt FROM @ddl;
-EXECUTE stmt;
-DEALLOCATE PREPARE stmt;
-");
-
-                migrationBuilder.Sql(@"
-SET @has := (
-  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
-  WHERE TABLE_SCHEMA = DATABASE()
-    AND TABLE_NAME = 'khb_imported_woocommerce_records'
-    AND COLUMN_NAME = 'SourceUrl'
-);
-SET @ddl := IF(
-  @has = 1,
-  'ALTER TABLE `khb_imported_woocommerce_records` MODIFY COLUMN `SourceUrl` VARCHAR(1000) NULL;',
-  'SELECT 1'
-);
-PREPARE stmt FROM @ddl;
-EXECUTE stmt;
-DEALLOCATE PREPARE stmt;
-");
-
-                migrationBuilder.Sql(@"
-SET @has := (
-  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
-  WHERE TABLE_SCHEMA = DATABASE()
-    AND TABLE_NAME = 'khb_imported_woocommerce_records'
-    AND COLUMN_NAME = 'Name'
-);
-SET @ddl := IF(
-  @has = 1,
-  'ALTER TABLE `khb_imported_woocommerce_records` MODIFY COLUMN `Name` VARCHAR(500) NULL;',
-  'SELECT 1'
-);
-PREPARE stmt FROM @ddl;
-EXECUTE stmt;
-DEALLOCATE PREPARE stmt;
-");
-
-                migrationBuilder.Sql(@"
-SET @has := (
-  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
-  WHERE TABLE_SCHEMA = DATABASE()
-    AND TABLE_NAME = 'khb_imported_woocommerce_records'
-    AND COLUMN_NAME = 'Status'
-);
-SET @ddl := IF(
-  @has = 1,
-  'ALTER TABLE `khb_imported_woocommerce_records` MODIFY COLUMN `Status` VARCHAR(100) NULL;',
-  'SELECT 1'
-);
-PREPARE stmt FROM @ddl;
-EXECUTE stmt;
-DEALLOCATE PREPARE stmt;
-");
-
-
-
-
-
-
+        migrationBuilder.Sql(@"ALTER TABLE `khb_imported_woocommerce_records` MODIFY COLUMN `ImportedAtUtc` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6);");
+        migrationBuilder.Sql(@"ALTER TABLE `khb_imported_woocommerce_records` MODIFY COLUMN `CreatedAtUtc` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6);");
     }
 
     protected override void Down(MigrationBuilder migrationBuilder)
-        {
-            // KHB-SAFE: rollback intentionally does not drop data-bearing tables, columns, or indexes.
-        }
+    {
+        // KHB-SAFE: rollback intentionally does not drop data-bearing tables, columns, or indexes.
+    }
+
+    private static void AddColumnIfMissing(
+        MigrationBuilder migrationBuilder,
+        string columnName,
+        string definition)
+    {
+        var escapedDefinition = definition.Replace("'", "''", StringComparison.Ordinal);
+        migrationBuilder.Sql($@"
+SET @khb_column_exists = (
+  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND BINARY TABLE_NAME = BINARY 'khb_imported_woocommerce_records'
+    AND BINARY COLUMN_NAME = BINARY '{columnName}'
+);
+SET @khb_sql = IF(
+  @khb_column_exists = 0,
+  'ALTER TABLE `khb_imported_woocommerce_records` ADD COLUMN {escapedDefinition}',
+  'SELECT 1'
+);
+PREPARE khb_stmt FROM @khb_sql;
+EXECUTE khb_stmt;
+DEALLOCATE PREPARE khb_stmt;");
+    }
 }

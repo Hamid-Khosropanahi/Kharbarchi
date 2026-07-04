@@ -6,8 +6,11 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
+using Kharbarchi.Server.Infrastructure.Safety;
+using Kharbarchi.Server.Options;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using MySql.Data.MySqlClient;
 
 namespace Kharbarchi.Server.Controllers;
@@ -19,6 +22,8 @@ public sealed class ProductManagementController : ControllerBase
 {
     private readonly IConfiguration _configuration;
     private readonly ILogger<ProductManagementController> _logger;
+    private readonly EnvironmentSafetyGuard _guard;
+    private readonly WooCommerceOptions _wooOptions;
 
     private static readonly JsonSerializerOptions PrettyJsonOptions = new()
     {
@@ -29,10 +34,16 @@ public sealed class ProductManagementController : ControllerBase
 
     private static readonly Regex SafeTableNameRegex = new("^[A-Za-z0-9_]+$", RegexOptions.Compiled);
 
-    public ProductManagementController(IConfiguration configuration, ILogger<ProductManagementController> logger)
+    public ProductManagementController(
+        IConfiguration configuration,
+        ILogger<ProductManagementController> logger,
+        EnvironmentSafetyGuard guard,
+        IOptions<WooCommerceOptions> wooOptions)
     {
         _configuration = configuration;
         _logger = logger;
+        _guard = guard;
+        _wooOptions = wooOptions.Value;
     }
 
     [HttpGet("schema/ensure")]
@@ -269,8 +280,7 @@ LIMIT 1;";
         }
 
         // Validate WooCommerce target against environment safety policies
-        var guard = HttpContext.RequestServices.GetRequiredService<Infrastructure.Safety.EnvironmentSafetyGuard>();
-        guard.ValidateWooProfile(settings.BaseUrl, !settings.AllowInsecureLocalhostSsl, "Local");
+        ValidateWooTarget(settings);
 
         var page = Math.Max(1, request.Page);
         var perPage = Math.Clamp(request.PerPage <= 0 ? 100 : request.PerPage, 10, 100);
@@ -332,8 +342,7 @@ LIMIT 1;";
             return BadRequest(new { ok = false, error = "تنظیمات WooCommerce کامل نیست." });
         }
 
-        var guard = HttpContext.RequestServices.GetRequiredService<Infrastructure.Safety.EnvironmentSafetyGuard>();
-        guard.ValidateWooProfile(settings.BaseUrl, !settings.AllowInsecureLocalhostSsl, "Local");
+        ValidateWooTarget(settings);
 
         var url = BuildWooUrl(settings, $"wp-json/wc/v3/products/{wooProductId}", true);
         using var http = CreateHttpClient(settings);
@@ -360,8 +369,7 @@ LIMIT 1;";
             return BadRequest(new { ok = false, error = "تنظیمات WooCommerce کامل نیست." });
         }
 
-        var guard = HttpContext.RequestServices.GetRequiredService<Infrastructure.Safety.EnvironmentSafetyGuard>();
-        guard.ValidateWooProfile(settings.BaseUrl, !settings.AllowInsecureLocalhostSsl, "Local");
+        ValidateWooTarget(settings);
 
         var payload = BuildWooUpdatePayload(request);
         var url = BuildWooUrl(settings, $"wp-json/wc/v3/products/{wooProductId}", true);
@@ -792,7 +800,7 @@ VALUES (@ProductId, @ChangeType, @Summary, @Payload, UTC_TIMESTAMP(6));";
     private HttpClient CreateHttpClient(WooSettings settings)
     {
         var handler = new HttpClientHandler();
-        if (settings.AllowInsecureLocalhostSsl)
+        if (settings.AllowInsecureLocalhostSsl && IsLocalhost(settings.BaseUrl))
         {
             handler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
         }
@@ -801,6 +809,19 @@ VALUES (@ProductId, @ChangeType, @Summary, @Payload, UTC_TIMESTAMP(6));";
             Timeout = TimeSpan.FromSeconds(Math.Clamp(settings.TimeoutSeconds, 30, 900))
         };
     }
+
+    private void ValidateWooTarget(WooSettings settings)
+    {
+        _guard.ValidateWooProfile(
+            settings.BaseUrl ?? string.Empty,
+            !settings.AllowInsecureLocalhostSsl,
+            _wooOptions.EnvironmentType,
+            expectedProductionBaseUrl: _wooOptions.BaseUrl);
+    }
+
+    private static bool IsLocalhost(string? baseUrl) =>
+        Uri.TryCreate(baseUrl, UriKind.Absolute, out var uri)
+        && (uri.IsLoopback || uri.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase));
 
     private static void ApplyWordPressBasicAuth(HttpRequestMessage message, WooSettings settings)
     {

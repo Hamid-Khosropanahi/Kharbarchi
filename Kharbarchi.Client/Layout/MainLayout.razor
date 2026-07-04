@@ -3,6 +3,8 @@
 @using Microsoft.AspNetCore.Components.Routing
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
+@inject IConfiguration Configuration
+@inject ILogger<MainLayout> Logger
 
 <div class="khb-shell">
     <div class="khb-admin-frame">
@@ -45,7 +47,7 @@
 
 
             <div class="khb-sidebar-footer">
-                <a class="khb-store-button" href="https://localhost:3131" target="_blank" rel="noopener">مشاهده فروشگاه قدیمی</a>
+                <a class="khb-store-button" href="@ShopUrl" target="_blank" rel="noopener">مشاهده فروشگاه قدیمی</a>
                 <button class="khb-pill khb-theme-toggle" type="button" data-khb-theme-toggle>تغییر تم روشن/تاریک</button>
             </div>
         </aside>
@@ -58,7 +60,7 @@
                     <span>مدیریت امن، سریع و نقش‌محور خواربارچی</span>
                 </div>
                 <div class="khb-top-actions">
-                    <a class="khb-pill" href="https://localhost:3131" target="_blank" rel="noopener">فروشگاه قدیمی</a>
+                    <a class="khb-pill" href="@ShopUrl" target="_blank" rel="noopener">فروشگاه قدیمی</a>
                     <a class="khb-pill" href="local-admin/woocommerce-settings">API ووکامرس</a>
                     <AuthorizeView>
                         <Authorized Context="auth">
@@ -80,6 +82,9 @@
 </div>
 
 @code {
+    private string ShopUrl => Configuration["Site:ShopUrl"]
+        ?? throw new InvalidOperationException("Site:ShopUrl is not configured.");
+
     private string PageTitle
     {
         get
@@ -109,7 +114,14 @@
     {
         if (firstRender)
         {
-            await JS.InvokeVoidAsync("kharbarchiLux.init");
+            try
+            {
+                await JS.InvokeVoidAsync("kharbarchiLux.init");
+            }
+            catch (JSException)
+            {
+                Logger.LogWarning("Optional ERP UX initialization was skipped because its JavaScript module was unavailable.");
+            }
         }
     }
 

@@ -146,7 +146,7 @@ public sealed class WooCommerceRuntimeSettingsStore
 
     private static WooCommerceRuntimeSettings Normalize(WooCommerceRuntimeSettings settings)
     {
-        settings.BaseUrl = (settings.BaseUrl ?? string.Empty).Trim().TrimEnd('/');
+        settings.BaseUrl = (settings.BaseUrl ?? string.Empty).Trim();
         settings.ConsumerKey = (settings.ConsumerKey ?? string.Empty).Trim();
         settings.ConsumerSecret = (settings.ConsumerSecret ?? string.Empty).Trim();
         settings.TimeoutSeconds = settings.TimeoutSeconds is < 5 or > 180 ? 30 : settings.TimeoutSeconds;

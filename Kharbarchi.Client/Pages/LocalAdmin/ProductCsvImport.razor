@@ -39,7 +39,7 @@
         <div class="khb-inline-controls">
             <select value="@selectedProfileId" @onchange="SelectProfile" disabled="@busy">
                 <option value="0">انتخاب پروفایل...</option>
-                @foreach (var profile in wooProfiles)
+                @foreach (var profile in wooProfiles.Where(x => x.EnvironmentType == hostEnvironmentType))
                 {
                     <option value="@profile.Id">@profile.ProfileName - @profile.EnvironmentType @(profile.IsActive ? "(فعال)" : "")</option>
                 }
@@ -51,12 +51,11 @@
             <label>نام پروفایل<input @bind="profileEditor.ProfileName" /></label>
             <label>
                 محیط
-                <select @bind="profileEditor.EnvironmentType">
-                    <option value="Local">Local</option>
-                    <option value="Production">Production</option>
+                <select @bind="profileEditor.EnvironmentType" disabled>
+                    <option value="@hostEnvironmentType">@hostEnvironmentType</option>
                 </select>
             </label>
-            <label>BaseUrl<input class="ltr" @bind="profileEditor.BaseUrl" /></label>
+            <label>BaseUrl<input class="ltr" @bind="profileEditor.BaseUrl" readonly="@IsProductionEnvironment" /></label>
             <label>Consumer Key<input class="ltr" @bind="profileEditor.ConsumerKey" placeholder="@selectedProfileKeyMask" autocomplete="off" /></label>
             <label>Consumer Secret<input class="ltr" type="password" @bind="profileEditor.ConsumerSecret" placeholder="برای حفظ Secret فعلی خالی بگذارید" autocomplete="new-password" /></label>
             <label>API Version<input class="ltr" @bind="profileEditor.ApiVersion" /></label>
@@ -454,9 +453,13 @@
     private WooSyncProgress wooProgress = new();
     private readonly CancellationTokenSource pageCancellation = new();
     private List<WooConnectionProfileDto> wooProfiles = new();
-    private WooConnectionProfileUpsertRequest profileEditor = NewProfileEditor();
+    private WooConnectionProfileUpsertRequest profileEditor = new();
     private int selectedProfileId;
     private string selectedProfileKeyMask = string.Empty;
+    private const string productionShopUrl = "https://www.Kharbarchi.ir/";
+    private const string localShopUrl = "https://localhost:4433/Kharbarchi";
+    private string hostEnvironmentType = "Local";
+    private bool IsProductionEnvironment => hostEnvironmentType == "Production";
     private WorkflowJobDto? activeJob;
     private List<WorkflowJobLogDto> jobLogs = new();
 
@@ -710,12 +713,24 @@
         wooProfiles = await Api.GetFromJsonAsync<List<WooConnectionProfileDto>>(
             "api/admin/woocommerce-profiles",
             pageCancellation.Token) ?? new();
-        var selected = wooProfiles.FirstOrDefault(x => x.Id == selectedProfileId)
-            ?? wooProfiles.FirstOrDefault(x => x.IsActive)
+        var environmentProfile = wooProfiles.FirstOrDefault(x => x.IsActive)
             ?? wooProfiles.FirstOrDefault();
+        if (environmentProfile is not null)
+        {
+            hostEnvironmentType = environmentProfile.EnvironmentType;
+        }
+
+        var selected = wooProfiles.FirstOrDefault(
+                x => x.Id == selectedProfileId && x.EnvironmentType == hostEnvironmentType)
+            ?? wooProfiles.FirstOrDefault(x => x.IsActive && x.EnvironmentType == hostEnvironmentType)
+            ?? wooProfiles.FirstOrDefault(x => x.EnvironmentType == hostEnvironmentType);
         if (selected is not null)
         {
             ApplyProfile(selected);
+        }
+        else
+        {
+            NewProfile();
         }
     }
 
@@ -727,7 +742,7 @@
         }
 
         var profile = wooProfiles.FirstOrDefault(x => x.Id == id);
-        if (profile is null)
+        if (profile is null || profile.EnvironmentType != hostEnvironmentType)
         {
             NewProfile();
             return;
@@ -744,8 +759,8 @@
         {
             Id = profile.Id,
             ProfileName = profile.ProfileName,
-            EnvironmentType = profile.EnvironmentType,
-            BaseUrl = profile.BaseUrl,
+            EnvironmentType = hostEnvironmentType,
+            BaseUrl = IsProductionEnvironment ? productionShopUrl : profile.BaseUrl,
             ConsumerKey = string.Empty,
             ConsumerSecret = string.Empty,
             ApiVersion = profile.ApiVersion,
@@ -766,8 +781,10 @@
     {
         await Run(async () =>
         {
-            if (profileEditor.EnvironmentType == "Production")
+            profileEditor.EnvironmentType = hostEnvironmentType;
+            if (IsProductionEnvironment)
             {
+                profileEditor.BaseUrl = productionShopUrl;
                 profileEditor.VerifySsl = true;
             }
 
@@ -780,12 +797,12 @@
         }, showOk: false);
     }
 
-    private static WooConnectionProfileUpsertRequest NewProfileEditor() => new()
+    private WooConnectionProfileUpsertRequest NewProfileEditor() => new()
     {
-        EnvironmentType = "Local",
-        BaseUrl = "https://localhost:4433/Kharbarchi",
+        EnvironmentType = hostEnvironmentType,
+        BaseUrl = IsProductionEnvironment ? productionShopUrl : localShopUrl,
         ApiVersion = "wc/v3",
-        VerifySsl = false,
+        VerifySsl = IsProductionEnvironment,
         TimeoutSeconds = 30
     };
 

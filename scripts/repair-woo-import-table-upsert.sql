@@ -1,4 +1,4 @@
-﻿USE kharbarchi_support;
+﻿USE Kharbarchi_Local;
 
 ALTER TABLE khb_imported_woocommerce_records
 MODIFY COLUMN ImportedAtUtc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6);

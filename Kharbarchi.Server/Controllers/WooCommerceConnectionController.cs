@@ -1,11 +1,14 @@
 using System.Diagnostics;
 using System.Net.Http.Headers;
 using System.Text;
+using Kharbarchi.Server.Infrastructure.Safety;
 using Kharbarchi.Server.Models;
+using Kharbarchi.Server.Options;
 using Kharbarchi.Server.Services;
 using Kharbarchi.Shared.Contracts.WooCommerce;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 namespace Kharbarchi.Server.Controllers;
 
@@ -16,16 +19,19 @@ public sealed class WooCommerceConnectionController : ControllerBase
 {
     private readonly WooCommerceRuntimeSettingsStore _settingsStore;
     private readonly ILogger<WooCommerceConnectionController> _logger;
-    private readonly Infrastructure.Safety.EnvironmentSafetyGuard _guard;
+    private readonly EnvironmentSafetyGuard _guard;
+    private readonly WooCommerceOptions _wooOptions;
 
     public WooCommerceConnectionController(
         WooCommerceRuntimeSettingsStore settingsStore,
         ILogger<WooCommerceConnectionController> logger,
-        Infrastructure.Safety.EnvironmentSafetyGuard guard)
+        EnvironmentSafetyGuard guard,
+        IOptions<WooCommerceOptions> wooOptions)
     {
         _settingsStore = settingsStore;
         _logger = logger;
         _guard = guard;
+        _wooOptions = wooOptions.Value;
     }
 
     [HttpGet("settings")]
@@ -48,6 +54,9 @@ public sealed class WooCommerceConnectionController : ControllerBase
             return BadRequest(new { message = "Consumer Key نباید خالی باشد." });
         }
 
+        ValidateWooTarget(
+            request.BaseUrl,
+            request.AllowInsecureLocalhostSsl);
         var settings = await _settingsStore.SaveAsync(request, cancellationToken);
         return Ok(_settingsStore.ToDto(settings));
     }
@@ -79,9 +88,6 @@ public sealed class WooCommerceConnectionController : ControllerBase
             AllowInsecureLocalhostSsl = settings.AllowInsecureLocalhostSsl
         };
 
-        // Validate Woo target via EnvironmentSafetyGuard before executing test
-        _guard.ValidateWooProfile(settings.BaseUrl, !settings.AllowInsecureLocalhostSsl, "Local");
-
         return Ok(await ExecuteAsync(rawRequest, settings, cancellationToken));
     }
 
@@ -99,6 +105,7 @@ public sealed class WooCommerceConnectionController : ControllerBase
 
     private async Task<WooApiTestResultDto> ExecuteAsync(WooRawApiRequest request, WooCommerceRuntimeSettings settings, CancellationToken cancellationToken)
     {
+        ValidateWooTarget(settings.BaseUrl, settings.AllowInsecureLocalhostSsl);
         var method = NormalizeMethod(request.Method);
         var relativeUrl = NormalizeRelativeUrl(request.RelativeUrl);
         var fullUrl = BuildFullUrl(settings.BaseUrl, relativeUrl);
@@ -155,6 +162,15 @@ public sealed class WooCommerceConnectionController : ControllerBase
             };
         }
 
+    }
+
+    private void ValidateWooTarget(string baseUrl, bool allowInsecureLocalhostSsl)
+    {
+        _guard.ValidateWooProfile(
+            baseUrl,
+            !allowInsecureLocalhostSsl,
+            _wooOptions.EnvironmentType,
+            expectedProductionBaseUrl: _wooOptions.BaseUrl);
     }
 
     private static string ToSafeEndpointForLog(string? fullUrl)

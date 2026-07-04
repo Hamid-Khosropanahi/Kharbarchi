@@ -30,6 +30,11 @@ public sealed class EnvironmentSafetyGuard
         return $"{scheme}://{host}{port}";
     }
 
+    private static string DescribeWooSource(int profileId) =>
+        profileId > 0
+            ? $"WooCommerce profile Id={profileId} in table 'khb_woocommerce_connection_profiles'"
+            : "global WooCommerce configuration (WooCommerce__EnvironmentType, WooCommerce__BaseUrl, WooCommerce__VerifySsl)";
+
     public void ValidateDatabaseConnectionString(string connectionString, string connectionStringName)
     {
         if (string.IsNullOrWhiteSpace(connectionString))
@@ -40,86 +45,103 @@ public sealed class EnvironmentSafetyGuard
         // Parse safely using the MySql connection string parser so we do not log secrets.
         var builder = new MySqlConnectionStringBuilder(connectionString);
         var database = (builder.Database ?? string.Empty).Trim();
-        var envName = string.IsNullOrWhiteSpace(_environment.EnvironmentName) ? "Development" : _environment.EnvironmentName;
+        var envName = EnvironmentBindingRules.NormalizeEnvironmentName(_environment.EnvironmentName);
+        var requiredDatabase = EnvironmentBindingRules.GetRequiredDatabaseName(envName);
 
         // Log only environment name, connection string name and database name (no passwords or full connection string)
         _logger.LogInformation("EnvironmentSafetyGuard: Environment={Environment}, ConnectionStringName={Name}, Database={Database}", envName, connectionStringName, database);
 
-        if (string.Equals(envName, "Development", StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(database, requiredDatabase, StringComparison.Ordinal))
         {
-            if (string.Equals(database, "kharbarchi_erp", StringComparison.OrdinalIgnoreCase))
-            {
-                throw new InvalidOperationException("EnvironmentSafetyGuard: In Development environment connecting to 'kharbarchi_erp' is not allowed.");
-            }
-            // kharbarchi_local and kharbarchi_dev are allowed in Development
-        }
-
-        if (string.Equals(envName, "Production", StringComparison.OrdinalIgnoreCase))
-        {
-            if (string.Equals(database, "kharbarchi_local", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(database, "kharbarchi_dev", StringComparison.OrdinalIgnoreCase))
-            {
-                throw new InvalidOperationException("EnvironmentSafetyGuard: In Production environment connecting to local/dev databases is not allowed.");
-            }
+            throw new InvalidOperationException(
+                $"EnvironmentSafetyGuard: ASPNETCORE_ENVIRONMENT={envName} requires database name exactly "
+                + $"'{requiredDatabase}', but ConnectionStrings__{connectionStringName} selects '{database}'.");
         }
     }
 
-    public void ValidateWooProfile(string baseUrl, bool verifySsl, string environmentType, int profileId = 0)
+    public void ValidateSiteUrl(string? siteUrl, string configurationName)
     {
-        var envName = string.IsNullOrWhiteSpace(_environment.EnvironmentName) ? "Development" : _environment.EnvironmentName;
-        // Normalize
+        var envName = EnvironmentBindingRules.NormalizeEnvironmentName(_environment.EnvironmentName);
+        _ = EnvironmentBindingRules.GetRequiredDatabaseName(envName);
+        var url = siteUrl?.Trim() ?? string.Empty;
+
+        if (envName == EnvironmentBindingRules.DevelopmentEnvironmentName)
+        {
+            if (!EnvironmentBindingRules.IsLocalDevelopmentUrl(url))
+            {
+                throw new InvalidOperationException(
+                    $"EnvironmentSafetyGuard: ASPNETCORE_ENVIRONMENT=Development requires {configurationName} "
+                    + "to be an absolute localhost, loopback, *.localhost, or *.local URL. "
+                    + $"The Production URL '{EnvironmentBindingRules.CanonicalProductionSiteUrl}' is forbidden.");
+            }
+
+            return;
+        }
+
+        if (!EnvironmentBindingRules.IsCanonicalProductionSiteUrl(url))
+        {
+            throw new InvalidOperationException(
+                $"EnvironmentSafetyGuard: ASPNETCORE_ENVIRONMENT=Production requires {configurationName} "
+                + $"to be exactly '{EnvironmentBindingRules.CanonicalProductionSiteUrl}'.");
+        }
+    }
+
+    public void ValidateWooProfile(
+        string baseUrl,
+        bool verifySsl,
+        string environmentType,
+        int profileId = 0,
+        string? expectedProductionBaseUrl = null)
+    {
+        var envName = EnvironmentBindingRules.NormalizeEnvironmentName(_environment.EnvironmentName);
+        var requiredProfileEnvironment = EnvironmentBindingRules.GetRequiredProfileEnvironmentType(envName);
         var url = (baseUrl ?? string.Empty).Trim();
+        var profileEnvironment = (environmentType ?? string.Empty).Trim();
+        var source = DescribeWooSource(profileId);
 
         // Log only environment and profile id + sanitized baseUrl (scheme://host:port)
         var safe = ToSafeEndpointForLog(url);
         _logger.LogDebug("EnvironmentSafetyGuard: Environment={Environment}, ProfileId={ProfileId}, BaseEndpoint={BaseEndpoint}", envName, profileId, safe);
 
-        if (string.Equals(envName, "Development", StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(profileEnvironment, requiredProfileEnvironment, StringComparison.Ordinal))
         {
-            // Development host must not be pointed at a Production-profile
-            if (string.Equals(environmentType, "Production", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException(
+                $"EnvironmentSafetyGuard: ASPNETCORE_ENVIRONMENT={envName} requires {source} to have "
+                + $"EnvironmentType='{requiredProfileEnvironment}', but its value is '{profileEnvironment}'.");
+        }
+
+        if (envName == EnvironmentBindingRules.DevelopmentEnvironmentName)
+        {
+            if (!EnvironmentBindingRules.IsLocalDevelopmentUrl(url))
             {
-                throw new InvalidOperationException("EnvironmentSafetyGuard: Running in Development while WooCommerce profile EnvironmentType is 'Production' is not allowed.");
+                throw new InvalidOperationException(
+                    $"EnvironmentSafetyGuard: ASPNETCORE_ENVIRONMENT=Development requires {source} BaseUrl "
+                    + "to be an absolute localhost, loopback, *.localhost, or *.local URL. "
+                    + $"The Production URL '{EnvironmentBindingRules.CanonicalProductionSiteUrl}' is forbidden.");
             }
 
-            if (url.Contains("kharbarchi.ir", StringComparison.OrdinalIgnoreCase))
-            {
-                throw new InvalidOperationException("EnvironmentSafetyGuard: In Development environment syncing/testing to production WooCommerce (kharbarchi.ir) is blocked.");
-            }
-
-            // localhost allowed for Local profiles
             return;
         }
 
-        if (string.Equals(envName, "Production", StringComparison.OrdinalIgnoreCase))
+        if (!EnvironmentBindingRules.IsCanonicalProductionSiteUrl(url))
         {
-            // Production host must not use Local profiles
-            if (string.Equals(environmentType, "Local", StringComparison.OrdinalIgnoreCase))
-            {
-                throw new InvalidOperationException("EnvironmentSafetyGuard: Running in Production while WooCommerce profile EnvironmentType is 'Local' is not allowed.");
-            }
+            throw new InvalidOperationException(
+                $"EnvironmentSafetyGuard: ASPNETCORE_ENVIRONMENT=Production requires {source} BaseUrl "
+                + $"to be exactly '{EnvironmentBindingRules.CanonicalProductionSiteUrl}'.");
+        }
 
-            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
-            {
-                throw new InvalidOperationException("EnvironmentSafetyGuard: WooCommerce BaseUrl is not a valid absolute URL.");
-            }
+        if (!verifySsl)
+        {
+            throw new InvalidOperationException(
+                $"EnvironmentSafetyGuard: {source} must have VerifySsl=true in Production.");
+        }
 
-            if (!string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
-            {
-                throw new InvalidOperationException("EnvironmentSafetyGuard: Production WooCommerce profile must use HTTPS.");
-            }
-
-            if (!verifySsl)
-            {
-                throw new InvalidOperationException("EnvironmentSafetyGuard: Production WooCommerce profile must have VerifySsl=true.");
-            }
-
-            if (uri.IsLoopback || uri.Host.Contains("localhost", StringComparison.OrdinalIgnoreCase))
-            {
-                throw new InvalidOperationException("EnvironmentSafetyGuard: Production environment must not use local WooCommerce profiles.");
-            }
-
-            return;
+        if (!string.IsNullOrWhiteSpace(expectedProductionBaseUrl)
+            && !EnvironmentBindingRules.IsCanonicalProductionSiteUrl(expectedProductionBaseUrl))
+        {
+            throw new InvalidOperationException(
+                "EnvironmentSafetyGuard: Production Site__PublicUrl and WooCommerce__BaseUrl must both be exactly "
+                + $"'{EnvironmentBindingRules.CanonicalProductionSiteUrl}'.");
         }
     }
 }
