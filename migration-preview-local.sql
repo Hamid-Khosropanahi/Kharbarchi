@@ -1199,41 +1199,101 @@ END;
 IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260624142000_FixWooImportedRecordsSchema')
 BEGIN
 
-            ALTER TABLE khb_imported_woocommerce_records
-            MODIFY COLUMN ImportedAtUtc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6);
-            
+    SET @has := (
+      SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'khb_imported_woocommerce_records'
+        AND COLUMN_NAME = 'ImportedAtUtc'
+    );
+    SET @ddl := IF(
+      @has = 1,
+      'ALTER TABLE `khb_imported_woocommerce_records` MODIFY COLUMN `ImportedAtUtc` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6);',
+      'SELECT 1'
+    );
+    PREPARE stmt FROM @ddl;
+    EXECUTE stmt;
+    DEALLOCATE PREPARE stmt;
+
 END;
 
 IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260624142000_FixWooImportedRecordsSchema')
 BEGIN
 
-            ALTER TABLE khb_imported_woocommerce_records
-            MODIFY COLUMN ExternalId VARCHAR(191) NULL;
-            
+    SET @has := (
+      SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'khb_imported_woocommerce_records'
+        AND COLUMN_NAME = 'ExternalId'
+    );
+    SET @ddl := IF(
+      @has = 1,
+      'ALTER TABLE `khb_imported_woocommerce_records` MODIFY COLUMN `ExternalId` VARCHAR(191) NULL;',
+      'SELECT 1'
+    );
+    PREPARE stmt FROM @ddl;
+    EXECUTE stmt;
+    DEALLOCATE PREPARE stmt;
+
 END;
 
 IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260624142000_FixWooImportedRecordsSchema')
 BEGIN
 
-            ALTER TABLE khb_imported_woocommerce_records
-            MODIFY COLUMN SourceUrl VARCHAR(1000) NULL;
-            
+    SET @has := (
+      SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'khb_imported_woocommerce_records'
+        AND COLUMN_NAME = 'SourceUrl'
+    );
+    SET @ddl := IF(
+      @has = 1,
+      'ALTER TABLE `khb_imported_woocommerce_records` MODIFY COLUMN `SourceUrl` VARCHAR(1000) NULL;',
+      'SELECT 1'
+    );
+    PREPARE stmt FROM @ddl;
+    EXECUTE stmt;
+    DEALLOCATE PREPARE stmt;
+
 END;
 
 IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260624142000_FixWooImportedRecordsSchema')
 BEGIN
 
-            ALTER TABLE khb_imported_woocommerce_records
-            MODIFY COLUMN Name VARCHAR(500) NULL;
-            
+    SET @has := (
+      SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'khb_imported_woocommerce_records'
+        AND COLUMN_NAME = 'Name'
+    );
+    SET @ddl := IF(
+      @has = 1,
+      'ALTER TABLE `khb_imported_woocommerce_records` MODIFY COLUMN `Name` VARCHAR(500) NULL;',
+      'SELECT 1'
+    );
+    PREPARE stmt FROM @ddl;
+    EXECUTE stmt;
+    DEALLOCATE PREPARE stmt;
+
 END;
 
 IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260624142000_FixWooImportedRecordsSchema')
 BEGIN
 
-            ALTER TABLE khb_imported_woocommerce_records
-            MODIFY COLUMN Status VARCHAR(100) NULL;
-            
+    SET @has := (
+      SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'khb_imported_woocommerce_records'
+        AND COLUMN_NAME = 'Status'
+    );
+    SET @ddl := IF(
+      @has = 1,
+      'ALTER TABLE `khb_imported_woocommerce_records` MODIFY COLUMN `Status` VARCHAR(100) NULL;',
+      'SELECT 1'
+    );
+    PREPARE stmt FROM @ddl;
+    EXECUTE stmt;
+    DEALLOCATE PREPARE stmt;
+
 END;
 
 IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260624142000_FixWooImportedRecordsSchema')
@@ -1287,7 +1347,7 @@ END;
 IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260624230417_CreateKharbarchiProductWorkflowTables')
 BEGIN
 
-    CREATE TABLE `KHB_Source_Product` (
+    CREATE TABLE `khb_source_product` (
         `Id` BIGINT NOT NULL AUTO_INCREMENT,
         `SourceKey` VARCHAR(500) NOT NULL,
         `SourceRowHash` CHAR(64) NULL,
@@ -1320,7 +1380,7 @@ END;
 IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260624230417_CreateKharbarchiProductWorkflowTables')
 BEGIN
 
-    CREATE TABLE `KHB_Category_Map` (
+    CREATE TABLE `khb_category_map` (
         `Id` BIGINT NOT NULL AUTO_INCREMENT,
         `SourceKey` VARCHAR(500) NOT NULL,
         `WooCategoryId` BIGINT NULL,
@@ -1339,7 +1399,7 @@ END;
 IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260624230417_CreateKharbarchiProductWorkflowTables')
 BEGIN
 
-    CREATE TABLE `KHB_Commodity` (
+    CREATE TABLE `khb_commodity` (
         `Id` BIGINT NOT NULL AUTO_INCREMENT,
         `SourceKey` VARCHAR(500) NOT NULL,
         `WooCommodityId` BIGINT NULL,
@@ -1360,7 +1420,7 @@ END;
 IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260624230417_CreateKharbarchiProductWorkflowTables')
 BEGIN
 
-    CREATE TABLE `KHB_Package_Type` (
+    CREATE TABLE `khb_package_type` (
         `Id` BIGINT NOT NULL AUTO_INCREMENT,
         `SourceKey` VARCHAR(500) NOT NULL,
         `WooPackageId` BIGINT NULL,
@@ -1384,7 +1444,7 @@ END;
 IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260624230417_CreateKharbarchiProductWorkflowTables')
 BEGIN
 
-    CREATE TABLE `KHB_Product_Final` (
+    CREATE TABLE `khb_product_final` (
         `Id` BIGINT NOT NULL AUTO_INCREMENT,
         `SourceKey` VARCHAR(500) NOT NULL,
         `SourceRowHash` CHAR(64) NULL,
@@ -1433,7 +1493,7 @@ END;
 IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260624230417_CreateKharbarchiProductWorkflowTables')
 BEGIN
 
-    CREATE TABLE `KHB_Product_Update_Queue` (
+    CREATE TABLE `khb_product_update_queue` (
         `Id` BIGINT NOT NULL AUTO_INCREMENT,
         `EntityType` VARCHAR(80) NOT NULL,
         `SourceKey` VARCHAR(500) NOT NULL,
@@ -1462,7 +1522,7 @@ END;
 IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260624233105_AddSourceRowIdToKharbarchiSourceProduct')
 BEGIN
 
-    ALTER TABLE `KHB_Source_Product`
+    ALTER TABLE `khb_source_product`
     ADD COLUMN `SourceRowId` BIGINT NULL;
 
 END;
@@ -1506,7 +1566,7 @@ END;
 IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260624233725_RebuildKharbarchiWorkflowTablesForCsvProcessor')
 BEGIN
 
-    CREATE TABLE `KHB_Source_Product` (
+    CREATE TABLE IF NOT EXISTS `khb_source_product` (
         `Id` BIGINT NOT NULL AUTO_INCREMENT,
 
         `SourceKey` VARCHAR(500) NOT NULL,
@@ -1596,7 +1656,7 @@ END;
 IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260624233725_RebuildKharbarchiWorkflowTablesForCsvProcessor')
 BEGIN
 
-    CREATE TABLE `KHB_Category_Map` (
+    CREATE TABLE IF NOT EXISTS `khb_category_map` (
         `Id` BIGINT NOT NULL AUTO_INCREMENT,
         `SourceKey` VARCHAR(500) NOT NULL,
 
@@ -1621,7 +1681,7 @@ END;
 IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260624233725_RebuildKharbarchiWorkflowTablesForCsvProcessor')
 BEGIN
 
-    CREATE TABLE `KHB_Commodity` (
+    CREATE TABLE IF NOT EXISTS `khb_commodity` (
         `Id` BIGINT NOT NULL AUTO_INCREMENT,
         `SourceKey` VARCHAR(500) NOT NULL,
 
@@ -1648,7 +1708,7 @@ END;
 IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260624233725_RebuildKharbarchiWorkflowTablesForCsvProcessor')
 BEGIN
 
-    CREATE TABLE `KHB_Package_Type` (
+    CREATE TABLE IF NOT EXISTS `khb_package_type` (
         `Id` BIGINT NOT NULL AUTO_INCREMENT,
         `SourceKey` VARCHAR(500) NOT NULL,
 
@@ -1684,7 +1744,7 @@ END;
 IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260624233725_RebuildKharbarchiWorkflowTablesForCsvProcessor')
 BEGIN
 
-    CREATE TABLE `KHB_Product_Final` (
+    CREATE TABLE IF NOT EXISTS `khb_product_final` (
         `Id` BIGINT NOT NULL AUTO_INCREMENT,
 
         `SourceKey` VARCHAR(500) NOT NULL,
@@ -1766,7 +1826,7 @@ END;
 IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260624233725_RebuildKharbarchiWorkflowTablesForCsvProcessor')
 BEGIN
 
-    CREATE TABLE `KHB_Product_Update_Queue` (
+    CREATE TABLE IF NOT EXISTS `khb_product_update_queue` (
         `Id` BIGINT NOT NULL AUTO_INCREMENT,
 
         `EntityType` VARCHAR(80) NOT NULL,
@@ -1800,8 +1860,25 @@ END;
 IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260625131126_AddEnTaxonomicToKharbarchiMainGroups')
 BEGIN
 
-    ALTER TABLE `khb_product_main_groups`
-    ADD COLUMN `EnTaxonomic` VARCHAR(500) NULL AFTER `CategoryName`;
+    SET @tableExists := (
+      SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'khb_product_main_groups'
+    );
+    SET @colExists := (
+      SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'khb_product_main_groups'
+        AND COLUMN_NAME = 'EnTaxonomic'
+    );
+    SET @ddl := IF(
+      @tableExists = 1 AND @colExists = 0,
+      'ALTER TABLE `khb_product_main_groups` ADD COLUMN `EnTaxonomic` VARCHAR(500) NULL AFTER `CategoryName`;',
+      'SELECT 1'
+    );
+    PREPARE stmt FROM @ddl;
+    EXECUTE stmt;
+    DEALLOCATE PREPARE stmt;
 
 END;
 
@@ -1994,7 +2071,7 @@ END;
 IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260703164535_ReconcileAppDbContextModel20260703')
 BEGIN
 
-    CREATE TABLE IF NOT EXISTS `KHB_Product_Price_History` (
+    CREATE TABLE IF NOT EXISTS `khb_product_price_history` (
         `Id` BIGINT NOT NULL AUTO_INCREMENT,
         `ProductSourceKey` CHAR(64) NOT NULL,
         `ProductName` VARCHAR(700) NULL,
@@ -2026,16 +2103,16 @@ BEGIN
                 SELECT 1
                 FROM INFORMATION_SCHEMA.TABLES
                 WHERE TABLE_SCHEMA = DATABASE()
-                  AND TABLE_NAME = 'KHB_Product_Final'
+                  AND TABLE_NAME = 'khb_product_final'
             )
             AND NOT EXISTS (
                 SELECT 1
                 FROM INFORMATION_SCHEMA.COLUMNS
                 WHERE TABLE_SCHEMA = DATABASE()
-                  AND TABLE_NAME = 'KHB_Product_Final'
+                  AND TABLE_NAME = 'khb_product_final'
                   AND COLUMN_NAME = 'SaleMode'
             ),
-            'ALTER TABLE `KHB_Product_Final` ADD COLUMN `SaleMode` VARCHAR(80) NULL',
+            'ALTER TABLE `khb_product_final` ADD COLUMN `SaleMode` VARCHAR(80) NULL',
             'SELECT 1'
         )
     );
@@ -2065,16 +2142,16 @@ BEGIN
                 SELECT 1
                 FROM INFORMATION_SCHEMA.TABLES
                 WHERE TABLE_SCHEMA = DATABASE()
-                  AND TABLE_NAME = 'KHB_Product_Final'
+                  AND TABLE_NAME = 'khb_product_final'
             )
             AND NOT EXISTS (
                 SELECT 1
                 FROM INFORMATION_SCHEMA.COLUMNS
                 WHERE TABLE_SCHEMA = DATABASE()
-                  AND TABLE_NAME = 'KHB_Product_Final'
+                  AND TABLE_NAME = 'khb_product_final'
                   AND COLUMN_NAME = 'PriceCalculationBasis'
             ),
-            'ALTER TABLE `KHB_Product_Final` ADD COLUMN `PriceCalculationBasis` VARCHAR(80) NULL',
+            'ALTER TABLE `khb_product_final` ADD COLUMN `PriceCalculationBasis` VARCHAR(80) NULL',
             'SELECT 1'
         )
     );

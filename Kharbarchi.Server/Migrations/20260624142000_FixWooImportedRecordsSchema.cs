@@ -39,30 +39,91 @@ CREATE TABLE IF NOT EXISTS `khb_imported_woocommerce_records` (
         migrationBuilder.Sql(@"ALTER TABLE `khb_imported_woocommerce_records` MODIFY COLUMN `CreatedAtUtc` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP;");
 
 
+                // Apply safe conditional ALTERs: only run MODIFY if the column exists.
                 migrationBuilder.Sql(@"
-        ALTER TABLE khb_imported_woocommerce_records
-        MODIFY COLUMN ImportedAtUtc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6);
-        ");
+SET @has := (
+  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'khb_imported_woocommerce_records'
+    AND COLUMN_NAME = 'ImportedAtUtc'
+);
+SET @ddl := IF(
+  @has = 1,
+  'ALTER TABLE `khb_imported_woocommerce_records` MODIFY COLUMN `ImportedAtUtc` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6);',
+  'SELECT 1'
+);
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+");
 
                 migrationBuilder.Sql(@"
-        ALTER TABLE khb_imported_woocommerce_records
-        MODIFY COLUMN ExternalId VARCHAR(191) NULL;
-        ");
+SET @has := (
+  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'khb_imported_woocommerce_records'
+    AND COLUMN_NAME = 'ExternalId'
+);
+SET @ddl := IF(
+  @has = 1,
+  'ALTER TABLE `khb_imported_woocommerce_records` MODIFY COLUMN `ExternalId` VARCHAR(191) NULL;',
+  'SELECT 1'
+);
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+");
 
                 migrationBuilder.Sql(@"
-        ALTER TABLE khb_imported_woocommerce_records
-        MODIFY COLUMN SourceUrl VARCHAR(1000) NULL;
-        ");
+SET @has := (
+  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'khb_imported_woocommerce_records'
+    AND COLUMN_NAME = 'SourceUrl'
+);
+SET @ddl := IF(
+  @has = 1,
+  'ALTER TABLE `khb_imported_woocommerce_records` MODIFY COLUMN `SourceUrl` VARCHAR(1000) NULL;',
+  'SELECT 1'
+);
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+");
 
                 migrationBuilder.Sql(@"
-        ALTER TABLE khb_imported_woocommerce_records
-        MODIFY COLUMN Name VARCHAR(500) NULL;
-        ");
+SET @has := (
+  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'khb_imported_woocommerce_records'
+    AND COLUMN_NAME = 'Name'
+);
+SET @ddl := IF(
+  @has = 1,
+  'ALTER TABLE `khb_imported_woocommerce_records` MODIFY COLUMN `Name` VARCHAR(500) NULL;',
+  'SELECT 1'
+);
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+");
 
                 migrationBuilder.Sql(@"
-        ALTER TABLE khb_imported_woocommerce_records
-        MODIFY COLUMN Status VARCHAR(100) NULL;
-        ");
+SET @has := (
+  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'khb_imported_woocommerce_records'
+    AND COLUMN_NAME = 'Status'
+);
+SET @ddl := IF(
+  @has = 1,
+  'ALTER TABLE `khb_imported_woocommerce_records` MODIFY COLUMN `Status` VARCHAR(100) NULL;',
+  'SELECT 1'
+);
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+");
 
 
 

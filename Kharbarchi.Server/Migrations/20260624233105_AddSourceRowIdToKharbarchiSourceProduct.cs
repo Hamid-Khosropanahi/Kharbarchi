@@ -11,7 +11,7 @@ namespace Kharbarchi.Server.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.Sql(@"
-ALTER TABLE `KHB_Source_Product`
+ALTER TABLE `khb_source_product`
 ADD COLUMN `SourceRowId` BIGINT NULL;
 ");
         }

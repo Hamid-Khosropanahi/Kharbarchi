@@ -82,7 +82,7 @@ CREATE TABLE `khb_sale_products` (
 ");
 
             migrationBuilder.Sql(@"
-CREATE TABLE `KHB_Source_Product` (
+CREATE TABLE `khb_source_product` (
     `Id` BIGINT NOT NULL AUTO_INCREMENT,
     `SourceKey` CHAR(64) NOT NULL,
     `SourceRowId` BIGINT NULL,
@@ -106,7 +106,7 @@ CREATE TABLE `KHB_Source_Product` (
 ");
 
             migrationBuilder.Sql(@"
-CREATE TABLE `KHB_Category_Map` (
+CREATE TABLE `khb_category_map` (
     `Id` BIGINT NOT NULL AUTO_INCREMENT,
     `SourceKey` VARCHAR(500) NOT NULL,
     `CategoryName` VARCHAR(500) NULL,
@@ -120,7 +120,7 @@ CREATE TABLE `KHB_Category_Map` (
 ");
 
             migrationBuilder.Sql(@"
-CREATE TABLE `KHB_Commodity` (
+CREATE TABLE `khb_commodity` (
     `Id` BIGINT NOT NULL AUTO_INCREMENT,
     `SourceKey` VARCHAR(500) NOT NULL,
     `CommodityName` VARCHAR(500) NULL,
@@ -134,7 +134,7 @@ CREATE TABLE `KHB_Commodity` (
 ");
 
             migrationBuilder.Sql(@"
-CREATE TABLE `KHB_Package_Type` (
+CREATE TABLE `khb_package_type` (
     `Id` BIGINT NOT NULL AUTO_INCREMENT,
     `SourceKey` VARCHAR(500) NOT NULL,
     `PackageGroup` VARCHAR(50) NULL,
@@ -151,7 +151,7 @@ CREATE TABLE `KHB_Package_Type` (
 ");
 
             migrationBuilder.Sql(@"
-CREATE TABLE `KHB_Product_Final` (
+CREATE TABLE `khb_product_final` (
     `Id` BIGINT NOT NULL AUTO_INCREMENT,
     `SourceKey` CHAR(64) NOT NULL,
     `MainGroupId` BIGINT NULL,
@@ -185,7 +185,7 @@ CREATE TABLE `KHB_Product_Final` (
 ");
 
             migrationBuilder.Sql(@"
-CREATE TABLE `KHB_Product_Update_Queue` (
+CREATE TABLE `khb_product_update_queue` (
     `Id` BIGINT NOT NULL AUTO_INCREMENT,
     `SourceKey` CHAR(64) NOT NULL,
     `QueueStatus` VARCHAR(50) NOT NULL DEFAULT 'pending',

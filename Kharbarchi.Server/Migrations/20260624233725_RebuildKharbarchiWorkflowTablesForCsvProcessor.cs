@@ -18,7 +18,7 @@ namespace Kharbarchi.Server.Migrations
             migrationBuilder.Sql("-- KHB-SAFE: DROP TABLE IF EXISTS `KHB_Source_Product`;");
 
             migrationBuilder.Sql(@"
-CREATE TABLE `khb_source_product` (
+CREATE TABLE IF NOT EXISTS `khb_source_product` (
     `Id` BIGINT NOT NULL AUTO_INCREMENT,
 
     `SourceKey` VARCHAR(500) NOT NULL,
@@ -105,7 +105,7 @@ CREATE TABLE `khb_source_product` (
 ");
 
             migrationBuilder.Sql(@"
-CREATE TABLE `khb_category_map` (
+CREATE TABLE IF NOT EXISTS `khb_category_map` (
     `Id` BIGINT NOT NULL AUTO_INCREMENT,
     `SourceKey` VARCHAR(500) NOT NULL,
 
@@ -127,7 +127,7 @@ CREATE TABLE `khb_category_map` (
 ");
 
             migrationBuilder.Sql(@"
-CREATE TABLE `khb_commodity` (
+CREATE TABLE IF NOT EXISTS `khb_commodity` (
     `Id` BIGINT NOT NULL AUTO_INCREMENT,
     `SourceKey` VARCHAR(500) NOT NULL,
 
@@ -151,7 +151,7 @@ CREATE TABLE `khb_commodity` (
 ");
 
             migrationBuilder.Sql(@"
-CREATE TABLE `khb_package_type` (
+CREATE TABLE IF NOT EXISTS `khb_package_type` (
     `Id` BIGINT NOT NULL AUTO_INCREMENT,
     `SourceKey` VARCHAR(500) NOT NULL,
 
@@ -184,7 +184,7 @@ CREATE TABLE `khb_package_type` (
 ");
 
             migrationBuilder.Sql(@"
-CREATE TABLE `khb_product_final` (
+CREATE TABLE IF NOT EXISTS `khb_product_final` (
     `Id` BIGINT NOT NULL AUTO_INCREMENT,
 
     `SourceKey` VARCHAR(500) NOT NULL,
@@ -263,7 +263,7 @@ CREATE TABLE `khb_product_final` (
 ");
 
             migrationBuilder.Sql(@"
-CREATE TABLE `khb_product_update_queue` (
+CREATE TABLE IF NOT EXISTS `khb_product_update_queue` (
     `Id` BIGINT NOT NULL AUTO_INCREMENT,
 
     `EntityType` VARCHAR(80) NOT NULL,

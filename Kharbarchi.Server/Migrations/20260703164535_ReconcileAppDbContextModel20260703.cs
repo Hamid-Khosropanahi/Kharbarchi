@@ -69,7 +69,7 @@ CREATE TABLE IF NOT EXISTS `khb_ProductWooControlProfiles` (
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;");
 
             migrationBuilder.Sql(@"
-CREATE TABLE IF NOT EXISTS `KHB_Product_Price_History` (
+CREATE TABLE IF NOT EXISTS `khb_product_price_history` (
     `Id` BIGINT NOT NULL AUTO_INCREMENT,
     `ProductSourceKey` CHAR(64) NOT NULL,
     `ProductName` VARCHAR(700) NULL,
@@ -91,8 +91,8 @@ CREATE TABLE IF NOT EXISTS `KHB_Product_Price_History` (
     KEY `IX_KHB_Product_Price_History_Date` (`ValidFromUtc`, `ValidToUtc`)
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;");
 
-            AddColumnIfMissing(migrationBuilder, "KHB_Product_Final", "SaleMode", "`SaleMode` VARCHAR(80) NULL");
-            AddColumnIfMissing(migrationBuilder, "KHB_Product_Final", "PriceCalculationBasis", "`PriceCalculationBasis` VARCHAR(80) NULL");
+            AddColumnIfMissing(migrationBuilder, "khb_product_final", "SaleMode", "`SaleMode` VARCHAR(80) NULL");
+            AddColumnIfMissing(migrationBuilder, "khb_product_final", "PriceCalculationBasis", "`PriceCalculationBasis` VARCHAR(80) NULL");
             AddColumnIfMissing(migrationBuilder, "khb_sale_products", "SaleMode", "`SaleMode` VARCHAR(80) NULL");
             AddColumnIfMissing(migrationBuilder, "khb_sale_products", "PriceCalculationBasis", "`PriceCalculationBasis` VARCHAR(80) NULL");
 
