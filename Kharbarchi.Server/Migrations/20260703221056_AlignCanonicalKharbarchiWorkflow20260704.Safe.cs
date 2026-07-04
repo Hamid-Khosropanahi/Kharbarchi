@@ -45,16 +45,7 @@ public partial class AlignCanonicalKharbarchiWorkflow20260704
             ("ord_WooCommerceOrderSnapshots", "ord_woocommerceordersnapshots"),
             ("ord_WooCommerceOrderItemSnapshots", "ord_woocommerceorderitemsnapshots"),
             ("pay_BarookPaymentSessions", "pay_barookpaymentsessions"),
-            ("pay_ManualPaymentReceipts", "pay_manualpaymentreceipts"),
-            ("khb_ProductWooControlProfiles", "khb_productwoocontrolprofiles"),
-            ("All_Product_With_Process", "all_product_with_process"),
-            ("KHB_Source_Product", "khb_source_product"),
-            ("KHB_Category_Map", "khb_category_map"),
-            ("KHB_Commodity", "khb_commodity"),
-            ("KHB_Package_Type", "khb_package_type"),
-            ("KHB_Product_Final", "khb_product_final"),
-            ("KHB_Product_Update_Queue", "khb_product_update_queue"),
-            ("KHB_Product_Price_History", "khb_product_price_history")
+            ("pay_ManualPaymentReceipts", "pay_manualpaymentreceipts")
         };
 
         foreach (var table in tableNames)

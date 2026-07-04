@@ -1144,6 +1144,7 @@ BEGIN
         `Name` VARCHAR(512) NULL,
         `Status` VARCHAR(128) NULL,
         `RawJson` LONGTEXT NOT NULL,
+        `ImportedAtUtc` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
         `CreatedAtUtc` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         CONSTRAINT `PK_khb_imported_woocommerce_records` PRIMARY KEY (`Id`),
         INDEX `IX_khb_imported_woocommerce_records_SourceType` (`SourceType`),
@@ -1206,9 +1207,9 @@ BEGIN
         AND COLUMN_NAME = 'ImportedAtUtc'
     );
     SET @ddl := IF(
-      @has = 1,
-      'ALTER TABLE `khb_imported_woocommerce_records` MODIFY COLUMN `ImportedAtUtc` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6);',
-      'SELECT 1'
+      @has = 0,
+      'ALTER TABLE `khb_imported_woocommerce_records` ADD COLUMN `ImportedAtUtc` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6);',
+      'ALTER TABLE `khb_imported_woocommerce_records` MODIFY COLUMN `ImportedAtUtc` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6);'
     );
     PREPARE stmt FROM @ddl;
     EXECUTE stmt;
@@ -1316,38 +1317,8 @@ END;
 
 IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260624230417_CreateKharbarchiProductWorkflowTables')
 BEGIN
-    -- KHB-SAFE: DROP TABLE IF EXISTS `KHB_Product_Update_Queue`;
-END;
 
-IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260624230417_CreateKharbarchiProductWorkflowTables')
-BEGIN
-    -- KHB-SAFE: DROP TABLE IF EXISTS `KHB_Product_Final`;
-END;
-
-IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260624230417_CreateKharbarchiProductWorkflowTables')
-BEGIN
-    -- KHB-SAFE: DROP TABLE IF EXISTS `KHB_Package_Type`;
-END;
-
-IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260624230417_CreateKharbarchiProductWorkflowTables')
-BEGIN
-    -- KHB-SAFE: DROP TABLE IF EXISTS `KHB_Commodity`;
-END;
-
-IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260624230417_CreateKharbarchiProductWorkflowTables')
-BEGIN
-    -- KHB-SAFE: DROP TABLE IF EXISTS `KHB_Category_Map`;
-END;
-
-IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260624230417_CreateKharbarchiProductWorkflowTables')
-BEGIN
-    -- KHB-SAFE: DROP TABLE IF EXISTS `KHB_Source_Product`;
-END;
-
-IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260624230417_CreateKharbarchiProductWorkflowTables')
-BEGIN
-
-    CREATE TABLE `khb_source_product` (
+    CREATE TABLE IF NOT EXISTS `khb_source_product` (
         `Id` BIGINT NOT NULL AUTO_INCREMENT,
         `SourceKey` VARCHAR(500) NOT NULL,
         `SourceRowHash` CHAR(64) NULL,
@@ -1380,7 +1351,7 @@ END;
 IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260624230417_CreateKharbarchiProductWorkflowTables')
 BEGIN
 
-    CREATE TABLE `khb_category_map` (
+    CREATE TABLE IF NOT EXISTS `khb_category_map` (
         `Id` BIGINT NOT NULL AUTO_INCREMENT,
         `SourceKey` VARCHAR(500) NOT NULL,
         `WooCategoryId` BIGINT NULL,
@@ -1399,7 +1370,7 @@ END;
 IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260624230417_CreateKharbarchiProductWorkflowTables')
 BEGIN
 
-    CREATE TABLE `khb_commodity` (
+    CREATE TABLE IF NOT EXISTS `khb_commodity` (
         `Id` BIGINT NOT NULL AUTO_INCREMENT,
         `SourceKey` VARCHAR(500) NOT NULL,
         `WooCommodityId` BIGINT NULL,
@@ -1420,7 +1391,7 @@ END;
 IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260624230417_CreateKharbarchiProductWorkflowTables')
 BEGIN
 
-    CREATE TABLE `khb_package_type` (
+    CREATE TABLE IF NOT EXISTS `khb_package_type` (
         `Id` BIGINT NOT NULL AUTO_INCREMENT,
         `SourceKey` VARCHAR(500) NOT NULL,
         `WooPackageId` BIGINT NULL,
@@ -1444,7 +1415,7 @@ END;
 IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260624230417_CreateKharbarchiProductWorkflowTables')
 BEGIN
 
-    CREATE TABLE `khb_product_final` (
+    CREATE TABLE IF NOT EXISTS `khb_product_final` (
         `Id` BIGINT NOT NULL AUTO_INCREMENT,
         `SourceKey` VARCHAR(500) NOT NULL,
         `SourceRowHash` CHAR(64) NULL,
@@ -1493,7 +1464,7 @@ END;
 IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260624230417_CreateKharbarchiProductWorkflowTables')
 BEGIN
 
-    CREATE TABLE `khb_product_update_queue` (
+    CREATE TABLE IF NOT EXISTS `khb_product_update_queue` (
         `Id` BIGINT NOT NULL AUTO_INCREMENT,
         `EntityType` VARCHAR(80) NOT NULL,
         `SourceKey` VARCHAR(500) NOT NULL,
@@ -1522,8 +1493,27 @@ END;
 IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260624233105_AddSourceRowIdToKharbarchiSourceProduct')
 BEGIN
 
-    ALTER TABLE `khb_source_product`
-    ADD COLUMN `SourceRowId` BIGINT NULL;
+    SET @tableExists := (
+        SELECT COUNT(*)
+        FROM INFORMATION_SCHEMA.TABLES
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'khb_source_product'
+    );
+    SET @columnExists := (
+        SELECT COUNT(*)
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'khb_source_product'
+          AND COLUMN_NAME = 'SourceRowId'
+    );
+    SET @ddl := IF(
+        @tableExists = 1 AND @columnExists = 0,
+        'ALTER TABLE `khb_source_product` ADD COLUMN `SourceRowId` BIGINT NULL',
+        'SELECT 1'
+    );
+    PREPARE stmt FROM @ddl;
+    EXECUTE stmt;
+    DEALLOCATE PREPARE stmt;
 
 END;
 
@@ -1535,32 +1525,70 @@ END;
 
 IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260624233725_RebuildKharbarchiWorkflowTablesForCsvProcessor')
 BEGIN
-    -- KHB-SAFE: DROP TABLE IF EXISTS `KHB_Product_Update_Queue`;
+
+    CREATE TABLE IF NOT EXISTS `khb_product_main_groups` (
+        `Id` BIGINT NOT NULL AUTO_INCREMENT,
+        `MainProductName` VARCHAR(500) NULL,
+        `MainProductSlug` VARCHAR(500) NULL,
+        `CategoryName` VARCHAR(500) NULL,
+        `EnTaxonomic` VARCHAR(500) NULL,
+        `CategorySlug` VARCHAR(500) NULL,
+        `Description` LONGTEXT NULL,
+        `ImageUrl` LONGTEXT NULL,
+        `CreatedAtUtc` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+        `UpdatedAtUtc` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+        `SourceKey` VARCHAR(500) NULL,
+        `Name` VARCHAR(500) NULL,
+        PRIMARY KEY (`Id`),
+        UNIQUE KEY `UX_khb_product_main_groups_slug` (`MainProductSlug`)
+    ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
 END;
 
 IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260624233725_RebuildKharbarchiWorkflowTablesForCsvProcessor')
 BEGIN
-    -- KHB-SAFE: DROP TABLE IF EXISTS `KHB_Product_Final`;
-END;
 
-IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260624233725_RebuildKharbarchiWorkflowTablesForCsvProcessor')
-BEGIN
-    -- KHB-SAFE: DROP TABLE IF EXISTS `KHB_Package_Type`;
-END;
+    CREATE TABLE IF NOT EXISTS `khb_sale_products` (
+        `Id` BIGINT NOT NULL AUTO_INCREMENT,
+        `MainGroupId` BIGINT NULL,
+        `SourceRowHash` CHAR(64) NOT NULL,
+        `WooProductId` BIGINT NULL,
+        `ProductName` VARCHAR(700) NULL,
+        `ProductEnglishName` VARCHAR(700) NULL,
+        `ProductSlug` VARCHAR(700) NULL,
+        `SKU` VARCHAR(191) NULL,
+        `BrandName` VARCHAR(300) NULL,
+        `BrandEnglishName` VARCHAR(300) NULL,
+        `PackageName` VARCHAR(300) NULL,
+        `PackagingGroup` VARCHAR(50) NULL,
+        `PackageCode` VARCHAR(50) NULL,
+        `UnitWeight` DECIMAL(18,6) NULL,
+        `PacksPerCarton` INT NULL,
+        `CartonQuantity` INT NULL,
+        `PackagingPricePerPack` DECIMAL(18,2) NULL,
+        `KgPriceCash` DECIMAL(18,2) NULL,
+        `KgPriceInstallment` DECIMAL(18,2) NULL,
+        `SalePriceCash` DECIMAL(18,2) NULL,
+        `SalePriceInstallment` DECIMAL(18,2) NULL,
+        `PurchasePriceCash` DECIMAL(18,2) NULL,
+        `PurchasePriceInstallment` DECIMAL(18,2) NULL,
+        `ShortDescription` LONGTEXT NULL,
+        `FullDescription` LONGTEXT NULL,
+        `ImageUrl` LONGTEXT NULL,
+        `GalleryJson` LONGTEXT NULL,
+        `Status` VARCHAR(100) NOT NULL DEFAULT 'draft',
+        `RawJson` LONGTEXT NULL,
+        `CreatedAtUtc` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+        `UpdatedAtUtc` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+        `SaleMode` VARCHAR(80) NULL,
+        `PriceCalculationBasis` VARCHAR(80) NULL,
+        PRIMARY KEY (`Id`),
+        UNIQUE KEY `UX_khb_sale_products_hash` (`SourceRowHash`),
+        KEY `IX_khb_sale_products_woo` (`WooProductId`),
+        KEY `IX_khb_sale_products_sku` (`SKU`),
+        KEY `IX_khb_sale_products_name` (`ProductName`(191))
+    ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
-IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260624233725_RebuildKharbarchiWorkflowTablesForCsvProcessor')
-BEGIN
-    -- KHB-SAFE: DROP TABLE IF EXISTS `KHB_Commodity`;
-END;
-
-IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260624233725_RebuildKharbarchiWorkflowTablesForCsvProcessor')
-BEGIN
-    -- KHB-SAFE: DROP TABLE IF EXISTS `KHB_Category_Map`;
-END;
-
-IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260624233725_RebuildKharbarchiWorkflowTablesForCsvProcessor')
-BEGIN
-    -- KHB-SAFE: DROP TABLE IF EXISTS `KHB_Source_Product`;
 END;
 
 IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260624233725_RebuildKharbarchiWorkflowTablesForCsvProcessor')
@@ -1891,6 +1919,12 @@ END;
 IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260625163821_AddEnTaxonomicToMainGroupsFinal')
 BEGIN
 
+    SET @hasTable := (
+        SELECT COUNT(*)
+        FROM INFORMATION_SCHEMA.TABLES
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'khb_product_main_groups'
+    );
     SET @hasColumn := (
         SELECT COUNT(*)
         FROM INFORMATION_SCHEMA.COLUMNS
@@ -1905,7 +1939,7 @@ IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260
 BEGIN
 
     SET @ddl := IF(
-        @hasColumn = 0,
+        @hasTable = 1 AND @hasColumn = 0,
         'ALTER TABLE `khb_product_main_groups` ADD COLUMN `EnTaxonomic` VARCHAR(500) NULL AFTER `CategoryName`',
         'SELECT 1'
     );
@@ -2014,7 +2048,7 @@ END;
 IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260703164535_ReconcileAppDbContextModel20260703')
 BEGIN
 
-    CREATE TABLE IF NOT EXISTS `khb_ProductWooControlProfiles` (
+    CREATE TABLE IF NOT EXISTS `khb_productwoocontrolprofiles` (
         `Id` INT NOT NULL AUTO_INCREMENT,
         `ProductId` INT NOT NULL,
         `PriceSourceMode` VARCHAR(80) NOT NULL DEFAULT 'final_price',
@@ -2059,12 +2093,12 @@ BEGIN
         `WooSyncedAtUtc` DATETIME(6) NULL,
         `CreatedAtUtc` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
         `UpdatedAtUtc` DATETIME(6) NULL,
-        CONSTRAINT `PK_khb_ProductWooControlProfiles` PRIMARY KEY (`Id`),
-        CONSTRAINT `FK_khb_ProductWooControlProfiles_gnr_Products_ProductId`
+        CONSTRAINT `PK_khb_productwoocontrolprofiles` PRIMARY KEY (`Id`),
+        CONSTRAINT `FK_khb_productwoocontrolprofiles_gnr_Products_ProductId`
             FOREIGN KEY (`ProductId`) REFERENCES `gnr_Products` (`Id`) ON DELETE CASCADE,
-        UNIQUE KEY `IX_khb_ProductWooControlProfiles_ProductId` (`ProductId`),
-        KEY `IX_khb_ProductWooControlProfiles_PriceCheckStatus` (`PriceCheckStatus`),
-        KEY `IX_khb_ProductWooControlProfiles_WooSyncStatus` (`WooSyncStatus`)
+        UNIQUE KEY `IX_khb_productwoocontrolprofiles_ProductId` (`ProductId`),
+        KEY `IX_khb_productwoocontrolprofiles_PriceCheckStatus` (`PriceCheckStatus`),
+        KEY `IX_khb_productwoocontrolprofiles_WooSyncStatus` (`WooSyncStatus`)
     ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 END;
 
@@ -3008,195 +3042,6 @@ BEGIN
     SET @khb_sql = IF(
       @khb_legacy_exists = 1 AND @khb_canonical_exists = 0,
       'RENAME TABLE `pay_ManualPaymentReceipts` TO `pay_manualpaymentreceipts`',
-      'SELECT 1'
-    );
-    PREPARE khb_stmt FROM @khb_sql;
-    EXECUTE khb_stmt;
-    DEALLOCATE PREPARE khb_stmt;
-END;
-
-IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260703221056_AlignCanonicalKharbarchiWorkflow20260704')
-BEGIN
-
-    SET @khb_legacy_exists = (
-      SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES
-      WHERE TABLE_SCHEMA = DATABASE() AND BINARY TABLE_NAME = BINARY 'khb_ProductWooControlProfiles'
-    );
-    SET @khb_canonical_exists = (
-      SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES
-      WHERE TABLE_SCHEMA = DATABASE() AND BINARY TABLE_NAME = BINARY 'khb_productwoocontrolprofiles'
-    );
-    SET @khb_sql = IF(
-      @khb_legacy_exists = 1 AND @khb_canonical_exists = 0,
-      'RENAME TABLE `khb_ProductWooControlProfiles` TO `khb_productwoocontrolprofiles`',
-      'SELECT 1'
-    );
-    PREPARE khb_stmt FROM @khb_sql;
-    EXECUTE khb_stmt;
-    DEALLOCATE PREPARE khb_stmt;
-END;
-
-IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260703221056_AlignCanonicalKharbarchiWorkflow20260704')
-BEGIN
-
-    SET @khb_legacy_exists = (
-      SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES
-      WHERE TABLE_SCHEMA = DATABASE() AND BINARY TABLE_NAME = BINARY 'All_Product_With_Process'
-    );
-    SET @khb_canonical_exists = (
-      SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES
-      WHERE TABLE_SCHEMA = DATABASE() AND BINARY TABLE_NAME = BINARY 'all_product_with_process'
-    );
-    SET @khb_sql = IF(
-      @khb_legacy_exists = 1 AND @khb_canonical_exists = 0,
-      'RENAME TABLE `All_Product_With_Process` TO `all_product_with_process`',
-      'SELECT 1'
-    );
-    PREPARE khb_stmt FROM @khb_sql;
-    EXECUTE khb_stmt;
-    DEALLOCATE PREPARE khb_stmt;
-END;
-
-IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260703221056_AlignCanonicalKharbarchiWorkflow20260704')
-BEGIN
-
-    SET @khb_legacy_exists = (
-      SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES
-      WHERE TABLE_SCHEMA = DATABASE() AND BINARY TABLE_NAME = BINARY 'KHB_Source_Product'
-    );
-    SET @khb_canonical_exists = (
-      SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES
-      WHERE TABLE_SCHEMA = DATABASE() AND BINARY TABLE_NAME = BINARY 'khb_source_product'
-    );
-    SET @khb_sql = IF(
-      @khb_legacy_exists = 1 AND @khb_canonical_exists = 0,
-      'RENAME TABLE `KHB_Source_Product` TO `khb_source_product`',
-      'SELECT 1'
-    );
-    PREPARE khb_stmt FROM @khb_sql;
-    EXECUTE khb_stmt;
-    DEALLOCATE PREPARE khb_stmt;
-END;
-
-IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260703221056_AlignCanonicalKharbarchiWorkflow20260704')
-BEGIN
-
-    SET @khb_legacy_exists = (
-      SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES
-      WHERE TABLE_SCHEMA = DATABASE() AND BINARY TABLE_NAME = BINARY 'KHB_Category_Map'
-    );
-    SET @khb_canonical_exists = (
-      SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES
-      WHERE TABLE_SCHEMA = DATABASE() AND BINARY TABLE_NAME = BINARY 'khb_category_map'
-    );
-    SET @khb_sql = IF(
-      @khb_legacy_exists = 1 AND @khb_canonical_exists = 0,
-      'RENAME TABLE `KHB_Category_Map` TO `khb_category_map`',
-      'SELECT 1'
-    );
-    PREPARE khb_stmt FROM @khb_sql;
-    EXECUTE khb_stmt;
-    DEALLOCATE PREPARE khb_stmt;
-END;
-
-IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260703221056_AlignCanonicalKharbarchiWorkflow20260704')
-BEGIN
-
-    SET @khb_legacy_exists = (
-      SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES
-      WHERE TABLE_SCHEMA = DATABASE() AND BINARY TABLE_NAME = BINARY 'KHB_Commodity'
-    );
-    SET @khb_canonical_exists = (
-      SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES
-      WHERE TABLE_SCHEMA = DATABASE() AND BINARY TABLE_NAME = BINARY 'khb_commodity'
-    );
-    SET @khb_sql = IF(
-      @khb_legacy_exists = 1 AND @khb_canonical_exists = 0,
-      'RENAME TABLE `KHB_Commodity` TO `khb_commodity`',
-      'SELECT 1'
-    );
-    PREPARE khb_stmt FROM @khb_sql;
-    EXECUTE khb_stmt;
-    DEALLOCATE PREPARE khb_stmt;
-END;
-
-IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260703221056_AlignCanonicalKharbarchiWorkflow20260704')
-BEGIN
-
-    SET @khb_legacy_exists = (
-      SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES
-      WHERE TABLE_SCHEMA = DATABASE() AND BINARY TABLE_NAME = BINARY 'KHB_Package_Type'
-    );
-    SET @khb_canonical_exists = (
-      SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES
-      WHERE TABLE_SCHEMA = DATABASE() AND BINARY TABLE_NAME = BINARY 'khb_package_type'
-    );
-    SET @khb_sql = IF(
-      @khb_legacy_exists = 1 AND @khb_canonical_exists = 0,
-      'RENAME TABLE `KHB_Package_Type` TO `khb_package_type`',
-      'SELECT 1'
-    );
-    PREPARE khb_stmt FROM @khb_sql;
-    EXECUTE khb_stmt;
-    DEALLOCATE PREPARE khb_stmt;
-END;
-
-IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260703221056_AlignCanonicalKharbarchiWorkflow20260704')
-BEGIN
-
-    SET @khb_legacy_exists = (
-      SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES
-      WHERE TABLE_SCHEMA = DATABASE() AND BINARY TABLE_NAME = BINARY 'KHB_Product_Final'
-    );
-    SET @khb_canonical_exists = (
-      SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES
-      WHERE TABLE_SCHEMA = DATABASE() AND BINARY TABLE_NAME = BINARY 'khb_product_final'
-    );
-    SET @khb_sql = IF(
-      @khb_legacy_exists = 1 AND @khb_canonical_exists = 0,
-      'RENAME TABLE `KHB_Product_Final` TO `khb_product_final`',
-      'SELECT 1'
-    );
-    PREPARE khb_stmt FROM @khb_sql;
-    EXECUTE khb_stmt;
-    DEALLOCATE PREPARE khb_stmt;
-END;
-
-IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260703221056_AlignCanonicalKharbarchiWorkflow20260704')
-BEGIN
-
-    SET @khb_legacy_exists = (
-      SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES
-      WHERE TABLE_SCHEMA = DATABASE() AND BINARY TABLE_NAME = BINARY 'KHB_Product_Update_Queue'
-    );
-    SET @khb_canonical_exists = (
-      SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES
-      WHERE TABLE_SCHEMA = DATABASE() AND BINARY TABLE_NAME = BINARY 'khb_product_update_queue'
-    );
-    SET @khb_sql = IF(
-      @khb_legacy_exists = 1 AND @khb_canonical_exists = 0,
-      'RENAME TABLE `KHB_Product_Update_Queue` TO `khb_product_update_queue`',
-      'SELECT 1'
-    );
-    PREPARE khb_stmt FROM @khb_sql;
-    EXECUTE khb_stmt;
-    DEALLOCATE PREPARE khb_stmt;
-END;
-
-IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260703221056_AlignCanonicalKharbarchiWorkflow20260704')
-BEGIN
-
-    SET @khb_legacy_exists = (
-      SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES
-      WHERE TABLE_SCHEMA = DATABASE() AND BINARY TABLE_NAME = BINARY 'KHB_Product_Price_History'
-    );
-    SET @khb_canonical_exists = (
-      SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES
-      WHERE TABLE_SCHEMA = DATABASE() AND BINARY TABLE_NAME = BINARY 'khb_product_price_history'
-    );
-    SET @khb_sql = IF(
-      @khb_legacy_exists = 1 AND @khb_canonical_exists = 0,
-      'RENAME TABLE `KHB_Product_Price_History` TO `khb_product_price_history`',
       'SELECT 1'
     );
     PREPARE khb_stmt FROM @khb_sql;

@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS `khb_imported_woocommerce_records` (
     `Name` VARCHAR(512) NULL,
     `Status` VARCHAR(128) NULL,
     `RawJson` LONGTEXT NOT NULL,
+    `ImportedAtUtc` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     `CreatedAtUtc` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT `PK_khb_imported_woocommerce_records` PRIMARY KEY (`Id`),
     INDEX `IX_khb_imported_woocommerce_records_SourceType` (`SourceType`),
@@ -48,9 +49,9 @@ SET @has := (
     AND COLUMN_NAME = 'ImportedAtUtc'
 );
 SET @ddl := IF(
-  @has = 1,
-  'ALTER TABLE `khb_imported_woocommerce_records` MODIFY COLUMN `ImportedAtUtc` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6);',
-  'SELECT 1'
+  @has = 0,
+  'ALTER TABLE `khb_imported_woocommerce_records` ADD COLUMN `ImportedAtUtc` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6);',
+  'ALTER TABLE `khb_imported_woocommerce_records` MODIFY COLUMN `ImportedAtUtc` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6);'
 );
 PREPARE stmt FROM @ddl;
 EXECUTE stmt;

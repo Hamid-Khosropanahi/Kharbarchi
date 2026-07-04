@@ -11,8 +11,27 @@ namespace Kharbarchi.Server.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.Sql(@"
-ALTER TABLE `khb_source_product`
-ADD COLUMN `SourceRowId` BIGINT NULL;
+SET @tableExists := (
+    SELECT COUNT(*)
+    FROM INFORMATION_SCHEMA.TABLES
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'khb_source_product'
+);
+SET @columnExists := (
+    SELECT COUNT(*)
+    FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'khb_source_product'
+      AND COLUMN_NAME = 'SourceRowId'
+);
+SET @ddl := IF(
+    @tableExists = 1 AND @columnExists = 0,
+    'ALTER TABLE `khb_source_product` ADD COLUMN `SourceRowId` BIGINT NULL',
+    'SELECT 1'
+);
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 ");
         }
         /// <inheritdoc />

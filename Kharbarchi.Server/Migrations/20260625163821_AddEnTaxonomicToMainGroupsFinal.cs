@@ -11,6 +11,12 @@ namespace Kharbarchi.Server.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.Sql(@"
+SET @hasTable := (
+    SELECT COUNT(*)
+    FROM INFORMATION_SCHEMA.TABLES
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'khb_product_main_groups'
+);
 SET @hasColumn := (
     SELECT COUNT(*)
     FROM INFORMATION_SCHEMA.COLUMNS
@@ -22,7 +28,7 @@ SET @hasColumn := (
 
             migrationBuilder.Sql(@"
 SET @ddl := IF(
-    @hasColumn = 0,
+    @hasTable = 1 AND @hasColumn = 0,
     'ALTER TABLE `khb_product_main_groups` ADD COLUMN `EnTaxonomic` VARCHAR(500) NULL AFTER `CategoryName`',
     'SELECT 1'
 );

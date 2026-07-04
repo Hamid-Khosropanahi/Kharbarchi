@@ -15,7 +15,7 @@ namespace Kharbarchi.Server.Migrations
             AddColumnIfMissing(migrationBuilder, "gnr_Categories", "WooCommerceCategoryId", "`WooCommerceCategoryId` BIGINT NULL");
 
             migrationBuilder.Sql(@"
-CREATE TABLE IF NOT EXISTS `khb_ProductWooControlProfiles` (
+CREATE TABLE IF NOT EXISTS `khb_productwoocontrolprofiles` (
     `Id` INT NOT NULL AUTO_INCREMENT,
     `ProductId` INT NOT NULL,
     `PriceSourceMode` VARCHAR(80) NOT NULL DEFAULT 'final_price',
@@ -60,12 +60,12 @@ CREATE TABLE IF NOT EXISTS `khb_ProductWooControlProfiles` (
     `WooSyncedAtUtc` DATETIME(6) NULL,
     `CreatedAtUtc` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     `UpdatedAtUtc` DATETIME(6) NULL,
-    CONSTRAINT `PK_khb_ProductWooControlProfiles` PRIMARY KEY (`Id`),
-    CONSTRAINT `FK_khb_ProductWooControlProfiles_gnr_Products_ProductId`
+    CONSTRAINT `PK_khb_productwoocontrolprofiles` PRIMARY KEY (`Id`),
+    CONSTRAINT `FK_khb_productwoocontrolprofiles_gnr_Products_ProductId`
         FOREIGN KEY (`ProductId`) REFERENCES `gnr_Products` (`Id`) ON DELETE CASCADE,
-    UNIQUE KEY `IX_khb_ProductWooControlProfiles_ProductId` (`ProductId`),
-    KEY `IX_khb_ProductWooControlProfiles_PriceCheckStatus` (`PriceCheckStatus`),
-    KEY `IX_khb_ProductWooControlProfiles_WooSyncStatus` (`WooSyncStatus`)
+    UNIQUE KEY `IX_khb_productwoocontrolprofiles_ProductId` (`ProductId`),
+    KEY `IX_khb_productwoocontrolprofiles_PriceCheckStatus` (`PriceCheckStatus`),
+    KEY `IX_khb_productwoocontrolprofiles_WooSyncStatus` (`WooSyncStatus`)
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;");
 
             migrationBuilder.Sql(@"
@@ -192,7 +192,7 @@ CREATE TABLE IF NOT EXISTS `khb_product_price_history` (
         {
 #if false
             migrationBuilder.DropTable(
-                name: "khb_ProductWooControlProfiles");
+                name: "khb_productwoocontrolprofiles");
 
             migrationBuilder.DropIndex(
                 name: "IX_gnr_Commodities_WooCommerceCommodityId",
