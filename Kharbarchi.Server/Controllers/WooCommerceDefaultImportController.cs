@@ -21,15 +21,18 @@ public sealed class WooCommerceDefaultImportController : ControllerBase
     private readonly WooCommerceRuntimeSettingsStore _settingsStore;
     private readonly AppDbContext _db;
     private readonly ILogger<WooCommerceDefaultImportController> _logger;
+    private readonly Infrastructure.Safety.EnvironmentSafetyGuard _guard;
 
     public WooCommerceDefaultImportController(
         WooCommerceRuntimeSettingsStore settingsStore,
         AppDbContext db,
-        ILogger<WooCommerceDefaultImportController> logger)
+        ILogger<WooCommerceDefaultImportController> logger,
+        Infrastructure.Safety.EnvironmentSafetyGuard guard)
     {
         _settingsStore = settingsStore;
         _db = db;
         _logger = logger;
+        _guard = guard;
     }
 
     [HttpPost("run")]
@@ -42,6 +45,7 @@ public sealed class WooCommerceDefaultImportController : ControllerBase
         try
         {
             var settings = await MergeSettingsAsync(request, cancellationToken);
+            _guard.ValidateWooProfile(settings.BaseUrl, !settings.AllowInsecureLocalhostSsl, "Local");
             if (!IsValidBaseUrl(settings.BaseUrl, out var message))
             {
                 return BadRequest(new WooDefaultImportResultDto { Success = false, Message = message });
@@ -155,20 +159,17 @@ public sealed class WooCommerceDefaultImportController : ControllerBase
 
     private async Task EnsureImportTableAsync(CancellationToken cancellationToken)
     {
-        const string sql = """
-CREATE TABLE IF NOT EXISTS `khb_imported_woocommerce_records` (
-  `Id` BIGINT NOT NULL AUTO_INCREMENT,
-  `SourceType` VARCHAR(64) NOT NULL,
-  `ExternalId` VARCHAR(128) NOT NULL,
-  `Slug` VARCHAR(255) NULL,
-  `Title` VARCHAR(512) NULL,
-  `RawJson` LONGTEXT NOT NULL,
-  `ImportedAtUtc` DATETIME(6) NOT NULL,
-  PRIMARY KEY (`Id`),
-  UNIQUE KEY `UX_khb_imported_woocommerce_records_Source_External` (`SourceType`, `ExternalId`)
-) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-""";
-        await _db.Database.ExecuteSqlRawAsync(sql, cancellationToken);
+        // Runtime schema creation is disabled. Validate that the EF-mapped table exists.
+        try
+        {
+            // Attempt a lightweight query against the DbSet; if the table is missing this will fail.
+            await _db.KhbImportedWooCommerceRecords.AsNoTracking().AnyAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "khb_imported_woocommerce_records table is missing or inaccessible. Runtime DDL is disabled.");
+            throw new InvalidOperationException("Database table 'khb_imported_woocommerce_records' is missing or has incompatible schema. Apply the reviewed EF Core migration and try again.");
+        }
     }
 
     private async Task SaveRecordAsync(string sourceType, string externalId, string? slug, string? title, string rawJson, CancellationToken cancellationToken)

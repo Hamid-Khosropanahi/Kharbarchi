@@ -42,11 +42,15 @@ public sealed class WooCommerceRuntimeSettingsStore
                 return Normalize(settings);
             }
 
+            // IMPORTANT: Do NOT load raw secrets (ConsumerSecret) from disk. Existing files may contain
+            // raw secrets from older versions; ignore those values for runtime safety. Do not log them.
             return Normalize(new WooCommerceRuntimeSettings
             {
                 BaseUrl = string.IsNullOrWhiteSpace(saved.BaseUrl) ? settings.BaseUrl : saved.BaseUrl,
                 ConsumerKey = string.IsNullOrWhiteSpace(saved.ConsumerKey) ? settings.ConsumerKey : saved.ConsumerKey,
-                ConsumerSecret = string.IsNullOrWhiteSpace(saved.ConsumerSecret) ? settings.ConsumerSecret : saved.ConsumerSecret,
+                // Do NOT populate ConsumerSecret from saved file. Keep secret empty in runtime settings unless
+                // explicitly provided via API in this runtime (which will not be persisted raw to disk).
+                ConsumerSecret = string.Empty,
                 TimeoutSeconds = saved.TimeoutSeconds <= 0 ? settings.TimeoutSeconds : saved.TimeoutSeconds,
                 AllowInsecureLocalhostSsl = saved.AllowInsecureLocalhostSsl
             });
@@ -65,14 +69,26 @@ public sealed class WooCommerceRuntimeSettingsStore
         {
             BaseUrl = dto.BaseUrl,
             ConsumerKey = dto.ConsumerKey,
+            // Keep consumer secret in-memory for runtime operations, but do NOT persist raw secrets to disk.
+            // If dto.ConsumerSecret is blank, preserve current in-memory secret; however we will not write it to disk.
             ConsumerSecret = string.IsNullOrWhiteSpace(dto.ConsumerSecret) ? current.ConsumerSecret : dto.ConsumerSecret,
             TimeoutSeconds = dto.TimeoutSeconds,
             AllowInsecureLocalhostSsl = dto.AllowInsecureLocalhostSsl
         });
 
         Directory.CreateDirectory(SettingsDirectory);
+        // When persisting runtime settings, never write raw secrets to disk.
+        var persisted = new WooCommerceRuntimeSettings
+        {
+            BaseUrl = settings.BaseUrl,
+            ConsumerKey = settings.ConsumerKey,
+            ConsumerSecret = string.Empty,
+            TimeoutSeconds = settings.TimeoutSeconds,
+            AllowInsecureLocalhostSsl = settings.AllowInsecureLocalhostSsl
+        };
+
         await using var stream = File.Create(SettingsPath);
-        await JsonSerializer.SerializeAsync(stream, settings, _jsonOptions, cancellationToken);
+        await JsonSerializer.SerializeAsync(stream, persisted, _jsonOptions, cancellationToken);
         return settings;
     }
 

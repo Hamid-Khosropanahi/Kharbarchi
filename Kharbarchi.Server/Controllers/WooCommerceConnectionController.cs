@@ -16,13 +16,16 @@ public sealed class WooCommerceConnectionController : ControllerBase
 {
     private readonly WooCommerceRuntimeSettingsStore _settingsStore;
     private readonly ILogger<WooCommerceConnectionController> _logger;
+    private readonly Infrastructure.Safety.EnvironmentSafetyGuard _guard;
 
     public WooCommerceConnectionController(
         WooCommerceRuntimeSettingsStore settingsStore,
-        ILogger<WooCommerceConnectionController> logger)
+        ILogger<WooCommerceConnectionController> logger,
+        Infrastructure.Safety.EnvironmentSafetyGuard guard)
     {
         _settingsStore = settingsStore;
         _logger = logger;
+        _guard = guard;
     }
 
     [HttpGet("settings")]
@@ -75,6 +78,9 @@ public sealed class WooCommerceConnectionController : ControllerBase
             TimeoutSeconds = settings.TimeoutSeconds,
             AllowInsecureLocalhostSsl = settings.AllowInsecureLocalhostSsl
         };
+
+        // Validate Woo target via EnvironmentSafetyGuard before executing test
+        _guard.ValidateWooProfile(settings.BaseUrl, !settings.AllowInsecureLocalhostSsl, "Local");
 
         return Ok(await ExecuteAsync(rawRequest, settings, cancellationToken));
     }
@@ -134,7 +140,8 @@ public sealed class WooCommerceConnectionController : ControllerBase
         catch (Exception ex)
         {
             watch.Stop();
-            _logger.LogError(ex, "WooCommerce API test failed. Url={Url}", fullUrl);
+            var safeEndpoint = ToSafeEndpointForLog(fullUrl);
+            _logger.LogError(ex, "WooCommerce API test failed. Endpoint={Endpoint}", safeEndpoint);
 
             return new WooApiTestResultDto
             {
@@ -147,8 +154,23 @@ public sealed class WooCommerceConnectionController : ControllerBase
                 CurlPreview = BuildCurlPreview(method, fullUrl, request.BodyJson, RequiresWooAuth(relativeUrl))
             };
         }
+
     }
 
+    private static string ToSafeEndpointForLog(string? fullUrl)
+    {
+        if (string.IsNullOrWhiteSpace(fullUrl)) return "[invalid-url]";
+
+        if (!Uri.TryCreate(fullUrl.Trim(), UriKind.Absolute, out var uri))
+        {
+            return "[invalid-url]";
+        }
+
+        var scheme = uri.Scheme;
+        var host = uri.Host;
+        var port = uri.IsDefaultPort ? string.Empty : ":" + uri.Port.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        return $"{scheme}://{host}{port}";
+    }
     private static HttpClient CreateHttpClient(WooCommerceRuntimeSettings settings)
     {
         var handler = new HttpClientHandler();

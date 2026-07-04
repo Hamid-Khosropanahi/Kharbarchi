@@ -2,6 +2,7 @@ using System.IO.Compression;
 using System.Text;
 using System.Threading.RateLimiting;
 using Kharbarchi.Server.Data;
+using Kharbarchi.Server.Infrastructure.Safety;
 using Kharbarchi.Server.Models;
 using Kharbarchi.Server.Options;
 using Kharbarchi.Server.Security;
@@ -74,6 +75,35 @@ var connectionString = builder.Configuration.GetConnectionString("MySqlConnectio
 if (string.IsNullOrWhiteSpace(connectionString))
 {
     throw new InvalidOperationException("ConnectionStrings:MySqlConnection is not configured. Use User Secrets or Environment Variables.");
+}
+
+// Environment safety guard: validate DB connection before anything that could touch the database
+builder.Services.AddSingleton<EnvironmentSafetyGuard>();
+// Validate now (before AddDbContext or any database operations)
+{
+    // Create a guard instance and validate immediately
+    var guardLogger = LoggerFactory.Create(b => b.AddConsole()).CreateLogger<EnvironmentSafetyGuard>();
+    var guardEnv = builder.Environment;
+    var guard = new EnvironmentSafetyGuard(guardLogger, guardEnv);
+    guard.ValidateDatabaseConnectionString(connectionString, "MySqlConnection");
+}
+
+// --- Fail-fast validation for global WooCommerce configuration ---
+{
+    var wooSection = builder.Configuration.GetSection("WooCommerce");
+    var wooOptions = wooSection.Get<WooCommerceOptions>() ?? new WooCommerceOptions();
+
+    // Use the same guard instance to validate global WooCommerce options during startup
+    var startupGuardLogger = LoggerFactory.Create(b => b.AddConsole()).CreateLogger<EnvironmentSafetyGuard>();
+    var startupGuard = new EnvironmentSafetyGuard(startupGuardLogger, builder.Environment);
+
+    // Determine verifySsl: prefer explicit VerifySsl, fall back to existing AllowInsecureLocalhostSsl only for local development
+    var verifySsl = wooOptions.VerifySsl;
+
+    var envType = string.IsNullOrWhiteSpace(wooOptions.EnvironmentType) ? "Local" : wooOptions.EnvironmentType;
+
+    // Validate and fail fast if unsafe
+    startupGuard.ValidateWooProfile(wooOptions.BaseUrl, verifySsl, envType);
 }
 
 builder.Services.AddDbContext<AppDbContext>(options =>

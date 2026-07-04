@@ -16,6 +16,7 @@ public sealed class WooLabController : ControllerBase
 {
     private readonly IConfiguration _configuration;
     private readonly ILogger<WooLabController> _logger;
+    private readonly Infrastructure.Safety.EnvironmentSafetyGuard _guard;
 
     private static readonly JsonSerializerOptions PrettyJsonOptions = new()
     {
@@ -23,10 +24,11 @@ public sealed class WooLabController : ControllerBase
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
     };
 
-    public WooLabController(IConfiguration configuration, ILogger<WooLabController> logger)
+    public WooLabController(IConfiguration configuration, ILogger<WooLabController> logger, Infrastructure.Safety.EnvironmentSafetyGuard guard)
     {
         _configuration = configuration;
         _logger = logger;
+        _guard = guard;
     }
 
     [HttpGet("server-health")]
@@ -50,6 +52,9 @@ public sealed class WooLabController : ControllerBase
         {
             return BadRequest(new { error = "BaseUrl is required. مقدار WooCommerce:BaseUrl را در User Secrets یا فرم تنظیمات وارد کنید." });
         }
+
+        // Validate WooCommerce target against environment safety policies
+        _guard.ValidateWooProfile(settings.BaseUrl, !settings.AllowInsecureLocalhostSsl, "Local");
 
         var targetPath = string.IsNullOrWhiteSpace(request?.EndpointPath) ? "wp-json/" : request!.EndpointPath!.TrimStart('/');
         var url = BuildUrl(settings, targetPath, requiresWooKeys: targetPath.Contains("wc/v", StringComparison.OrdinalIgnoreCase));
@@ -94,6 +99,9 @@ public sealed class WooLabController : ControllerBase
         }
 
         await EnsureImportTableAsync(cancellationToken);
+
+        // Validate WooCommerce target before importing
+        _guard.ValidateWooProfile(settings.BaseUrl, !settings.AllowInsecureLocalhostSsl, "Local");
 
         using var http = CreateHttpClient(settings);
         var result = new WooImportResultDto();
@@ -288,37 +296,20 @@ ON DUPLICATE KEY UPDATE
 
     private async Task EnsureImportTableAsync(CancellationToken cancellationToken)
     {
-        await using var connection = new MySqlConnection(GetMySqlConnectionString());
-        await connection.OpenAsync(cancellationToken);
-        await using (var command = connection.CreateCommand())
+        // Runtime schema creation/alteration is disabled. Validate table existence and schema instead.
+        try
         {
-            command.CommandText = @"
-CREATE TABLE IF NOT EXISTS khb_imported_woocommerce_records (
-    Id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    SourceType VARCHAR(64) NOT NULL,
-    SourceUrl TEXT NULL,
-    ExternalId VARCHAR(128) NULL,
-    Name VARCHAR(512) NULL,
-    Status VARCHAR(128) NULL,
-    RawJson LONGTEXT NOT NULL,
-    CreatedAtUtc DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    INDEX IX_khb_import_source_type (SourceType),
-    INDEX IX_khb_import_external_id (ExternalId)
-) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;";
-            await command.ExecuteNonQueryAsync(cancellationToken);
+            await using var connection = new MySqlConnection(GetMySqlConnectionString());
+            await connection.OpenAsync(cancellationToken);
+            await using var command = connection.CreateCommand();
+            command.CommandText = "SELECT 1 FROM khb_imported_woocommerce_records LIMIT 1;";
+            await command.ExecuteScalarAsync(cancellationToken);
         }
-
-        await AddColumnIfMissingAsync(connection, "SourceUrl", "TEXT NULL", cancellationToken);
-        await AddColumnIfMissingAsync(connection, "ExternalId", "VARCHAR(128) NULL", cancellationToken);
-        await AddColumnIfMissingAsync(connection, "Name", "VARCHAR(512) NULL", cancellationToken);
-        await AddColumnIfMissingAsync(connection, "Status", "VARCHAR(128) NULL", cancellationToken);
-        await AddColumnIfMissingAsync(connection, "CreatedAtUtc", "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP", cancellationToken);
-
-        await ModifyColumnAsync(connection, "SourceUrl", "TEXT NULL", cancellationToken);
-        await ModifyColumnAsync(connection, "ExternalId", "VARCHAR(191) NULL", cancellationToken);
-        await ModifyColumnAsync(connection, "Name", "VARCHAR(512) NULL", cancellationToken);
-        await ModifyColumnAsync(connection, "Status", "VARCHAR(128) NULL", cancellationToken);
-        await ModifyColumnAsync(connection, "CreatedAtUtc", "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP", cancellationToken);
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "khb_imported_woocommerce_records table is missing or inaccessible. Runtime DDL is disabled.");
+            throw new InvalidOperationException("Database table 'khb_imported_woocommerce_records' is missing or has incompatible schema. Apply the reviewed EF Core migration (canonical lowercase tables) and try again.");
+        }
     }
 
     private static async Task ModifyColumnAsync(MySqlConnection connection, string columnName, string definition, CancellationToken cancellationToken)
@@ -329,23 +320,8 @@ CREATE TABLE IF NOT EXISTS khb_imported_woocommerce_records (
     }
     private static async Task AddColumnIfMissingAsync(MySqlConnection connection, string columnName, string definition, CancellationToken cancellationToken)
     {
-        await using var check = connection.CreateCommand();
-        check.CommandText = @"
-SELECT COUNT(*)
-FROM INFORMATION_SCHEMA.COLUMNS
-WHERE TABLE_SCHEMA = DATABASE()
-  AND TABLE_NAME = 'khb_imported_woocommerce_records'
-  AND COLUMN_NAME = @ColumnName;";
-        check.Parameters.AddWithValue("@ColumnName", columnName);
-        var exists = Convert.ToInt32(await check.ExecuteScalarAsync(cancellationToken));
-        if (exists > 0)
-        {
-            return;
-        }
-
-        await using var alter = connection.CreateCommand();
-        alter.CommandText = $"ALTER TABLE khb_imported_woocommerce_records ADD COLUMN `{columnName}` {definition};";
-        await alter.ExecuteNonQueryAsync(cancellationToken);
+        // Column management at runtime is disabled. This helper remains for backups but is no-op in active runtime.
+        await Task.CompletedTask;
     }
 
     private string GetMySqlConnectionString()
@@ -405,13 +381,8 @@ WHERE TABLE_SCHEMA = DATABASE()
     {
         var baseUrl = (settings.BaseUrl ?? string.Empty).TrimEnd('/');
         var path = endpointPath.TrimStart('/');
-        var separator = path.Contains("?", StringComparison.Ordinal) ? "&" : "?";
         var url = $"{baseUrl}/{path}";
-        if (requiresWooKeys)
-        {
-            url += $"{separator}consumer_key={Uri.EscapeDataString(settings.ConsumerKey ?? string.Empty)}&consumer_secret={Uri.EscapeDataString(settings.ConsumerSecret ?? string.Empty)}";
-        }
-
+        // Do not append consumer_key or consumer_secret to URLs. Use ApplyWordPressBasicAuth or server-side profile-aware client to send credentials.
         return url;
     }
 

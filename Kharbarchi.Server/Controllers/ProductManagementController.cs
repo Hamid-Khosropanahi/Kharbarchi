@@ -268,6 +268,10 @@ LIMIT 1;";
             return BadRequest(new { ok = false, error = "BaseUrl, ConsumerKey و ConsumerSecret برای دریافت محصولات لازم است." });
         }
 
+        // Validate WooCommerce target against environment safety policies
+        var guard = HttpContext.RequestServices.GetRequiredService<Infrastructure.Safety.EnvironmentSafetyGuard>();
+        guard.ValidateWooProfile(settings.BaseUrl, !settings.AllowInsecureLocalhostSsl, "Local");
+
         var page = Math.Max(1, request.Page);
         var perPage = Math.Clamp(request.PerPage <= 0 ? 100 : request.PerPage, 10, 100);
         var path = $"wp-json/wc/v3/products?per_page={perPage}&page={page}";
@@ -328,6 +332,9 @@ LIMIT 1;";
             return BadRequest(new { ok = false, error = "تنظیمات WooCommerce کامل نیست." });
         }
 
+        var guard = HttpContext.RequestServices.GetRequiredService<Infrastructure.Safety.EnvironmentSafetyGuard>();
+        guard.ValidateWooProfile(settings.BaseUrl, !settings.AllowInsecureLocalhostSsl, "Local");
+
         var url = BuildWooUrl(settings, $"wp-json/wc/v3/products/{wooProductId}", true);
         using var http = CreateHttpClient(settings);
         using var message = new HttpRequestMessage(HttpMethod.Get, url);
@@ -352,6 +359,9 @@ LIMIT 1;";
         {
             return BadRequest(new { ok = false, error = "تنظیمات WooCommerce کامل نیست." });
         }
+
+        var guard = HttpContext.RequestServices.GetRequiredService<Infrastructure.Safety.EnvironmentSafetyGuard>();
+        guard.ValidateWooProfile(settings.BaseUrl, !settings.AllowInsecureLocalhostSsl, "Local");
 
         var payload = BuildWooUpdatePayload(request);
         var url = BuildWooUrl(settings, $"wp-json/wc/v3/products/{wooProductId}", true);
@@ -387,71 +397,19 @@ LIMIT 1;";
 
     private async Task EnsureProductTablesAsync(CancellationToken cancellationToken)
     {
-        using var connection = new MySqlConnection(GetMySqlConnectionString());
-        await connection.OpenAsync(cancellationToken);
-
-        var commands = new[]
+        // Runtime schema creation/alteration is disabled. Validate required workflow tables exist.
+        try
         {
-            @"CREATE TABLE IF NOT EXISTS khb_product_main_groups (
-    Id BIGINT NOT NULL AUTO_INCREMENT,
-    SourceTableName VARCHAR(191) NULL,
-    SourceKey VARCHAR(191) NOT NULL,
-    Name VARCHAR(500) NOT NULL,
-    EnglishName VARCHAR(500) NULL,
-    Slug VARCHAR(500) NULL,
-    Description TEXT NULL,
-    CreatedAtUtc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    UpdatedAtUtc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-    PRIMARY KEY (Id),
-    UNIQUE KEY UX_khb_product_main_groups_SourceKey (SourceKey)
-) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;",
-            @"CREATE TABLE IF NOT EXISTS khb_sale_products (
-    Id BIGINT NOT NULL AUTO_INCREMENT,
-    WooProductId INT NULL,
-    ExternalId VARCHAR(191) NULL,
-    MainGroupId BIGINT NULL,
-    SourceTableName VARCHAR(191) NULL,
-    SourceRowHash VARCHAR(128) NULL,
-    ProductName VARCHAR(500) NOT NULL,
-    Sku VARCHAR(191) NULL,
-    Slug VARCHAR(500) NULL,
-    Status VARCHAR(100) NULL,
-    PackagingName VARCHAR(255) NULL,
-    CartonQuantity INT NULL,
-    CashSalePrice DECIMAL(18,2) NULL,
-    InstallmentSalePrice DECIMAL(18,2) NULL,
-    CashPurchasePrice DECIMAL(18,2) NULL,
-    InstallmentPurchasePrice DECIMAL(18,2) NULL,
-    ShortDescription TEXT NULL,
-    FullDescription LONGTEXT NULL,
-    ImageUrl TEXT NULL,
-    CategoriesJson LONGTEXT NULL,
-    WooRawJson LONGTEXT NULL,
-    ImportedAtUtc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    UpdatedAtUtc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-    PRIMARY KEY (Id),
-    KEY IX_khb_sale_products_MainGroupId (MainGroupId),
-    UNIQUE KEY UX_khb_sale_products_WooProductId (WooProductId),
-    UNIQUE KEY UX_khb_sale_products_SourceExternal (SourceTableName, ExternalId),
-    CONSTRAINT FK_khb_sale_products_MainGroup FOREIGN KEY (MainGroupId) REFERENCES khb_product_main_groups(Id) ON DELETE SET NULL
-) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;",
-            @"CREATE TABLE IF NOT EXISTS khb_product_change_log (
-    Id BIGINT NOT NULL AUTO_INCREMENT,
-    ProductId BIGINT NOT NULL,
-    ChangeType VARCHAR(100) NOT NULL,
-    Summary VARCHAR(1000) NULL,
-    Payload LONGTEXT NULL,
-    CreatedAtUtc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    PRIMARY KEY (Id),
-    KEY IX_khb_product_change_log_ProductId (ProductId)
-) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-        };
-
-        foreach (var sql in commands)
+            await using var connection = new MySqlConnection(GetMySqlConnectionString());
+            await connection.OpenAsync(cancellationToken);
+            await using var command = connection.CreateCommand();
+            command.CommandText = "SELECT 1 FROM khb_product_main_groups LIMIT 1;";
+            await command.ExecuteScalarAsync(cancellationToken);
+        }
+        catch (Exception ex)
         {
-            using var command = connection.CreateCommand();
-            command.CommandText = sql;
-            await command.ExecuteNonQueryAsync(cancellationToken);
+            // Do not attempt to create tables at runtime. Instruct operator to apply EF migrations.
+            throw new InvalidOperationException("Required product management tables (khb_product_main_groups, khb_sale_products, khb_product_change_log) are missing or have incompatible schema. Apply the reviewed EF Core migration before using Product Management endpoints.", ex);
         }
     }
 
@@ -858,12 +816,8 @@ VALUES (@ProductId, @ChangeType, @Summary, @Payload, UTC_TIMESTAMP(6));";
     {
         var baseUrl = (settings.BaseUrl ?? string.Empty).TrimEnd('/');
         var path = endpointPath.TrimStart('/');
-        var separator = path.Contains('?', StringComparison.Ordinal) ? "&" : "?";
         var url = $"{baseUrl}/{path}";
-        if (requiresWooKeys)
-        {
-            url += $"{separator}consumer_key={Uri.EscapeDataString(settings.ConsumerKey ?? string.Empty)}&consumer_secret={Uri.EscapeDataString(settings.ConsumerSecret ?? string.Empty)}";
-        }
+        // Do not append consumer_key/consumer_secret to the URL. Credentials must be sent via Authorization header or server-side client.
         return url;
     }
 

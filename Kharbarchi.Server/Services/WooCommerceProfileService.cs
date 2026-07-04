@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using Kharbarchi.Server.Data;
+using Kharbarchi.Server.Infrastructure.Safety;
 using Kharbarchi.Server.Models;
 using Kharbarchi.Shared.Contracts.WooCommerce;
 using Microsoft.AspNetCore.DataProtection;
@@ -14,11 +15,13 @@ public sealed class WooCommerceProfileService
 {
     private readonly AppDbContext _context;
     private readonly IDataProtector _protector;
+    private readonly EnvironmentSafetyGuard _guard;
 
-    public WooCommerceProfileService(AppDbContext context, IDataProtectionProvider protectionProvider)
+    public WooCommerceProfileService(AppDbContext context, IDataProtectionProvider protectionProvider, EnvironmentSafetyGuard guard)
     {
         _context = context;
         _protector = protectionProvider.CreateProtector("Kharbarchi.WooCommerce.ConnectionProfile.v1");
+        _guard = guard;
     }
 
     public async Task<IReadOnlyList<WooConnectionProfileDto>> GetProfilesAsync(CancellationToken cancellationToken)
@@ -100,8 +103,17 @@ public sealed class WooCommerceProfileService
             .AsNoTracking()
             .SingleOrDefaultAsync(x => x.Id == profileId, cancellationToken)
             ?? throw new KeyNotFoundException("WooCommerce connection profile was not found.");
-
         var secret = _protector.Unprotect(profile.ProtectedConsumerSecret);
+
+        // Validate profile against environment safety guard before returning a live connection
+        try
+        {
+            _guard.ValidateWooProfile(profile.BaseUrl, profile.VerifySsl, profile.EnvironmentType, profile.Id);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException("WooCommerce profile is not allowed by environment safety policies.", ex);
+        }
         return new WooProfileConnection(
             profile.Id,
             profile.ProfileName,

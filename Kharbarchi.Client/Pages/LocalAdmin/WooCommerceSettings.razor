@@ -111,6 +111,7 @@
         Model.BaseUrl = await GetLocal("khb.woo.baseUrl") ?? Model.BaseUrl;
         Model.ConsumerKey = await GetLocal("khb.woo.consumerKey") ?? Model.ConsumerKey;
         Model.WordPressUsername = await GetLocal("khb.woo.wpUsername") ?? Model.WordPressUsername;
+        // Do not load or persist ConsumerSecret or WordPressPassword from localStorage for security reasons.
         LastMessage = "تنظیمات ذخیره‌شده از مرورگر خوانده شد.";
         LastOk = true;
     }
@@ -120,6 +121,7 @@
         await SetLocal("khb.woo.baseUrl", Model.BaseUrl);
         await SetLocal("khb.woo.consumerKey", Model.ConsumerKey);
         await SetLocal("khb.woo.wpUsername", Model.WordPressUsername);
+        // Do not save ConsumerSecret or WordPressPassword to localStorage. Secrets must be stored server-side in protected profiles.
         LastMessage = "تنظیمات به‌صورت موقت در مرورگر ذخیره شد.";
         LastOk = true;
     }

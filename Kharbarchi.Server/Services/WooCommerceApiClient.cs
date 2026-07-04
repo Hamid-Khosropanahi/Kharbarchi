@@ -19,12 +19,25 @@ public sealed class WooCommerceApiClient
     private readonly HttpClient _httpClient;
     private readonly WooCommerceOptions _options;
     private readonly ILogger<WooCommerceApiClient> _logger;
+    private readonly Infrastructure.Safety.EnvironmentSafetyGuard _guard;
 
-    public WooCommerceApiClient(HttpClient httpClient, IOptions<WooCommerceOptions> options, ILogger<WooCommerceApiClient> logger)
+    public WooCommerceApiClient(HttpClient httpClient, IOptions<WooCommerceOptions> options, ILogger<WooCommerceApiClient> logger, Infrastructure.Safety.EnvironmentSafetyGuard guard)
     {
         _httpClient = httpClient;
         _options = options.Value;
         _logger = logger;
+        _guard = guard;
+
+        // Validate global client target against environment safety policies.
+        // Prefer explicit VerifySsl and EnvironmentType options; AllowInsecureLocalhostSsl remains supported for backward compatibility but does not weaken Production safety.
+        var verifySsl = _options.VerifySsl;
+        var envType = string.IsNullOrWhiteSpace(_options.EnvironmentType)
+            ? "Local"
+            : _options.EnvironmentType;
+
+        // If VerifySsl is false but AllowInsecureLocalhostSsl is true, allow insecure SSL only when running against localhost in Development. The guard enforces Production rules regardless.
+        _guard.ValidateWooProfile(_options.BaseUrl, verifySsl, envType);
+
         ConfigureAuthenticationHeader();
     }
 
@@ -143,8 +156,9 @@ public sealed class WooCommerceApiClient
 
         if (!response.IsSuccessStatusCode)
         {
-            _logger.LogWarning("WooCommerce API failed. Method={Method}, Url={Url}, Status={Status}, Body={Body}",
-                method, relativeUrl, (int)response.StatusCode, TrimForLog(content));
+            var endpoint = ToSafeEndpointForLog(_httpClient.BaseAddress);
+            _logger.LogWarning("WooCommerce API failed. Endpoint={Endpoint}, Method={Method}, Path={Path}, Status={Status}, Body={Body}",
+                endpoint, method, relativeUrl, (int)response.StatusCode, TrimForLog(content));
 
             throw new HttpRequestException(
                 $"WooCommerce API returned {(int)response.StatusCode} {response.ReasonPhrase}. Body: {TrimForLog(content)}",
@@ -162,6 +176,15 @@ public sealed class WooCommerceApiClient
         _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", encoded);
         _httpClient.DefaultRequestHeaders.Accept.Clear();
         _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+    }
+
+    private static string ToSafeEndpointForLog(Uri? baseAddress)
+    {
+        if (baseAddress is null) return "[not-configured]";
+        var scheme = baseAddress.Scheme;
+        var host = baseAddress.Host;
+        var port = baseAddress.IsDefaultPort ? string.Empty : ":" + baseAddress.Port.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        return $"{scheme}://{host}{port}";
     }
 
     private static string TrimForLog(string? value)
