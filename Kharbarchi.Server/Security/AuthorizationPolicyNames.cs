@@ -1,3 +1,5 @@
+using Kharbarchi.Shared.Security;
+
 namespace Kharbarchi.Server.Security;
 
 public static class AuthorizationPolicyNames
@@ -18,7 +20,7 @@ public static class AuthorizationPolicyNames
     public const string InventoryProposalFinalApproval = "InventoryProposalFinalApproval";
 
     public const string ProductImportRead = "ProductImportRead";
-    public const string ProductImportWrite = "ProductImportWrite";
+    public const string ProductImportWrite = KharbarchiPolicies.ProductImportWrite;
     public const string OrdersRead = "OrdersRead";
     public const string OrdersImportWrite = "OrdersImportWrite";
     public const string OrderPaymentWorkflow = "OrderPaymentWorkflow";

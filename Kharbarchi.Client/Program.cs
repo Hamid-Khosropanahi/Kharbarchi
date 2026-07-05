@@ -1,6 +1,7 @@
 ﻿using Kharbarchi.Client;
 using Kharbarchi.Client.Auth;
 using Kharbarchi.Client.Services;
+using Kharbarchi.Shared.Security;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
@@ -81,7 +82,19 @@ builder.Services.AddHttpClient("KharbarchiAPI", client => {
 
 builder.Services.AddScoped(sp => sp.GetRequiredService<IHttpClientFactory>().CreateClient("KharbarchiAPI"));
 
-builder.Services.AddAuthorizationCore();
+builder.Services.AddAuthorizationCore(options =>
+{
+    // This mirrors the server policy for UI rendering only. The API remains the
+    // authoritative enforcement boundary for every product-import operation.
+    options.AddPolicy(KharbarchiPolicies.ProductImportWrite, policy =>
+    {
+        policy.RequireAuthenticatedUser();
+        policy.RequireRole(
+            KharbarchiRoles.SuperAdmin,
+            KharbarchiRoles.LegacyAdmin,
+            KharbarchiRoles.PricingManager);
+    });
+});
 builder.Services.AddScoped<JwtAuthStateProvider>();
 builder.Services.AddScoped<AuthenticationStateProvider>(sp => sp.GetRequiredService<JwtAuthStateProvider>());
 

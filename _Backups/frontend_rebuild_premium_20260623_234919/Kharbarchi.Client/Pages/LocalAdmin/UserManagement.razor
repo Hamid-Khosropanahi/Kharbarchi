@@ -74,23 +74,6 @@
             </EditForm>
         </div>
 
-        <div class="khb-panel">
-            <h2>یوزرهای تست آماده</h2>
-            <p>این یوزرها فقط در محیط Development توسط Seed ساخته می‌شوند. رمز همه:</p>
-            <code class="khb-code">Kharbarchi@Test123!</code>
-            <div class="khb-test-users-grid khb-test-users-grid-large">
-                <span>superadmin</span>
-                <span>pricing.manager</span>
-                <span>pricing.employee</span>
-                <span>warehouse</span>
-                <span>sales.manager</span>
-                <span>shipping.manager</span>
-                <span>accountant</span>
-                <span>sync.agent</span>
-                <span>gateway.admin</span>
-                <span>customer.test</span>
-            </div>
-        </div>
     </section>
 
     <section class="khb-panel khb-users-panel">
@@ -276,12 +259,9 @@
 
     private async Task ResetPasswordAsync(string userId)
     {
-        isBusy = true;
-        isError = false;
-        var result = await UserAdmin.ResetPasswordAsync(userId, "Kharbarchi@Test123!");
-        isError = !result.IsSuccess;
-        message = result.Message;
-        isBusy = false;
+        await Task.CompletedTask;
+        isError = true;
+        message = "Archived UI: enter a new password through the current user-management page.";
     }
 
     private async Task ToggleLockAsync(LocalUserDto user)

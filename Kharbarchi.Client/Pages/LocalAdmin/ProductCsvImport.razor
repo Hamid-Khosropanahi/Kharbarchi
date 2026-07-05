@@ -1,9 +1,10 @@
 @page "/local-admin/product-csv-import"
-@attribute [Authorize(Policy = "ProductImportWrite")]
+@attribute [Authorize(Policy = KharbarchiPolicies.ProductImportWrite)]
 @implements IAsyncDisposable
 @using System.Net.Http.Json
 @using Kharbarchi.Shared.Contracts.ProductWorkflow
 @using Kharbarchi.Shared.Contracts.WooCommerce
+@using Kharbarchi.Shared.Security
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Forms
 @inject IHttpClientFactory ClientFactory

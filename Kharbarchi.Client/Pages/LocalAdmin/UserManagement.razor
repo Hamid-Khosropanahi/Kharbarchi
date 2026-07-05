@@ -36,13 +36,6 @@
         </EditForm>
     </article>
 
-    <article class="khb-panel khb-panel-elevated">
-        <div class="khb-panel-title"><span>02</span><div><h2>یوزرهای تست</h2><p>رمز همه یوزرهای تست در Development:</p></div></div>
-        <code class="khb-code">Kharbarchi@Test123!</code>
-        <div class="khb-pill-grid">
-            @foreach (var u in testUsers) { <span>@u</span> }
-        </div>
-    </article>
 </section>
 
 <section class="khb-panel khb-panel-elevated">
@@ -61,7 +54,11 @@
                             <label class="khb-role-card"><input type="checkbox" checked="@selectedRoles[user.Id].Contains(role.Name)" @onchange="e => ToggleUserRole(user.Id, role.Name, e.Value)" /><span><b>@role.PersianName</b></span></label>
                         }
                     </div>
-                    <footer><button class="khb-btn khb-btn-primary" @onclick="() => SaveRolesAsync(user.Id)" disabled="@busy">ذخیره نقش‌ها</button><button class="khb-btn khb-btn-secondary" @onclick="() => ResetPasswordAsync(user.Id)" disabled="@busy">ریست رمز</button><button class="khb-btn khb-btn-danger" @onclick="() => ToggleLockAsync(user)" disabled="@busy">@(user.IsLockedOut ? "فعال‌سازی" : "قفل")</button></footer>
+                    <div class="khb-field">
+                        <label>رمز عبور جدید</label>
+                        <input type="password" class="khb-input ltr" autocomplete="new-password" @bind="resetPasswords[user.Id]" />
+                    </div>
+                    <footer><button class="khb-btn khb-btn-primary" @onclick="() => SaveRolesAsync(user.Id)" disabled="@busy">ذخیره نقش‌ها</button><button class="khb-btn khb-btn-secondary" @onclick="() => ResetPasswordAsync(user.Id)" disabled="@(busy || string.IsNullOrWhiteSpace(resetPasswords[user.Id]))">ریست رمز</button><button class="khb-btn khb-btn-danger" @onclick="() => ToggleLockAsync(user)" disabled="@busy">@(user.IsLockedOut ? "فعال‌سازی" : "قفل")</button></footer>
                 </article>
             }
         </div>
@@ -71,13 +68,13 @@
 @code {
     private readonly CreateUserFormModel createModel = new();
     private readonly Dictionary<string, HashSet<string>> selectedRoles = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, string> resetPasswords = new(StringComparer.Ordinal);
     private IReadOnlyList<LocalRoleDto> roles = [];
     private IReadOnlyList<LocalUserDto> users = [];
     private bool loading = true;
     private bool busy;
     private bool isError;
     private string? message;
-    private readonly string[] testUsers = ["superadmin", "pricing.manager", "pricing.employee", "warehouse", "sales.manager", "shipping.manager", "accountant", "sync.agent", "gateway.admin", "customer.test"];
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
 
@@ -89,7 +86,12 @@
             roles = await UserAdmin.GetRolesAsync();
             users = await UserAdmin.GetUsersAsync();
             selectedRoles.Clear();
-            foreach (var user in users) selectedRoles[user.Id] = new HashSet<string>(user.Roles, StringComparer.OrdinalIgnoreCase);
+            resetPasswords.Clear();
+            foreach (var user in users)
+            {
+                selectedRoles[user.Id] = new HashSet<string>(user.Roles, StringComparer.OrdinalIgnoreCase);
+                resetPasswords[user.Id] = string.Empty;
+            }
         }
         catch (Exception ex) { isError = true; message = "خطا در بارگیری کاربران: " + ex.Message; }
         finally { loading = false; }
@@ -110,7 +112,31 @@
     private void ToggleCreateRole(string role, object? value) { if (value is bool b && b) createModel.SelectedRoles.Add(role); else createModel.SelectedRoles.Remove(role); }
     private void ToggleUserRole(string userId, string role, object? value) { if (!selectedRoles.TryGetValue(userId, out var set)) selectedRoles[userId] = set = new(StringComparer.OrdinalIgnoreCase); if (value is bool b && b) set.Add(role); else set.Remove(role); }
     private async Task SaveRolesAsync(string id) { busy = true; var r = await UserAdmin.UpdateRolesAsync(id, selectedRoles[id].OrderBy(x => x).ToList()); isError = !r.IsSuccess; message = r.Message; busy = false; }
-    private async Task ResetPasswordAsync(string id) { busy = true; var r = await UserAdmin.ResetPasswordAsync(id, "Kharbarchi@Test123!"); isError = !r.IsSuccess; message = r.Message; busy = false; }
+    private async Task ResetPasswordAsync(string id)
+    {
+        if (!resetPasswords.TryGetValue(id, out var password) || password.Length < 10)
+        {
+            isError = true;
+            message = "رمز عبور جدید باید حداقل ۱۰ نویسه باشد.";
+            return;
+        }
+
+        busy = true;
+        try
+        {
+            var result = await UserAdmin.ResetPasswordAsync(id, password);
+            isError = !result.IsSuccess;
+            message = result.Message;
+            if (result.IsSuccess)
+            {
+                resetPasswords[id] = string.Empty;
+            }
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
     private async Task ToggleLockAsync(LocalUserDto user) { busy = true; var r = await UserAdmin.SetLockStateAsync(user.Id, !user.IsLockedOut); isError = !r.IsSuccess; message = r.Message; await LoadAsync(); busy = false; }
 
     private sealed class CreateUserFormModel
@@ -118,9 +144,9 @@
         [Required] public string UserName { get; set; } = string.Empty;
         public string? Email { get; set; }
         public string? FullName { get; set; }
-        [Required, MinLength(10)] public string Password { get; set; } = "Kharbarchi@Test123!";
-        [Compare(nameof(Password))] public string ConfirmPassword { get; set; } = "Kharbarchi@Test123!";
+        [Required, MinLength(10)] public string Password { get; set; } = string.Empty;
+        [Compare(nameof(Password))] public string ConfirmPassword { get; set; } = string.Empty;
         public HashSet<string> SelectedRoles { get; } = new(StringComparer.OrdinalIgnoreCase);
-        public void Clear() { UserName = Email = FullName = string.Empty; Password = ConfirmPassword = "Kharbarchi@Test123!"; SelectedRoles.Clear(); }
+        public void Clear() { UserName = Email = FullName = Password = ConfirmPassword = string.Empty; SelectedRoles.Clear(); }
     }
 }

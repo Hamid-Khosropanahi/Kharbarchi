@@ -19,6 +19,13 @@ using Microsoft.OpenApi;
 var builder = WebApplication.CreateBuilder(args);
 var bindingEnvironment = EnvironmentBindingRules.NormalizeEnvironmentName(builder.Environment.EnvironmentName);
 var requiredProfileEnvironment = EnvironmentBindingRules.GetRequiredProfileEnvironmentType(bindingEnvironment);
+if (builder.Environment.IsProduction() &&
+    builder.Configuration.GetValue<bool>("Security:AllowPublicRegistration"))
+{
+    throw new InvalidOperationException(
+        "Security:AllowPublicRegistration must be false in Production. Create ERP users through the protected admin flow or BootstrapSuperAdmin.");
+}
+
 const string KharbarchiLocalClientsCors = "KharbarchiLocalClients";
 builder.Services.AddCors(options =>
 {
@@ -49,8 +56,14 @@ builder.Services.AddOptions<JwtOptions>()
     .Validate(o => o.ExpirationMinutes is >= 15 and <= 1440, "Jwt:ExpirationMinutes must be between 15 and 1440.")
     .ValidateOnStart();
 
-builder.Services.AddOptions<SeedAdminOptions>()
-    .Bind(builder.Configuration.GetSection(SeedAdminOptions.SectionName))
+builder.Services.AddOptions<BootstrapSuperAdminOptions>()
+    .Bind(builder.Configuration.GetSection(BootstrapSuperAdminOptions.SectionName))
+    .Validate(
+        options => !options.Enabled || !string.IsNullOrWhiteSpace(options.UserName),
+        "BootstrapSuperAdmin:UserName is required when BootstrapSuperAdmin:Enabled is true.")
+    .Validate(
+        options => !options.Enabled || !string.IsNullOrWhiteSpace(options.Password),
+        "BootstrapSuperAdmin:Password is required when BootstrapSuperAdmin:Enabled is true.")
     .ValidateOnStart();
 
 builder.Services.AddOptions<WooCommerceOptions>()
@@ -341,6 +354,7 @@ builder.Services.AddRateLimiter(options =>
 });
 
 builder.Services.AddScoped<IdentityDataSeeder>();
+builder.Services.AddScoped<BootstrapSuperAdminService>();
 builder.Services.AddScoped<WooCommerceSyncService>();
 builder.Services.AddScoped<SyncOutboxService>();
 builder.Services.AddScoped<WooCommerceImportService>();
@@ -473,7 +487,9 @@ using (var scope = app.Services.CreateScope())
 
     var seeder = scope.ServiceProvider.GetRequiredService<IdentityDataSeeder>();
     await seeder.SeedAsync();
+
+    var superAdminBootstrap = scope.ServiceProvider.GetRequiredService<BootstrapSuperAdminService>();
+    await superAdminBootstrap.EnsureAsync();
 }
 
 app.Run();
-
