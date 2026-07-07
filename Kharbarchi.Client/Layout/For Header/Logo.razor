@@ -1,6 +1,5 @@
 ﻿@namespace Kharbarchi.Client.Components.Header
 @using Microsoft.JSInterop
-@* 👇 1. THIS LINE IS CRITICAL FOR DISPOSAL *@
 @implements IAsyncDisposable
 @inject IJSRuntime JSRuntime
 
@@ -8,13 +7,24 @@
 
     <!-- MAIN LOGO (3D Container) -->
     <a href="@HomeUrl" class="wd-logo wd-main-logo" rel="home" aria-label="@AltText" style="max-width: @MaxWidth;">
-        <div id="canvas-container">
-            <svg id="canvas" viewBox="-250 -250 500 500">
-                <g id="spinning-group">
-                    <!-- Javascript will inject layers here -->
-                </g>
-            </svg>
-        </div>
+        @if (Use3DLogo)
+        {
+            <div class="canvas-container" data-khb-logo-root data-logo-url="@ResolvedLogoUrl" @ref="logoRoot">
+                <svg class="canvas" viewBox="-250 -250 500 500" role="img" aria-label="@AltText">
+                    <g class="spinning-group">
+                        <!-- Javascript will inject layers here -->
+                    </g>
+                </svg>
+            </div>
+        }
+        else
+        {
+            <img src="@ResolvedLogoUrl"
+                 alt="@AltText"
+                 style="max-width: @MaxWidth;"
+                 loading="lazy"
+                 @attributes="AdditionalAttributes">
+        }
     </a>
 
     <!-- STICKY LOGO -->
@@ -53,21 +63,21 @@
     public Dictionary<string, object>? AdditionalAttributes { get; set; }
 
     private bool HasStickyLogo => !string.IsNullOrEmpty(StickyLogoUrl);
+    private string ResolvedLogoUrl => string.IsNullOrWhiteSpace(LogoUrl) ? "Logo/LOGO.svg" : LogoUrl;
+    private bool Use3DLogo => ResolvedLogoUrl.EndsWith(".svg", StringComparison.OrdinalIgnoreCase);
+    private ElementReference logoRoot;
 
-    // Variable to hold the reference to the JavaScript file
     private IJSObjectReference? _jsModule;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender)
+        if (firstRender && Use3DLogo)
         {
             try
             {
-                // Import the JS file as a module
                 _jsModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./assets/js/rotate.js");
 
-                // Call the exported 'init3DLogo' function
-                await _jsModule.InvokeVoidAsync("init3DLogo");
+                await _jsModule.InvokeVoidAsync("init3DLogo", logoRoot);
             }
             catch (Exception ex)
             {
@@ -76,13 +86,13 @@
         }
     }
 
-    // 👇 2. CORRECTED DISPOSAL METHOD
     async ValueTask IAsyncDisposable.DisposeAsync()
     {
         if (_jsModule is not null)
         {
             try
             {
+                await _jsModule.InvokeVoidAsync("dispose3DLogo", logoRoot);
                 await _jsModule.DisposeAsync();
             }
             catch (Exception ex)

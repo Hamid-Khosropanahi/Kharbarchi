@@ -8,6 +8,7 @@ using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using Kharbarchi.Server.Infrastructure.Safety;
 using Kharbarchi.Server.Options;
+using Kharbarchi.Server.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
@@ -99,7 +100,6 @@ LEFT JOIN khb_product_main_groups mg ON mg.Id = sp.MainGroupId
 SELECT
     sp.Id,
     sp.WooProductId,
-    sp.ExternalId,
     sp.ProductName,
     sp.Sku,
     sp.Slug,
@@ -288,12 +288,19 @@ LIMIT 1;";
         var url = BuildWooUrl(settings, path, true);
         using var http = CreateHttpClient(settings);
         using var message = new HttpRequestMessage(HttpMethod.Get, url);
-        ApplyWordPressBasicAuth(message, settings);
+        ApplyWooCommerceBasicAuth(message, settings);
         using var response = await http.SendAsync(message, cancellationToken);
         var body = await response.Content.ReadAsStringAsync(cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
-            return StatusCode((int)response.StatusCode, new { ok = false, url = MaskSecrets(url), body = PrettyJson(body) });
+            return StatusCode(
+                (int)response.StatusCode,
+                new
+                {
+                    ok = false,
+                    url = SanitizeForDisplay(url, settings, 2000),
+                    body = SanitizeForDisplay(PrettyJson(body), settings, 20_000)
+                });
         }
 
         var count = 0;
@@ -328,7 +335,7 @@ LIMIT 1;";
             count,
             changed,
             hasMore = count == perPage,
-            url = MaskSecrets(url),
+            url = SanitizeForDisplay(url, settings, 2000),
             message = $"صفحه {page} محصولات WooCommerce دریافت شد. تعداد: {count}، تغییرکرده: {changed}"
         });
     }
@@ -347,7 +354,7 @@ LIMIT 1;";
         var url = BuildWooUrl(settings, $"wp-json/wc/v3/products/{wooProductId}", true);
         using var http = CreateHttpClient(settings);
         using var message = new HttpRequestMessage(HttpMethod.Get, url);
-        ApplyWordPressBasicAuth(message, settings);
+        ApplyWooCommerceBasicAuth(message, settings);
         using var response = await http.SendAsync(message, cancellationToken);
         var body = await response.Content.ReadAsStringAsync(cancellationToken);
         return StatusCode((int)response.StatusCode, new
@@ -355,7 +362,7 @@ LIMIT 1;";
             ok = response.IsSuccessStatusCode,
             statusCode = (int)response.StatusCode,
             product = response.IsSuccessStatusCode ? JsonNode.Parse(body) : null,
-            raw = PrettyJson(body)
+            raw = SanitizeForDisplay(PrettyJson(body), settings, 20_000)
         });
     }
 
@@ -378,12 +385,18 @@ LIMIT 1;";
         {
             Content = new StringContent(payload.ToJsonString(PrettyJsonOptions), Encoding.UTF8, "application/json")
         };
-        ApplyWordPressBasicAuth(message, settings);
+        ApplyWooCommerceBasicAuth(message, settings);
         using var response = await http.SendAsync(message, cancellationToken);
         var body = await response.Content.ReadAsStringAsync(cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
-            return StatusCode((int)response.StatusCode, new { ok = false, body = PrettyJson(body) });
+            return StatusCode(
+                (int)response.StatusCode,
+                new
+                {
+                    ok = false,
+                    body = SanitizeForDisplay(PrettyJson(body), settings, 20_000)
+                });
         }
 
         var node = JsonNode.Parse(body);
@@ -823,24 +836,34 @@ VALUES (@ProductId, @ChangeType, @Summary, @Payload, UTC_TIMESTAMP(6));";
         Uri.TryCreate(baseUrl, UriKind.Absolute, out var uri)
         && (uri.IsLoopback || uri.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase));
 
-    private static void ApplyWordPressBasicAuth(HttpRequestMessage message, WooSettings settings)
+    private static void ApplyWooCommerceBasicAuth(HttpRequestMessage message, WooSettings settings)
     {
-        if (string.IsNullOrWhiteSpace(settings.WordPressUsername) || string.IsNullOrWhiteSpace(settings.WordPressPassword))
-        {
-            return;
-        }
-        var raw = Encoding.UTF8.GetBytes($"{settings.WordPressUsername}:{settings.WordPressPassword}");
-        message.Headers.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(raw));
+        WooCommerceRequestSecurity.ApplyBasicAuthentication(
+            message,
+            settings.ConsumerKey,
+            settings.ConsumerSecret);
     }
 
     private static string BuildWooUrl(WooSettings settings, string endpointPath, bool requiresWooKeys)
     {
+        WooCommerceRequestSecurity.RejectCredentialQueryParameters(settings.BaseUrl);
+        WooCommerceRequestSecurity.RejectCredentialQueryParameters(endpointPath);
         var baseUrl = (settings.BaseUrl ?? string.Empty).TrimEnd('/');
         var path = endpointPath.TrimStart('/');
         var url = $"{baseUrl}/{path}";
-        // Do not append consumer_key/consumer_secret to the URL. Credentials must be sent via Authorization header or server-side client.
+        // Do not append consumer_key/consumer_secret to the URL. Send consumer credentials with the Basic Authorization header.
         return url;
     }
+
+    private static string SanitizeForDisplay(
+        string? value,
+        WooSettings settings,
+        int maxLength) =>
+        WooCommerceRequestSecurity.Sanitize(
+            value,
+            settings.ConsumerKey,
+            settings.ConsumerSecret,
+            maxLength);
 
     private static string MaskSecrets(string url)
     {

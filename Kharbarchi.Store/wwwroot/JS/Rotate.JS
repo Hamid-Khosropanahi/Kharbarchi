@@ -1,139 +1,168 @@
-﻿/* wwwroot/JS/Rotate.js */
+/* wwwroot/JS/Rotate.JS */
 
-// Settings
 const ROTATION_SPEED = 0.0005;
 const LAYER_SPACING = 0.5;
 const LAYER_COUNT = 15;
 const MIN_SCALE = 0.005;
+const SVG_NS = "http://www.w3.org/2000/svg";
+const states = new WeakMap();
 
-// Variables
-let animationId;
-let frontViewContainer;
-let backViewContainer;
-let layers = [];
+export async function init3DLogo(root) {
+    const container = resolveRoot(root);
+    if (!container || states.has(container)) {
+        return;
+    }
 
-export function init3DLogo() {
+    const spinningGroup = container.querySelector(".spinning-group");
+    const canvas = container.querySelector(".canvas");
+    if (!spinningGroup || !canvas) {
+        return;
+    }
 
-    const spinningGroup = document.getElementById('spinning-group');
-    const canvas = document.getElementById('canvas');
+    const state = {
+        animationId: 0,
+        frontViewContainer: null,
+        backViewContainer: null,
+        layers: []
+    };
 
-    if (!spinningGroup || spinningGroup.hasChildNodes()) return;
+    states.set(container, state);
 
-    fetch('Logo/logo.svg')
-        .then(response => {
-            if (!response.ok) throw new Error("HTTP error " + response.status);
-            return response.text();
-        })
-        .then(svgText => {
-            const parser = new DOMParser();
-            const svgDoc = parser.parseFromString(svgText, "image/svg+xml");
-            const svgEl = svgDoc.documentElement;
+    try {
+        const logoUrl = container.dataset.logoUrl || "Logo/LOGO.svg";
+        const response = await fetch(new URL(logoUrl, document.baseURI));
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
 
-            // 1. GET VIEWBOX & CALCULATE CENTER
-            let vbString = svgEl.getAttribute('viewBox');
-            let viewBox = [0, 0, 100, 100]; // Default
+        const svgText = await response.text();
+        const parser = new DOMParser();
+        const svgDoc = parser.parseFromString(svgText, "image/svg+xml");
+        const svgEl = svgDoc.documentElement;
+        const parserError = svgDoc.querySelector("parsererror");
+        if (!svgEl || parserError) {
+            throw new Error("Invalid SVG logo.");
+        }
 
-            if (vbString) {
-                // Parse numbers from string "0 0 500 500"
-                viewBox = vbString.split(/[\s,]+/).map(parseFloat);
-                canvas.setAttribute('viewBox', vbString);
-            } else {
-                // Fallback to width/height if viewbox missing
-                const w = parseFloat(svgEl.getAttribute('width')) || 100;
-                const h = parseFloat(svgEl.getAttribute('height')) || 100;
-                viewBox = [0, 0, w, h];
-                canvas.setAttribute('viewBox', `0 0 ${w} ${h}`);
-            }
+        spinningGroup.replaceChildren();
+        [...canvas.querySelectorAll("defs, style")].forEach(node => node.remove());
 
-            // Calculate exact center coordinates (X + Width/2, Y + Height/2)
-            const centerX = viewBox[0] + (viewBox[2] / 2);
-            const centerY = viewBox[1] + (viewBox[3] / 2);
+        let viewBox = [0, 0, 100, 100];
+        const viewBoxText = svgEl.getAttribute("viewBox");
+        if (viewBoxText) {
+            viewBox = viewBoxText.split(/[\s,]+/).map(Number);
+            canvas.setAttribute("viewBox", viewBoxText);
+        } else {
+            const width = Number.parseFloat(svgEl.getAttribute("width")) || 100;
+            const height = Number.parseFloat(svgEl.getAttribute("height")) || 100;
+            viewBox = [0, 0, width, height];
+            canvas.setAttribute("viewBox", `0 0 ${width} ${height}`);
+        }
 
-            // Format CSS string for center rotation
-            const centerOriginCss = `${centerX}px ${centerY}px`;
+        const centerX = viewBox[0] + (viewBox[2] / 2);
+        const centerY = viewBox[1] + (viewBox[3] / 2);
+        const centerOriginCss = `${centerX}px ${centerY}px`;
 
-            // 2. COPY STYLES & DEFS (Keep colors)
-            const defs = svgEl.querySelectorAll('defs');
-            const styles = svgEl.querySelectorAll('style');
-            defs.forEach(def => canvas.prepend(def.cloneNode(true)));
-            styles.forEach(style => canvas.prepend(style.cloneNode(true)));
+        svgEl.querySelectorAll("defs, style").forEach(node => {
+            canvas.insertBefore(node.cloneNode(true), canvas.firstChild);
+        });
 
-            // 3. CREATE CONTAINERS
-            frontViewContainer = document.createElementNS("http://www.w3.org/2000/svg", "g");
-            backViewContainer = document.createElementNS("http://www.w3.org/2000/svg", "g");
-            spinningGroup.appendChild(backViewContainer);
-            spinningGroup.appendChild(frontViewContainer);
+        state.backViewContainer = document.createElementNS(SVG_NS, "g");
+        state.frontViewContainer = document.createElementNS(SVG_NS, "g");
+        spinningGroup.append(state.backViewContainer, state.frontViewContainer);
 
-            // 4. GET VISUAL ELEMENTS
-            const elementsToClone = Array.from(svgEl.children).filter(node =>
-                node.nodeType === 1 &&
-                !['defs', 'style', 'metadata'].includes(node.tagName.toLowerCase())
-            );
+        const visualNodes = [...svgEl.children].filter(node =>
+            node.nodeType === Node.ELEMENT_NODE
+            && !["defs", "style", "metadata", "title", "desc"].includes(node.tagName.toLowerCase()));
 
-            // 5. BUILD LAYERS
-            elementsToClone.forEach((originalNode) => {
-                for (let i = 0; i < LAYER_COUNT; i++) {
-                    const clone = originalNode.cloneNode(true);
+        visualNodes.forEach(originalNode => {
+            for (let index = 0; index < LAYER_COUNT; index++) {
+                const clone = originalNode.cloneNode(true);
+                clone.style.transformOrigin = centerOriginCss;
+                clone.style.transformBox = "view-box";
 
-                    // FIX: Force Rotation from Center
-                    clone.style.transformOrigin = centerOriginCss;
-                    // Ensure transform box uses the viewbox coordinates
-                    clone.style.transformBox = "view-box";
-
-                    const zOffset = (i - LAYER_COUNT / 2) * LAYER_SPACING;
-
-                    // Apply Depth Shading
-                    if (i > 0 && i < LAYER_COUNT - 1) {
-                        clone.style.filter = "brightness(0.85)";
-                    }
-
-                    const layerObj = {
-                        element: clone,
-                        z: zOffset,
-                    };
-
-                    layers.push(layerObj);
-                    backViewContainer.appendChild(clone);
+                if (index > 0 && index < LAYER_COUNT - 1) {
+                    clone.style.filter = "brightness(0.85)";
                 }
-            });
 
-            requestAnimationFrame(animate);
-        })
-        .catch(err => console.error("Error loading SVG:", err));
+                state.layers.push({
+                    element: clone,
+                    z: (index - LAYER_COUNT / 2) * LAYER_SPACING
+                });
+                state.backViewContainer.appendChild(clone);
+            }
+        });
+
+        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+            renderStatic(state);
+            return;
+        }
+
+        state.animationId = requestAnimationFrame(time => animate(container, time));
+    } catch (error) {
+        states.delete(container);
+        console.error("Error loading 3D logo:", error);
+    }
 }
 
-function animate(time) {
+export function dispose3DLogo(root) {
+    const container = resolveRoot(root);
+    const state = container ? states.get(container) : null;
+    if (!state) {
+        return;
+    }
+
+    if (state.animationId) {
+        cancelAnimationFrame(state.animationId);
+    }
+
+    states.delete(container);
+}
+
+function animate(container, time) {
+    const state = states.get(container);
+    if (!state?.frontViewContainer || !state.backViewContainer) {
+        return;
+    }
+
     const angle = time * ROTATION_SPEED;
     const cosAngle = Math.cos(angle);
     const sinAngle = Math.sin(angle);
-
     const isFrontView = cosAngle > 0;
 
-    if (isFrontView) {
-        frontViewContainer.style.visibility = "visible";
-        backViewContainer.style.visibility = "hidden";
-    } else {
-        frontViewContainer.style.visibility = "hidden";
-        backViewContainer.style.visibility = "visible";
-    }
+    state.frontViewContainer.style.visibility = isFrontView ? "visible" : "hidden";
+    state.backViewContainer.style.visibility = isFrontView ? "hidden" : "visible";
 
-    layers.forEach(layer => {
+    state.layers.forEach(layer => {
         const x = layer.z * sinAngle;
-        let scaleX = Math.max(Math.abs(cosAngle), MIN_SCALE);
+        const scaleX = Math.max(Math.abs(cosAngle), MIN_SCALE);
         const direction = isFrontView ? 1 : -1;
 
-        // The transform-origin set in init3DLogo handles the center point.
-        // We just apply the translation (depth) and scale (rotation).
-        layer.element.setAttribute('transform',
-            `translate(${x}, 0) scale(${scaleX * direction}, 1)`
-        );
+        layer.element.setAttribute("transform", `translate(${x}, 0) scale(${scaleX * direction}, 1)`);
 
-        if (isFrontView && layer.element.parentElement !== frontViewContainer) {
-            frontViewContainer.appendChild(layer.element);
-        } else if (!isFrontView && layer.element.parentElement !== backViewContainer) {
-            backViewContainer.appendChild(layer.element);
+        if (isFrontView && layer.element.parentElement !== state.frontViewContainer) {
+            state.frontViewContainer.appendChild(layer.element);
+        } else if (!isFrontView && layer.element.parentElement !== state.backViewContainer) {
+            state.backViewContainer.appendChild(layer.element);
         }
     });
 
-    animationId = requestAnimationFrame(animate);
+    state.animationId = requestAnimationFrame(nextTime => animate(container, nextTime));
+}
+
+function renderStatic(state) {
+    state.frontViewContainer.style.visibility = "visible";
+    state.backViewContainer.style.visibility = "hidden";
+    state.layers.forEach(layer => {
+        layer.element.removeAttribute("transform");
+        state.frontViewContainer.appendChild(layer.element);
+    });
+}
+
+function resolveRoot(root) {
+    if (root instanceof Element) {
+        return root;
+    }
+
+    return document.querySelector("[data-khb-logo-root]");
 }

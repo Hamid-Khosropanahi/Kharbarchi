@@ -109,10 +109,16 @@ public sealed class WooCommerceConnectionController : ControllerBase
         var method = NormalizeMethod(request.Method);
         var relativeUrl = NormalizeRelativeUrl(request.RelativeUrl);
         var fullUrl = BuildFullUrl(settings.BaseUrl, relativeUrl);
+        var safeFullUrl = WooCommerceRequestSecurity.Sanitize(
+            fullUrl,
+            settings.ConsumerKey,
+            settings.ConsumerSecret,
+            2000);
         var watch = Stopwatch.StartNew();
 
         try
         {
+            WooCommerceRequestSecurity.RejectCredentialQueryParameters(relativeUrl);
             using var httpClient = CreateHttpClient(settings);
             using var httpRequest = new HttpRequestMessage(method, fullUrl);
 
@@ -128,6 +134,11 @@ public sealed class WooCommerceConnectionController : ControllerBase
 
             using var response = await httpClient.SendAsync(httpRequest, cancellationToken);
             var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            var safeBody = WooCommerceRequestSecurity.Sanitize(
+                body,
+                settings.ConsumerKey,
+                settings.ConsumerSecret,
+                20_000);
             watch.Stop();
 
             return new WooApiTestResultDto
@@ -135,30 +146,55 @@ public sealed class WooCommerceConnectionController : ControllerBase
                 Success = response.IsSuccessStatusCode,
                 StatusCode = (int)response.StatusCode,
                 Method = method.Method,
-                Url = fullUrl,
+                Url = safeFullUrl,
                 ElapsedMilliseconds = watch.ElapsedMilliseconds,
                 Message = response.IsSuccessStatusCode
                     ? "اتصال موفق بود. پاسخ API دریافت شد."
                     : $"API پاسخ خطا داد: {(int)response.StatusCode} {response.ReasonPhrase}",
-                ResponseBody = PrettyOrTrim(body),
-                CurlPreview = BuildCurlPreview(method, fullUrl, request.BodyJson, RequiresWooAuth(relativeUrl))
+                ResponseBody = PrettyOrTrim(safeBody),
+                CurlPreview = BuildCurlPreview(
+                    method,
+                    safeFullUrl,
+                    WooCommerceRequestSecurity.Sanitize(
+                        request.BodyJson,
+                        settings.ConsumerKey,
+                        settings.ConsumerSecret,
+                        20_000),
+                    RequiresWooAuth(relativeUrl))
             };
         }
         catch (Exception ex)
         {
             watch.Stop();
             var safeEndpoint = ToSafeEndpointForLog(fullUrl);
-            _logger.LogError(ex, "WooCommerce API test failed. Endpoint={Endpoint}", safeEndpoint);
+            var safeMessage = WooCommerceRequestSecurity.Sanitize(
+                ex.Message,
+                settings.ConsumerKey,
+                settings.ConsumerSecret,
+                2000);
+            _logger.LogError(
+                "WooCommerce API test failed. Endpoint={Endpoint}, ErrorType={ErrorType}, Message={Message}",
+                safeEndpoint,
+                ex.GetType().Name,
+                safeMessage);
 
             return new WooApiTestResultDto
             {
                 Success = false,
                 Method = method.Method,
-                Url = fullUrl,
+                Url = safeFullUrl,
                 ElapsedMilliseconds = watch.ElapsedMilliseconds,
-                Message = ex.Message,
-                ResponseBody = ex.ToString(),
-                CurlPreview = BuildCurlPreview(method, fullUrl, request.BodyJson, RequiresWooAuth(relativeUrl))
+                Message = safeMessage,
+                ResponseBody = ex.GetType().Name,
+                CurlPreview = BuildCurlPreview(
+                    method,
+                    safeFullUrl,
+                    WooCommerceRequestSecurity.Sanitize(
+                        request.BodyJson,
+                        settings.ConsumerKey,
+                        settings.ConsumerSecret,
+                        20_000),
+                    RequiresWooAuth(relativeUrl))
             };
         }
 
@@ -203,13 +239,10 @@ public sealed class WooCommerceConnectionController : ControllerBase
 
     private static void ApplyBasicAuth(HttpRequestMessage request, WooCommerceRuntimeSettings settings)
     {
-        if (string.IsNullOrWhiteSpace(settings.ConsumerKey) || string.IsNullOrWhiteSpace(settings.ConsumerSecret))
-        {
-            return;
-        }
-
-        var bytes = Encoding.ASCII.GetBytes($"{settings.ConsumerKey}:{settings.ConsumerSecret}");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(bytes));
+        WooCommerceRequestSecurity.ApplyBasicAuthentication(
+            request,
+            settings.ConsumerKey,
+            settings.ConsumerSecret);
     }
 
     private static bool RequiresWooAuth(string relativeUrl)

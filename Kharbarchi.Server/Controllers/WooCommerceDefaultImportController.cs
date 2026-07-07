@@ -47,10 +47,11 @@ public sealed class WooCommerceDefaultImportController : ControllerBase
         var watch = Stopwatch.StartNew();
         var log = new StringBuilder();
         var result = new WooDefaultImportResultDto();
+        WooCommerceRuntimeSettings? settings = null;
 
         try
         {
-            var settings = await MergeSettingsAsync(request, cancellationToken);
+            settings = await MergeSettingsAsync(request, cancellationToken);
             _guard.ValidateWooProfile(
                 settings.BaseUrl,
                 !settings.AllowInsecureLocalhostSsl,
@@ -67,7 +68,8 @@ public sealed class WooCommerceDefaultImportController : ControllerBase
             await EnsureImportTableAsync(cancellationToken);
 
             using var http = CreateHttpClient(settings);
-            log.AppendLine($"BaseUrl: {settings.BaseUrl}");
+            log.AppendLine(
+                $"BaseUrl: {WooCommerceRequestSecurity.Sanitize(settings.BaseUrl, settings.ConsumerKey, settings.ConsumerSecret, 2000)}");
             log.AppendLine($"Table: {result.TableName}");
 
             // Always save a WordPress API heartbeat row so the database is not empty even before product import.
@@ -102,11 +104,23 @@ public sealed class WooCommerceDefaultImportController : ControllerBase
         catch (Exception ex)
         {
             watch.Stop();
-            _logger.LogError(ex, "WooCommerce default import failed.");
+            var safeMessage = WooCommerceRequestSecurity.Sanitize(
+                ex.Message,
+                settings?.ConsumerKey,
+                settings?.ConsumerSecret,
+                2000);
+            _logger.LogError(
+                "WooCommerce default import failed. ErrorType={ErrorType}, Message={Message}",
+                ex.GetType().Name,
+                safeMessage);
             result.Success = false;
             result.ElapsedMilliseconds = watch.ElapsedMilliseconds;
-            result.Message = ex.Message;
-            result.RawLog = log.AppendLine().AppendLine(ex.ToString()).ToString();
+            result.Message = safeMessage;
+            result.RawLog = WooCommerceRequestSecurity.Sanitize(
+                log.AppendLine().AppendLine(ex.GetType().Name).AppendLine(safeMessage).ToString(),
+                settings?.ConsumerKey,
+                settings?.ConsumerSecret,
+                20_000);
             return StatusCode(500, result);
         }
     }
@@ -150,6 +164,8 @@ public sealed class WooCommerceDefaultImportController : ControllerBase
 
     private async Task<string> GetRawAsync(HttpClient http, WooCommerceRuntimeSettings settings, string relativeUrl, bool requiresAuth, CancellationToken cancellationToken)
     {
+        WooCommerceRequestSecurity.RejectCredentialQueryParameters(settings.BaseUrl);
+        WooCommerceRequestSecurity.RejectCredentialQueryParameters(relativeUrl);
         var fullUrl = settings.BaseUrl.TrimEnd('/') + (relativeUrl.StartsWith('/') ? relativeUrl : "/" + relativeUrl);
         using var request = new HttpRequestMessage(HttpMethod.Get, fullUrl);
         if (requiresAuth)
@@ -161,7 +177,18 @@ public sealed class WooCommerceDefaultImportController : ControllerBase
         var body = await response.Content.ReadAsStringAsync(cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
-            throw new InvalidOperationException($"WooCommerce API failed: {(int)response.StatusCode} {response.ReasonPhrase}\nURL: {fullUrl}\n{body}");
+            var safeUrl = WooCommerceRequestSecurity.Sanitize(
+                fullUrl,
+                settings.ConsumerKey,
+                settings.ConsumerSecret,
+                2000);
+            var safeBody = WooCommerceRequestSecurity.Sanitize(
+                body,
+                settings.ConsumerKey,
+                settings.ConsumerSecret,
+                20_000);
+            throw new InvalidOperationException(
+                $"WooCommerce API failed: {(int)response.StatusCode} {response.ReasonPhrase}\nURL: {safeUrl}\n{safeBody}");
         }
 
         return body;
@@ -225,13 +252,10 @@ ON DUPLICATE KEY UPDATE
 
     private static void ApplyBasicAuth(HttpRequestMessage request, WooCommerceRuntimeSettings settings)
     {
-        if (string.IsNullOrWhiteSpace(settings.ConsumerKey) || string.IsNullOrWhiteSpace(settings.ConsumerSecret))
-        {
-            return;
-        }
-
-        var bytes = Encoding.ASCII.GetBytes($"{settings.ConsumerKey}:{settings.ConsumerSecret}");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(bytes));
+        WooCommerceRequestSecurity.ApplyBasicAuthentication(
+            request,
+            settings.ConsumerKey,
+            settings.ConsumerSecret);
     }
 
     private static HttpClient CreateHttpClient(WooCommerceRuntimeSettings settings)

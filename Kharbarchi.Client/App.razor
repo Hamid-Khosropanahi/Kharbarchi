@@ -1,5 +1,6 @@
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.Components.Routing
+@using Kharbarchi.Client.Pages
 
 <CascadingAuthenticationState>
     <Router AppAssembly="@typeof(App).Assembly" PreferExactMatches="true">
@@ -7,6 +8,7 @@
             <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
                 <NotAuthorized>
                     <LayoutView Layout="@typeof(MainLayout)">
+                        <RedirectToLogin />
                         <section class="khb-empty-state" dir="rtl">
                             <div class="khb-empty-icon">🔐</div>
                             <h1>نیاز به ورود</h1>

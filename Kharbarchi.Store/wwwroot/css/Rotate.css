@@ -1,5 +1,6 @@
 /* wwwroot/css/Rotate.css */
 
+.canvas-container,
 #canvas-container {
     /* 1. DEFAULT SIZE (Top) */
     width: 180px;
@@ -9,16 +10,28 @@
     position: relative;
     z-index: 10;
     margin: 0 auto;
+    display: block;
+    perspective: 900px;
+    filter: drop-shadow(0 16px 24px rgba(34, 168, 107, .18));
+}
+
+.khb-admin-logo .canvas-container {
+    width: 74px;
+    height: 74px;
+    margin: 0;
 }
 
 /* 2. STICKY STATE (Scrolled Down) */
 /* Because there is no transition, this will snap instantly to 110px */
+.whb-header.whb-sticked .canvas-container,
+.whb-header.whb-sticky-on .canvas-container,
 .whb-header.whb-sticked #canvas-container,
 .whb-header.whb-sticky-on #canvas-container {
     width: 110px;
     height: 110px;
 }
 
+.canvas,
 #canvas {
     width: 100%;
     height: 100%;
@@ -28,4 +41,11 @@
 
 .wd-logo svg {
     pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .canvas-container,
+    #canvas-container {
+        filter: none;
+    }
 }

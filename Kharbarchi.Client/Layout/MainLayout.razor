@@ -1,6 +1,8 @@
 @inherits LayoutComponentBase
+@using Kharbarchi.Client.Services
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.Components.Routing
+@inject AuthService AuthService
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 @inject IConfiguration Configuration
@@ -10,9 +12,11 @@
     <div class="khb-admin-frame">
         <aside class="khb-sidebar" aria-label="منوی مدیریت خواربارچی">
             <div class="khb-brand">
-                <div class="khb-brand-logo">
-                    <img src="Logo/LOGO.svg" alt="خواربارچی" />
-                </div>
+                <Logo LogoUrl="Logo/LOGO.svg"
+                      AltText="خواربارچی"
+                      HomeUrl="/local-admin"
+                      MaxWidth="74px"
+                      CssClass="khb-admin-logo" />
                 <div>
                     <strong>خواربارچی</strong>
                     <small>پنل مدیریت داخلی</small>
@@ -41,6 +45,7 @@
     <NavLink class="khb-nav-item" href="/local-admin/accounting"><span>ACC</span><b>حسابداری</b></NavLink>
 
     <div class="khb-nav-section">مدیریت سامانه</div>
+    <NavLink class="khb-nav-item" href="/account"><span>USR</span><b>حساب کاربری</b></NavLink>
     <NavLink class="khb-nav-item" href="/local-admin/users"><span>USR</span><b>کاربران و نقش‌ها</b></NavLink>
     <NavLink class="khb-nav-item" href="/local-admin/settings"><span>SET</span><b>تنظیمات سامانه</b></NavLink>
 </nav>
@@ -64,7 +69,8 @@
                     <a class="khb-pill" href="local-admin/woocommerce-settings">API ووکامرس</a>
                     <AuthorizeView>
                         <Authorized Context="auth">
-                            <span class="khb-pill">@GetUserName(auth.User.Identity?.Name)</span>
+                            <a class="khb-pill khb-account-pill" href="/account">@GetUserName(auth.User.Identity?.Name)</a>
+                            <button class="khb-pill khb-logout-pill" type="button" @onclick="LogoutAsync">خروج</button>
                         </Authorized>
                         <NotAuthorized>
                             <a class="khb-pill" href="login">ورود</a>
@@ -93,6 +99,8 @@
             return path switch
             {
                 "" => "خانه مدیریت",
+                "account" => "حساب کاربری",
+                "profile" => "حساب کاربری",
                 "local-admin" => "داشبورد مدیریت",
                 "local-admin/users" => "کاربران و نقش‌ها",
                 "local-admin/settings" => "تنظیمات سامانه",
@@ -127,6 +135,12 @@
 
     private static string GetUserName(string? name)
         => string.IsNullOrWhiteSpace(name) ? "کاربر سامانه" : name;
+
+    private async Task LogoutAsync()
+    {
+        await AuthService.LogoutAsync();
+        Navigation.NavigateTo("/login", forceLoad: false);
+    }
 }
 
 

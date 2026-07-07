@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kharbarchi.Shared", "Kharba
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kharbarchi.Store", "Kharbarchi.Store\Kharbarchi.Store.csproj", "{656BF090-00A1-4C18-B3FB-236D9B2CD723}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kharbarchi.Server.Tests", "Kharbarchi.Server.Tests\Kharbarchi.Server.Tests.csproj", "{B7E5D3A1-45A2-4AE0-8D2D-F017EAA49C61}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -69,6 +71,18 @@ Global
 		{656BF090-00A1-4C18-B3FB-236D9B2CD723}.Release|x64.Build.0 = Release|Any CPU
 		{656BF090-00A1-4C18-B3FB-236D9B2CD723}.Release|x86.ActiveCfg = Release|Any CPU
 		{656BF090-00A1-4C18-B3FB-236D9B2CD723}.Release|x86.Build.0 = Release|Any CPU
+		{B7E5D3A1-45A2-4AE0-8D2D-F017EAA49C61}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B7E5D3A1-45A2-4AE0-8D2D-F017EAA49C61}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B7E5D3A1-45A2-4AE0-8D2D-F017EAA49C61}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{B7E5D3A1-45A2-4AE0-8D2D-F017EAA49C61}.Debug|x64.Build.0 = Debug|Any CPU
+		{B7E5D3A1-45A2-4AE0-8D2D-F017EAA49C61}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{B7E5D3A1-45A2-4AE0-8D2D-F017EAA49C61}.Debug|x86.Build.0 = Debug|Any CPU
+		{B7E5D3A1-45A2-4AE0-8D2D-F017EAA49C61}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B7E5D3A1-45A2-4AE0-8D2D-F017EAA49C61}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B7E5D3A1-45A2-4AE0-8D2D-F017EAA49C61}.Release|x64.ActiveCfg = Release|Any CPU
+		{B7E5D3A1-45A2-4AE0-8D2D-F017EAA49C61}.Release|x64.Build.0 = Release|Any CPU
+		{B7E5D3A1-45A2-4AE0-8D2D-F017EAA49C61}.Release|x86.ActiveCfg = Release|Any CPU
+		{B7E5D3A1-45A2-4AE0-8D2D-F017EAA49C61}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

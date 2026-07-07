@@ -27,7 +27,12 @@ public sealed class AuthTokenHandler : DelegatingHandler
         var response = await base.SendAsync(request, cancellationToken);
         if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
         {
-            await _js.InvokeVoidAsync("localStorage.removeItem", JwtAuthStateProvider.TokenKey);
+            foreach (var key in JwtAuthStateProvider.TokenStorageKeys)
+            {
+                await _js.InvokeVoidAsync("localStorage.removeItem", key);
+                await _js.InvokeVoidAsync("sessionStorage.removeItem", key);
+            }
+
             if (_authenticationStateProvider is JwtAuthStateProvider jwtAuthStateProvider)
             {
                 jwtAuthStateProvider.NotifyUserLogout();

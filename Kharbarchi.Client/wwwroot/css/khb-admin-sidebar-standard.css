@@ -1,1 +1,225 @@
 .khb-nav{display:flex;flex-direction:column;gap:8px;padding:10px 8px 22px;width:100%;box-sizing:border-box}.khb-nav-section{margin:14px 10px 4px;font-size:11px;font-weight:800;letter-spacing:.03em;color:rgba(255,255,255,.54);white-space:nowrap}.khb-nav-item{height:46px;min-height:46px;display:grid;grid-template-columns:42px 1fr;align-items:center;gap:10px;padding:0 12px;border-radius:16px;text-decoration:none;color:rgba(255,255,255,.86);font-size:13px;line-height:1;box-sizing:border-box;transition:background .18s ease,transform .18s ease,border-color .18s ease;border:1px solid transparent}.khb-nav-item span{width:32px;height:32px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;background:rgba(255,255,255,.10);color:#fff}.khb-nav-item b{font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.khb-nav-item:hover{background:rgba(255,255,255,.10);transform:translateX(-2px)}.khb-nav-item.active{background:linear-gradient(135deg,rgba(34,197,94,.24),rgba(20,184,166,.16));border-color:rgba(134,239,172,.28);box-shadow:0 12px 26px rgba(0,0,0,.16)}.khb-page-shell{padding:22px;max-width:1600px;margin:0 auto}.khb-glass-card{background:rgba(255,255,255,.78);border:1px solid rgba(15,23,42,.08);box-shadow:0 18px 50px rgba(15,23,42,.08);border-radius:24px;padding:20px;margin-bottom:18px;backdrop-filter:blur(12px)}.khb-admin-placeholder{min-height:420px;display:flex;align-items:center;justify-content:center;text-align:center}.khb-admin-placeholder h1{font-size:28px;margin:0 0 12px}.khb-admin-placeholder p{color:#64748b;max-width:760px;line-height:2}.khb-badge{display:inline-flex;align-items:center;justify-content:center;height:28px;padding:0 12px;border-radius:999px;background:#e7f8ef;color:#166534;font-weight:900;font-size:12px;margin-bottom:12px}
+
+.khb-brand-logo-3d {
+    position: relative;
+    overflow: visible !important;
+    perspective: 900px;
+    transform-style: preserve-3d;
+    isolation: isolate;
+}
+
+.khb-brand-logo-3d::before {
+    content: "";
+    position: absolute;
+    inset: -7px;
+    border-radius: 22px;
+    border: 1px solid rgba(34, 168, 107, .28);
+    background: radial-gradient(circle, rgba(255,255,255,.34), transparent 68%);
+    box-shadow: 0 0 24px rgba(34, 168, 107, .26);
+    transform: translateZ(-10px);
+}
+
+.khb-brand-logo-plane {
+    width: 100%;
+    height: 100%;
+    display: grid;
+    place-items: center;
+    border-radius: inherit;
+    transform-style: preserve-3d;
+    animation: khb-sidebar-logo-3d 5.8s ease-in-out infinite;
+    box-shadow: inset 0 -8px 16px rgba(0,0,0,.06), 0 16px 28px rgba(15, 125, 85, .18);
+}
+
+.khb-brand-logo-3d img {
+    width: 36px;
+    height: 36px;
+    object-fit: contain;
+    transform: translateZ(18px);
+    filter: drop-shadow(0 10px 14px rgba(15, 125, 85, .24));
+}
+
+@keyframes khb-sidebar-logo-3d {
+    0%, 100% { transform: rotateY(-18deg) rotateX(6deg) translateY(0); }
+    50% { transform: rotateY(22deg) rotateX(-7deg) translateY(-3px); }
+}
+
+.khb-nav {
+    overflow-x: auto;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+}
+
+.khb-nav-section,
+.khb-nav-item {
+    white-space: nowrap;
+    min-width: max-content;
+}
+
+.khb-nav-item {
+    width: max-content;
+    min-width: 100%;
+    grid-template-columns: 42px max-content;
+}
+
+.khb-nav-item b {
+    min-width: max-content;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: nowrap;
+}
+
+.khb-nav-item span {
+    flex: 0 0 auto;
+}
+
+.khb-account-pill {
+    text-decoration: none;
+}
+
+.khb-logout-pill {
+    cursor: pointer;
+    font: inherit;
+}
+
+.khb-sidebar .khb-brand {
+    grid-template-columns: 74px minmax(0, 1fr);
+}
+
+.khb-admin-logo,
+.khb-admin-logo .wd-main-logo {
+    width: 74px;
+    max-width: 74px !important;
+    display: block;
+}
+
+.khb-admin-logo .canvas-container {
+    width: 74px;
+    height: 74px;
+    margin: 0;
+}
+
+.khb-account-hero h1 {
+    margin: 8px 0 6px;
+    font-size: clamp(28px, 3vw, 44px);
+    font-weight: 950;
+}
+
+.khb-account-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.khb-account-grid article {
+    border: 1px solid rgba(15, 23, 42, .08);
+    border-radius: 18px;
+    padding: 16px;
+    background: rgba(255,255,255,.58);
+}
+
+.khb-account-grid span {
+    display: block;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 850;
+    margin-bottom: 8px;
+}
+
+.khb-account-grid strong {
+    display: block;
+    font-size: 1rem;
+    overflow-wrap: anywhere;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .khb-brand-logo-plane {
+        animation: none;
+        transform: none;
+    }
+}
+
+@media (max-width: 900px) {
+    .khb-account-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 560px) {
+    .khb-account-grid {
+        grid-template-columns: 1fr;
+    }
+}
+.khb-logo-3d-wrap {
+    width: 76px;
+    height: 76px;
+    perspective: 900px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 14px auto;
+}
+
+.khb-logo-3d-card {
+    width: 68px;
+    height: 68px;
+    border-radius: 24px;
+    background: radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.35) 35%, rgba(203, 255, 231, 0.45) 70%), linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(182, 245, 216, 0.75));
+    box-shadow: 0 18px 34px rgba(16, 185, 129, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.95), inset 0 -10px 22px rgba(16, 185, 129, 0.13);
+    border: 1px solid rgba(167, 243, 208, 0.95);
+    position: relative;
+    transform-style: preserve-3d;
+    animation: khbLogoRotate3d 6s linear infinite;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+    .khb-logo-3d-card::before {
+        content: "";
+        position: absolute;
+        inset: -7px;
+        border-radius: 28px;
+        background: conic-gradient( from 0deg, rgba(16, 185, 129, 0.05), rgba(16, 185, 129, 0.35), rgba(236, 253, 245, 0.55), rgba(16, 185, 129, 0.05) );
+        filter: blur(9px);
+        opacity: 0.8;
+        z-index: -1;
+    }
+
+    .khb-logo-3d-card::after {
+        content: "";
+        position: absolute;
+        top: 8px;
+        right: 10px;
+        width: 26px;
+        height: 12px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.72);
+        transform: rotate(-22deg) translateZ(18px);
+        pointer-events: none;
+    }
+
+.khb-logo-3d-img {
+    width: 46px;
+    height: 46px;
+    object-fit: contain;
+    transform: translateZ(24px);
+    filter: drop-shadow(0 8px 10px rgba(5, 150, 105, 0.22));
+}
+
+@keyframes khbLogoRotate3d {
+    0% {
+        transform: rotateY(0deg) rotateX(10deg);
+    }
+
+    50% {
+        transform: rotateY(180deg) rotateX(10deg);
+    }
+
+    100% {
+        transform: rotateY(360deg) rotateX(10deg);
+    }
+}
+
+.khb-logo-3d-wrap:hover .khb-logo-3d-card {
+    animation-duration: 2.8s;
+}

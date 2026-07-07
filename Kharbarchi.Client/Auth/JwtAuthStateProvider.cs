@@ -8,6 +8,12 @@ namespace Kharbarchi.Client.Auth;
 public sealed class JwtAuthStateProvider : AuthenticationStateProvider
 {
     public const string TokenKey = "kharbarchi_auth_token";
+    public static IReadOnlyList<string> TokenStorageKeys { get; } =
+    [
+        TokenKey,
+        "kharbarchi_access_token",
+        "kharbarchi_refresh_token"
+    ];
 
     private static readonly ClaimsPrincipal AnonymousUser = new(new ClaimsIdentity());
     private readonly IJSRuntime _js;

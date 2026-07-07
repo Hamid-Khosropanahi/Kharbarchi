@@ -441,8 +441,6 @@ public sealed class ProfileWooCommerceClient : IDisposable
             BaseAddress = new Uri(connection.BaseUrl.TrimEnd('/') + "/"),
             Timeout = TimeSpan.FromSeconds(Math.Clamp(connection.TimeoutSeconds, 5, 180))
         };
-        var basic = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{connection.ConsumerKey}:{connection.ConsumerSecret}"));
-        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", basic);
         _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("Kharbarchi-ERP/1.0");
     }
@@ -468,7 +466,11 @@ public sealed class ProfileWooCommerceClient : IDisposable
                     ? "اتصال WooCommerce با موفقیت آزمایش شد."
                     : $"WooCommerce پاسخ خطا داد: {(int)response.StatusCode} {response.ReasonPhrase}",
                 ElapsedMilliseconds = watch.ElapsedMilliseconds,
-                ResponsePreview = Trim(body, 3000),
+                ResponsePreview = WooCommerceRequestSecurity.Sanitize(
+                    body,
+                    _connection.ConsumerKey,
+                    _connection.ConsumerSecret,
+                    3000),
                 TestedAtUtc = DateTime.UtcNow
             };
         }
@@ -479,7 +481,11 @@ public sealed class ProfileWooCommerceClient : IDisposable
             {
                 Success = false,
                 Url = BuildSafeUrl(relativeUrl),
-                Message = ex.Message,
+                Message = WooCommerceRequestSecurity.Sanitize(
+                    ex.Message,
+                    _connection.ConsumerKey,
+                    _connection.ConsumerSecret,
+                    2000),
                 ElapsedMilliseconds = watch.ElapsedMilliseconds,
                 ResponsePreview = Trim(ex.GetType().Name, 3000),
                 TestedAtUtc = DateTime.UtcNow
@@ -497,11 +503,16 @@ public sealed class ProfileWooCommerceClient : IDisposable
         var body = await response.Content.ReadAsStringAsync(cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
+            var safeBody = WooCommerceRequestSecurity.Sanitize(
+                body,
+                _connection.ConsumerKey,
+                _connection.ConsumerSecret,
+                3000);
             throw new WooCommerceProfileException(
-                $"WooCommerce HTTP {(int)response.StatusCode}: {Trim(body, 3000)}",
+                $"WooCommerce HTTP {(int)response.StatusCode}: {safeBody}",
                 (int)response.StatusCode,
                 BuildSafeUrl(relativeUrl),
-                Trim(body, 3000));
+                safeBody);
         }
 
         return JsonDocument.Parse(string.IsNullOrWhiteSpace(body) ? "{}" : body);
@@ -525,11 +536,17 @@ public sealed class ProfileWooCommerceClient : IDisposable
         string? json,
         CancellationToken cancellationToken)
     {
+        WooCommerceRequestSecurity.RejectCredentialQueryParameters(relativeUrl);
         for (var attempt = 1; ; attempt++)
         {
             try
             {
                 using var request = new HttpRequestMessage(method, relativeUrl.TrimStart('/'));
+                WooCommerceRequestSecurity.ApplyBasicAuthentication(
+                    request,
+                    _connection.ConsumerKey,
+                    _connection.ConsumerSecret);
+
                 if (json is not null)
                 {
                     request.Content = new StringContent(json, Encoding.UTF8, "application/json");

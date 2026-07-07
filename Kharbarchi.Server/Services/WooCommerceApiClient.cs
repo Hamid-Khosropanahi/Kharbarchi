@@ -38,7 +38,7 @@ public sealed class WooCommerceApiClient
             _options.EnvironmentType,
             expectedProductionBaseUrl: _options.BaseUrl);
 
-        ConfigureAuthenticationHeader();
+        ConfigureDefaultHeaders();
     }
 
     public Task<JsonDocument> GetProductsAsync(int page, int pageSize, CancellationToken cancellationToken)
@@ -145,7 +145,13 @@ public sealed class WooCommerceApiClient
 
     private async Task<JsonDocument> SendForJsonDocumentAsync(HttpMethod method, string relativeUrl, object? body, CancellationToken cancellationToken)
     {
+        WooCommerceRequestSecurity.RejectCredentialQueryParameters(relativeUrl);
         using var request = new HttpRequestMessage(method, relativeUrl);
+        WooCommerceRequestSecurity.ApplyBasicAuthentication(
+            request,
+            _options.ConsumerKey,
+            _options.ConsumerSecret);
+
         if (body is not null)
         {
             request.Content = JsonContent.Create(body, options: JsonOptions);
@@ -157,11 +163,19 @@ public sealed class WooCommerceApiClient
         if (!response.IsSuccessStatusCode)
         {
             var endpoint = ToSafeEndpointForLog(_httpClient.BaseAddress);
+            var safePath = WooCommerceRequestSecurity.Sanitize(
+                relativeUrl,
+                _options.ConsumerKey,
+                _options.ConsumerSecret);
+            var safeContent = WooCommerceRequestSecurity.Sanitize(
+                content,
+                _options.ConsumerKey,
+                _options.ConsumerSecret);
             _logger.LogWarning("WooCommerce API failed. Endpoint={Endpoint}, Method={Method}, Path={Path}, Status={Status}, Body={Body}",
-                endpoint, method, relativeUrl, (int)response.StatusCode, TrimForLog(content));
+                endpoint, method, safePath, (int)response.StatusCode, safeContent);
 
             throw new HttpRequestException(
-                $"WooCommerce API returned {(int)response.StatusCode} {response.ReasonPhrase}. Body: {TrimForLog(content)}",
+                $"WooCommerce API returned {(int)response.StatusCode} {response.ReasonPhrase}. Body: {safeContent}",
                 null,
                 response.StatusCode);
         }
@@ -169,11 +183,8 @@ public sealed class WooCommerceApiClient
         return JsonDocument.Parse(string.IsNullOrWhiteSpace(content) ? "{}" : content);
     }
 
-    private void ConfigureAuthenticationHeader()
+    private void ConfigureDefaultHeaders()
     {
-        var raw = $"{_options.ConsumerKey}:{_options.ConsumerSecret}";
-        var encoded = Convert.ToBase64String(Encoding.ASCII.GetBytes(raw));
-        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", encoded);
         _httpClient.DefaultRequestHeaders.Accept.Clear();
         _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
     }
@@ -187,13 +198,4 @@ public sealed class WooCommerceApiClient
         return $"{scheme}://{host}{port}";
     }
 
-    private static string TrimForLog(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return string.Empty;
-        }
-
-        return value.Length <= 1000 ? value : value[..1000] + "...";
-    }
 }

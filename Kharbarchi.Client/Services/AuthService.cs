@@ -57,7 +57,13 @@ public sealed class AuthService
 
     public async Task LogoutAsync()
     {
-        await _js.InvokeVoidAsync("localStorage.removeItem", JwtAuthStateProvider.TokenKey);
+        foreach (var key in JwtAuthStateProvider.TokenStorageKeys)
+        {
+            await _js.InvokeVoidAsync("localStorage.removeItem", key);
+            await _js.InvokeVoidAsync("sessionStorage.removeItem", key);
+        }
+
+        _http.DefaultRequestHeaders.Authorization = null;
         _authStateProvider.NotifyUserLogout();
     }
 

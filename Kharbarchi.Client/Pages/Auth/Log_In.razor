@@ -9,24 +9,24 @@
 <PageTitle>ورود به پنل مدیریت خواربارچی</PageTitle>
 
 <div class="khb-auth-page" dir="rtl">
-    <section class="khb-auth-card">
-        <div class="khb-auth-logo">خ</div>
-        <span class="khb-eyebrow">ورود امن</span>
+    <section class="khb-login-card">
+        <div class="khb-auth-logo">خواربارچی</div>
+        <span class="khb-login-badge">ورود امن</span>
         <h1>ورود به پنل مدیریت</h1>
         <p>برای مدیریت کاتالوگ، قیمت، انبار، سفارش و پرداخت‌ها وارد حساب داخلی خود شوید.</p>
 
-        <EditForm Model="model" OnValidSubmit="HandleLoginAsync" class="khb-form">
+        <EditForm Model="model" OnValidSubmit="HandleLoginAsync" class="khb-login-form">
             <DataAnnotationsValidator />
             <ValidationSummary />
 
             <label>
                 نام کاربری
-                <InputText class="khb-input" @bind-Value="model.UserName" autocomplete="username" />
+                <InputText class="khb-input khb-field" @bind-Value="model.UserName" autocomplete="username" />
             </label>
 
             <label>
                 رمز عبور
-                <InputText class="khb-input" type="password" @bind-Value="model.Password" autocomplete="current-password" />
+                <InputText class="khb-input khb-field" type="password" @bind-Value="model.Password" autocomplete="current-password" />
             </label>
 
             @if (!string.IsNullOrWhiteSpace(message))
@@ -34,19 +34,57 @@
                 <div class="khb-alert @(isError ? "khb-alert-danger" : "khb-alert-success")">@message</div>
             }
 
-            <button class="khb-primary-btn" type="submit" disabled="@isBusy">
+            <button class="khb-login-button" type="submit" disabled="@isBusy">
                 @(isBusy ? "در حال ورود..." : "ورود به سامانه")
             </button>
         </EditForm>
 
     </section>
 </div>
+@* <div class="khb-login-card">
+    <div class="khb-login-header">
+        <span class="khb-login-badge">ورود امن</span>
+        <h1>ورود به پنل مدیریت</h1>
+        <p>
+            برای مدیریت کاتالوگ، قیمت، انبار، سفارش و پرداخت‌ها وارد حساب داخلی خود شوید.
+        </p>
+    </div>
+
+    <div class="khb-login-form">
+        <div class="khb-field">
+            <label for="username">نام کاربری</label>
+            <input id="username"
+                   class="khb-input"
+                   type="text"
+                   autocomplete="username"
+                   placeholder="مثلاً superadmin" />
+        </div>
+
+        <div class="khb-field">
+            <label for="password">رمز عبور</label>
+            <input id="password"
+                   class="khb-input"
+                   type="password"
+                   autocomplete="current-password"
+                   placeholder="رمز عبور" />
+        </div>
+
+        <button type="submit" class="khb-login-button">
+            ورود به سامانه
+        </button>
+    </div>
+</div> *@
+
+
 
 @code {
     private readonly LoginFormModel model = new();
     private bool isBusy;
     private bool isError;
     private string? message;
+
+    [SupplyParameterFromQuery]
+    public string? ReturnUrl { get; set; }
 
     private async Task HandleLoginAsync()
     {
@@ -60,7 +98,7 @@
             if (result.IsSuccess)
             {
                 message = "ورود موفقیت‌آمیز بود.";
-                Navigation.NavigateTo("/local-admin", forceLoad: false);
+                Navigation.NavigateTo(GetSafeReturnUrl(), forceLoad: false);
                 return;
             }
 
@@ -85,5 +123,18 @@
 
         [Required(ErrorMessage = "رمز عبور الزامی است.")]
         public string Password { get; set; } = string.Empty;
+    }
+
+    private string GetSafeReturnUrl()
+    {
+        if (string.IsNullOrWhiteSpace(ReturnUrl))
+        {
+            return "/local-admin";
+        }
+
+        var relative = ReturnUrl.Trim().TrimStart('/');
+        return relative.Contains("://", StringComparison.Ordinal)
+            ? "/local-admin"
+            : "/" + relative;
     }
 }

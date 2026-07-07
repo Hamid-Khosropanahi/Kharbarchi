@@ -1,7 +1,9 @@
 @page "/local-admin/product-csv-import"
 @attribute [Authorize(Policy = KharbarchiPolicies.ProductImportWrite)]
 @implements IAsyncDisposable
+@using System.Net
 @using System.Net.Http.Json
+@using System.Text.Json
 @using Kharbarchi.Shared.Contracts.ProductWorkflow
 @using Kharbarchi.Shared.Contracts.WooCommerce
 @using Kharbarchi.Shared.Security
@@ -484,10 +486,51 @@
     protected override async Task OnInitializedAsync()
     {
         await LoadProfiles();
-        activeJob = await Api.GetFromJsonAsync<WorkflowJobDto?>("api/product-csv/jobs/latest", pageCancellation.Token);
+        await LoadLatestJob();
         if (activeJob is not null)
         {
             await RefreshActiveJob();
+        }
+    }
+
+    private async Task LoadLatestJob()
+    {
+        using var response = await Api.GetAsync("api/product-csv/jobs/latest", pageCancellation.Token);
+        if (response.StatusCode == HttpStatusCode.NoContent)
+        {
+            activeJob = null;
+            jobLogs.Clear();
+            return;
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync(pageCancellation.Token);
+            activeJob = null;
+            jobLogs.Clear();
+            message = BuildSafeHttpError("دریافت آخرین عملیات", response, body);
+            return;
+        }
+
+        var json = await response.Content.ReadAsStringAsync(pageCancellation.Token);
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            activeJob = null;
+            jobLogs.Clear();
+            return;
+        }
+
+        try
+        {
+            activeJob = JsonSerializer.Deserialize<WorkflowJobDto>(
+                json,
+                new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        }
+        catch (JsonException)
+        {
+            activeJob = null;
+            jobLogs.Clear();
+            message = "خطا در خواندن اطلاعات آخرین عملیات از سرور.";
         }
     }
 
@@ -935,6 +978,25 @@
         }
 
         return await response.Content.ReadFromJsonAsync<WooBatchResult>() ?? new WooBatchResult();
+    }
+
+    private static string BuildSafeHttpError(string operation, HttpResponseMessage response, string? responseBody)
+    {
+        var detail = TrimForUi(responseBody);
+        return string.IsNullOrWhiteSpace(detail)
+            ? $"خطا در {operation}. کد پاسخ سرور: {(int)response.StatusCode} {response.ReasonPhrase}"
+            : $"خطا در {operation}. کد پاسخ سرور: {(int)response.StatusCode} {response.ReasonPhrase}. جزئیات: {detail}";
+    }
+
+    private static string TrimForUi(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        var text = value.Replace('\r', ' ').Replace('\n', ' ').Trim();
+        return text.Length <= 400 ? text : text[..400] + "...";
     }
 
     private string SourcePriceUnitText =>

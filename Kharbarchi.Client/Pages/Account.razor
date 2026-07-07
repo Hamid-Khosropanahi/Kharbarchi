@@ -1,0 +1,147 @@
+@page "/account"
+@page "/profile"
+@attribute [Authorize]
+@using System.Net
+@using Kharbarchi.Shared.Auth
+@using Kharbarchi.Shared.Security
+@inject IHttpClientFactory ClientFactory
+@inject NavigationManager Navigation
+
+<PageTitle>حساب کاربری</PageTitle>
+
+<div class="khb-page-shell" dir="rtl">
+    <section class="khb-glass-card khb-account-hero">
+        <span class="khb-badge">USR</span>
+        <h1>حساب کاربری</h1>
+        <p>اطلاعات امن کاربر واردشده در پنل مدیریت خواربارچی</p>
+    </section>
+
+    @if (isLoading)
+    {
+        <section class="khb-glass-card khb-empty-state">
+            <h2>در حال دریافت اطلاعات حساب</h2>
+        </section>
+    }
+    else if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <section class="khb-glass-card khb-alert danger">
+            @errorMessage
+        </section>
+    }
+    else if (profile is not null)
+    {
+        <section class="khb-glass-card khb-account-grid">
+            <article>
+                <span>نام کاربری</span>
+                <strong class="ltr">@profile.UserName</strong>
+            </article>
+            <article>
+                <span>نام نمایشی</span>
+                <strong>@(string.IsNullOrWhiteSpace(profile.DisplayName) ? "-" : profile.DisplayName)</strong>
+            </article>
+            <article>
+                <span>ایمیل</span>
+                <strong class="ltr">@(string.IsNullOrWhiteSpace(profile.Email) ? "-" : profile.Email)</strong>
+            </article>
+            <article>
+                <span>تعداد نقش‌ها</span>
+                <strong>@profile.Roles.Count</strong>
+            </article>
+        </section>
+
+        <section class="khb-glass-card">
+            <div class="khb-section-title">
+                <h2>نقش‌ها</h2>
+            </div>
+            @if (profile.Roles.Count == 0)
+            {
+                <p class="khb-muted">نقشی برای این کاربر ثبت نشده است.</p>
+            }
+            else
+            {
+                <div class="khb-pill-grid">
+                    @foreach (var role in profile.Roles)
+                    {
+                        <span title="@role">@KharbarchiRoles.GetDisplayName(role)</span>
+                    }
+                </div>
+            }
+        </section>
+
+        <section class="khb-glass-card">
+            <div class="khb-section-title">
+                <h2>Claims / Permissions</h2>
+            </div>
+            @if (profile.Claims.Count == 0)
+            {
+                <p class="khb-muted">Claim قابل نمایش وجود ندارد.</p>
+            }
+            else
+            {
+                <div class="khb-table-wrap">
+                    <table class="khb-table">
+                        <thead>
+                            <tr>
+                                <th>Type</th>
+                                <th>Value</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var claim in profile.Claims)
+                            {
+                                <tr>
+                                    <td class="ltr">@claim.Type</td>
+                                    <td class="ltr">@claim.Value</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+    }
+</div>
+
+@code {
+    private CurrentUserProfileDto? profile;
+    private bool isLoading = true;
+    private string? errorMessage;
+    private HttpClient Api => ClientFactory.CreateClient("KharbarchiAPI");
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            using var response = await Api.GetAsync("api/auth/me");
+            if (response.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                Navigation.NavigateTo("/login?returnUrl=account");
+                return;
+            }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                errorMessage = $"خطا در دریافت اطلاعات حساب. کد پاسخ سرور: {(int)response.StatusCode}";
+                return;
+            }
+
+            profile = await response.Content.ReadFromJsonAsync<CurrentUserProfileDto>();
+            if (profile is null)
+            {
+                errorMessage = "اطلاعات حساب از سرور دریافت نشد.";
+            }
+        }
+        catch (HttpRequestException)
+        {
+            errorMessage = "ارتباط با سرور برقرار نشد.";
+        }
+        catch (TaskCanceledException)
+        {
+            errorMessage = "زمان پاسخ‌گویی سرور تمام شد.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}
