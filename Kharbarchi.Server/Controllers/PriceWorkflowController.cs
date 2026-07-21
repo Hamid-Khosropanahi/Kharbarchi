@@ -176,6 +176,12 @@ public sealed class PriceWorkflowController : ControllerBase
             }
         }
 
+        await RegisterPriceHistoryAsync(proposal.ProductId, proposal.ProductVariantId, "Sale", proposal.ProposedSalePrice, proposal.Id, cancellationToken);
+        if (proposal.ProposedPurchasePrice.HasValue)
+        {
+            await RegisterPriceHistoryAsync(proposal.ProductId, proposal.ProductVariantId, "Purchase", proposal.ProposedPurchasePrice.Value, proposal.Id, cancellationToken);
+        }
+
         proposal.Status = WorkflowStatus.QueuedForSync;
         proposal.SuperAdminApprovedByUserName = User.Identity?.Name ?? "unknown";
         proposal.SuperAdminApprovedAtUtc = DateTime.UtcNow;
@@ -256,5 +262,36 @@ public sealed class PriceWorkflowController : ControllerBase
             Note = note
         });
         await _context.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task RegisterPriceHistoryAsync(
+        int productId,
+        int? productVariantId,
+        string priceType,
+        decimal amount,
+        long proposalId,
+        CancellationToken cancellationToken)
+    {
+        var now = DateTime.UtcNow;
+        var currentRows = await _context.ProductPriceHistory
+            .Where(x => x.ProductId == productId && x.ProductVariantId == productVariantId && x.PriceType == priceType && x.IsCurrent)
+            .ToListAsync(cancellationToken);
+        foreach (var row in currentRows)
+        {
+            row.IsCurrent = false;
+            row.ValidToUtc = now;
+        }
+
+        _context.ProductPriceHistory.Add(new ProductPriceHistory
+        {
+            ProductId = productId,
+            ProductVariantId = productVariantId,
+            PriceType = priceType,
+            Amount = amount,
+            IsCurrent = true,
+            ValidFromUtc = now,
+            Source = $"PriceProposal:{proposalId}",
+            ChangedByUserName = User.Identity?.Name ?? "unknown"
+        });
     }
 }

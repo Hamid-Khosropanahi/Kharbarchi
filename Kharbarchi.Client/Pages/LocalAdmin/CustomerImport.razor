@@ -1,0 +1,94 @@
+@page "/local-admin/customers"
+@attribute [Authorize(Roles = "SuperAdmin,Admin,SalesManager")]
+@using Kharbarchi.Client.Services
+@using Kharbarchi.Shared.Contracts
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Forms
+@inject ErpSalesClient SalesClient
+
+<PageTitle>مشتریان و اعتبار باروک</PageTitle>
+
+<section class="khb-control-page" dir="rtl">
+    <header class="khb-control-hero">
+        <div>
+            <span class="khb-eyebrow">ERP Customers</span>
+            <h1>ورود مشتریان و به‌روزرسانی اعتبار</h1>
+            <p>دو فایل باروک با شناسه یکتای شرکت تطبیق داده می‌شوند. ورود مجدد، مشتری تکراری نمی‌سازد و مقدار اعتبار را همراه سابقه تغییر به‌روز می‌کند.</p>
+        </div>
+    </header>
+
+    <section class="khb-control-card">
+        <h2>فایل‌های ورودی</h2>
+        <div class="khb-form-grid">
+            <label>فایل مشتریان (Customer_Barok_Hoghoghi)
+                <InputFile OnChange="SelectCustomersFile" accept=".xls,.xlsx" />
+            </label>
+            <label>فایل اعتبار (Etebar_Hoghoghi)
+                <InputFile OnChange="SelectCreditsFile" accept=".xls,.xlsx" />
+            </label>
+        </div>
+        <button class="khb-btn khb-btn-primary" type="button" disabled="@(_busy || _customersFile is null || _creditsFile is null)" @onclick="ImportAsync">
+            @(_busy ? "در حال ثبت..." : "ثبت/به‌روزرسانی در ERP")
+        </button>
+        @if (!string.IsNullOrWhiteSpace(_message))
+        {
+            <p class="@(_isError ? "khb-alert khb-alert-danger" : "khb-alert khb-alert-success")">@_message</p>
+        }
+    </section>
+
+    @if (_result is not null)
+    {
+        <section class="khb-control-card">
+            <h2>نتیجه ورود</h2>
+            <div class="khb-principle-grid">
+                <article><b>@_result.Inserted</b><span>مشتری جدید</span></article>
+                <article><b>@_result.Updated</b><span>مشتری به‌روزشده</span></article>
+                <article><b>@_result.CreditChanges</b><span>تغییر اعتبار ثبت‌شده</span></article>
+                <article><b>@_result.Errors.Count</b><span>هشدار/ردیف ردشده</span></article>
+            </div>
+            @if (_result.Errors.Count > 0)
+            {
+                <ul>@foreach (var error in _result.Errors) { <li>@error</li> }</ul>
+            }
+        </section>
+    }
+</section>
+
+@code {
+    private const long MaxFileSize = 10 * 1024 * 1024;
+    private IBrowserFile? _customersFile;
+    private IBrowserFile? _creditsFile;
+    private CustomerImportResultDto? _result;
+    private bool _busy;
+    private bool _isError;
+    private string? _message;
+
+    private void SelectCustomersFile(InputFileChangeEventArgs args) => _customersFile = args.File;
+    private void SelectCreditsFile(InputFileChangeEventArgs args) => _creditsFile = args.File;
+
+    private async Task ImportAsync()
+    {
+        if (_customersFile is null || _creditsFile is null) return;
+        _busy = true;
+        _result = null;
+        _message = null;
+        try
+        {
+            await using var customers = _customersFile.OpenReadStream(MaxFileSize);
+            await using var credits = _creditsFile.OpenReadStream(MaxFileSize);
+            var response = await SalesClient.ImportCustomersAsync(customers, _customersFile.Name, credits, _creditsFile.Name);
+            _result = response.Result;
+            _isError = response.Result is null;
+            _message = response.Result is null ? response.Error : "اطلاعات مشتری و اعتبار با موفقیت در پایگاه داده ERP ثبت شد.";
+        }
+        catch (Exception exception)
+        {
+            _isError = true;
+            _message = exception.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

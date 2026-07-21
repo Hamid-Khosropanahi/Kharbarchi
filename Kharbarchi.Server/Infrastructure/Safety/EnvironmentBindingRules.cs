@@ -6,7 +6,7 @@ public static class EnvironmentBindingRules
     public const string ProductionEnvironmentName = "Production";
     public const string LocalProfileEnvironmentType = "Local";
     public const string ProductionProfileEnvironmentType = "Production";
-    public const string DevelopmentDatabaseName = "kharbarchi_local_fresh";
+    public const string DevelopmentDatabaseName = "Kharbarchi_Local";
     public const string ProductionDatabaseName = "Kharbarchi_erp";
     public const string CanonicalProductionSiteUrl = "https://www.Kharbarchi.ir/";
 

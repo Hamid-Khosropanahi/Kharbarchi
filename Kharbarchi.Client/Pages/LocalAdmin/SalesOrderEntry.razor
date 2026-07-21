@@ -1,0 +1,129 @@
+@page "/local-admin/sales-order"
+@attribute [Authorize(Roles = "SuperAdmin,Admin,SalesManager,Seller")]
+@using Kharbarchi.Client.Services
+@using Kharbarchi.Shared.Contracts
+@using Microsoft.AspNetCore.Authorization
+@inject ErpSalesClient SalesClient
+
+<PageTitle>ثبت سفارش فروش ERP</PageTitle>
+
+<section class="khb-control-page" dir="rtl">
+    <header class="khb-control-hero">
+        <div><span class="khb-eyebrow">Seller Catalog</span><h1>کاتالوگ فروش و ثبت سفارش</h1><p>ابتدا مشتری را انتخاب کن، سپس کالاهای قیمت‌دار ERP را به سبد اضافه کن.</p></div>
+    </header>
+
+    @if (!string.IsNullOrWhiteSpace(_message))
+    {
+        <p class="@(_isError ? "khb-alert khb-alert-danger" : "khb-alert khb-alert-success")">@_message</p>
+    }
+
+    <section class="khb-control-card">
+        <h2>۱. انتخاب مشتری</h2>
+        <div class="khb-control-actions">
+            <input class="khb-input" @bind="_customerSearch" placeholder="نام شرکت، موبایل یا شناسه شرکت" />
+            <button class="khb-btn khb-btn-ghost" @onclick="LoadCustomersAsync">جستجو</button>
+        </div>
+        <select class="khb-input" @bind="_selectedCustomerId" @bind:after="CustomerChanged">
+            <option value="0">انتخاب مشتری...</option>
+            @foreach (var customer in _customers)
+            {
+                <option value="@customer.Id">@customer.FullName — اعتبار باقیمانده: @customer.AvailableCredit.ToString("N0")</option>
+            }
+        </select>
+        @if (SelectedCustomer is not null)
+        {
+            <p>شناسه: @SelectedCustomer.LegalEntityId | تلفن: @SelectedCustomer.PhoneNumber | وضعیت اعتبار: @(SelectedCustomer.IsCreditBlocked ? "مسدود" : "فعال")</p>
+        }
+    </section>
+
+    <section class="khb-control-card">
+        <h2>۲. کاتالوگ قیمت‌دار</h2>
+        <div class="khb-control-actions">
+            <input class="khb-input" @bind="_productSearch" placeholder="نام یا SKU" />
+            <button class="khb-btn khb-btn-ghost" @onclick="LoadCatalogAsync">جستجو</button>
+        </div>
+        <div class="khb-table-wrap">
+            <table class="khb-table"><thead><tr><th>کالا</th><th>برند</th><th>قیمت</th><th>موجودی</th><th></th></tr></thead>
+            <tbody>@foreach (var item in _catalog)
+            {
+                <tr><td>@item.Name @(string.IsNullOrWhiteSpace(item.VariantName) ? null : $"- {item.VariantName}")<small>@item.Sku</small></td><td>@item.BrandName</td><td>@item.Price.ToString("N0")</td><td>@item.StockQuantity</td><td><button class="khb-btn khb-btn-primary" disabled="@(item.StockQuantity <= 0)" @onclick="() => AddToCart(item)">افزودن</button></td></tr>
+            }</tbody></table>
+        </div>
+    </section>
+
+    <section class="khb-control-card">
+        <h2>۳. سبد و اطلاعات سفارش</h2>
+        @if (_cart.Count == 0) { <p>هنوز کالایی انتخاب نشده است.</p> }
+        @foreach (var line in _cart)
+        {
+            <div class="khb-control-actions"><b>@line.Item.Name @line.Item.VariantName</b><input class="khb-input" type="number" min="1" max="@line.Item.StockQuantity" @bind="line.Quantity" /><span>@((line.Item.Price * line.Quantity).ToString("N0"))</span><button class="khb-btn khb-btn-ghost" @onclick="() => _cart.Remove(line)">حذف</button></div>
+        }
+        <div class="khb-form-grid">
+            <label>آدرس تحویل<input class="khb-input" @bind="_deliveryAddress" /></label>
+            <label>شهر<input class="khb-input" @bind="_deliveryCity" /></label>
+            <label>کدپستی<input class="khb-input" @bind="_deliveryPostalCode" /></label>
+            <label>روش پرداخت<select class="khb-input" @bind="_paymentMethod"><option value="Credit">اعتباری</option><option value="Cash">نقدی</option></select></label>
+            <label>تخفیف کل<input class="khb-input" type="number" min="0" @bind="_totalDiscount" /></label>
+            <label>توضیحات<textarea class="khb-input" @bind="_description"></textarea></label>
+        </div>
+        <p><b>جمع ناخالص:</b> @GrossAmount.ToString("N0") | <b>تخفیف:</b> @_totalDiscount.ToString("N0") | <b>مبلغ نهایی:</b> @Math.Max(0, GrossAmount - _totalDiscount).ToString("N0")</p>
+        <button class="khb-btn khb-btn-primary" disabled="@(_busy || _selectedCustomerId == 0 || _cart.Count == 0)" @onclick="CreateOrderAsync">@(_busy ? "در حال ثبت..." : "ثبت نهایی سفارش")</button>
+    </section>
+</section>
+
+@code {
+    private IReadOnlyList<CustomerListItemDto> _customers = [];
+    private IReadOnlyList<ErpCatalogItemDto> _catalog = [];
+    private readonly List<CartLine> _cart = [];
+    private string? _customerSearch;
+    private string? _productSearch;
+    private int _selectedCustomerId;
+    private string _deliveryAddress = string.Empty;
+    private string _deliveryCity = string.Empty;
+    private string _deliveryPostalCode = string.Empty;
+    private string _paymentMethod = "Credit";
+    private string? _description;
+    private decimal _totalDiscount;
+    private bool _busy;
+    private bool _isError;
+    private string? _message;
+    private CustomerListItemDto? SelectedCustomer => _customers.FirstOrDefault(x => x.Id == _selectedCustomerId);
+    private decimal GrossAmount => _cart.Sum(x => x.Item.Price * x.Quantity);
+
+    protected override async Task OnInitializedAsync() => await Task.WhenAll(LoadCustomersAsync(), LoadCatalogAsync());
+    private async Task LoadCustomersAsync() => _customers = await SalesClient.GetCustomersAsync(_customerSearch);
+    private async Task LoadCatalogAsync() => _catalog = await SalesClient.GetCatalogAsync(_productSearch);
+    private void CustomerChanged()
+    {
+        if (SelectedCustomer is null) return;
+        _deliveryAddress = SelectedCustomer.AddressLine;
+        _deliveryCity = SelectedCustomer.City;
+    }
+    private void AddToCart(ErpCatalogItemDto item)
+    {
+        var existing = _cart.FirstOrDefault(x => x.Item.ProductId == item.ProductId && x.Item.ProductVariantId == item.ProductVariantId);
+        if (existing is null) _cart.Add(new CartLine(item));
+        else if (existing.Quantity < item.StockQuantity) existing.Quantity++;
+    }
+    private async Task CreateOrderAsync()
+    {
+        _busy = true; _message = null;
+        var request = new ErpOrderCreateRequest
+        {
+            CustomerId = _selectedCustomerId,
+            DeliveryAddressLine = _deliveryAddress,
+            DeliveryCity = _deliveryCity,
+            DeliveryPostalCode = _deliveryPostalCode,
+            Description = _description,
+            TotalDiscount = _totalDiscount,
+            PaymentMethod = _paymentMethod,
+            Items = _cart.Select(x => new ErpOrderLineRequest { ProductId = x.Item.ProductId, ProductVariantId = x.Item.ProductVariantId, Quantity = x.Quantity }).ToArray()
+        };
+        var response = await SalesClient.CreateOrderAsync(request);
+        _isError = response.Result is null;
+        _message = response.Result is null ? response.Error : $"سفارش شماره {response.Result.OrderId} با مبلغ نهایی {response.Result.TotalAmount:N0} ثبت شد.";
+        if (response.Result is not null) { _cart.Clear(); _totalDiscount = 0; await LoadCatalogAsync(); await LoadCustomersAsync(); }
+        _busy = false;
+    }
+    private sealed class CartLine(ErpCatalogItemDto item) { public ErpCatalogItemDto Item { get; } = item; public int Quantity { get; set; } = 1; }
+}

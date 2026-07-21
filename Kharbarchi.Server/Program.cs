@@ -233,6 +233,14 @@ builder.Services.AddAuthorizationBuilder()
         policy.RequireRole(KharbarchiRoles.SuperAdmin, KharbarchiRoles.LegacyAdmin, KharbarchiRoles.PricingManager))
     .AddPolicy(AuthorizationPolicyNames.OrdersRead, policy =>
         policy.RequireRole(KharbarchiRoles.SuperAdmin, KharbarchiRoles.LegacyAdmin, KharbarchiRoles.PricingManager, KharbarchiRoles.SalesManager, KharbarchiRoles.ShippingOrderManager, KharbarchiRoles.Accountant))
+    .AddPolicy(AuthorizationPolicyNames.CustomersRead, policy =>
+        policy.RequireRole(KharbarchiRoles.SuperAdmin, KharbarchiRoles.LegacyAdmin, KharbarchiRoles.SalesManager, KharbarchiRoles.Seller))
+    .AddPolicy(AuthorizationPolicyNames.CustomerImportWrite, policy =>
+        policy.RequireRole(KharbarchiRoles.SuperAdmin, KharbarchiRoles.LegacyAdmin, KharbarchiRoles.SalesManager))
+    .AddPolicy(AuthorizationPolicyNames.SellerCatalogRead, policy =>
+        policy.RequireRole(KharbarchiRoles.SuperAdmin, KharbarchiRoles.LegacyAdmin, KharbarchiRoles.SalesManager, KharbarchiRoles.Seller))
+    .AddPolicy(AuthorizationPolicyNames.ErpOrderCreate, policy =>
+        policy.RequireRole(KharbarchiRoles.SuperAdmin, KharbarchiRoles.LegacyAdmin, KharbarchiRoles.SalesManager, KharbarchiRoles.Seller))
     .AddPolicy(AuthorizationPolicyNames.OrdersImportWrite, policy =>
         policy.RequireRole(KharbarchiRoles.SuperAdmin, KharbarchiRoles.LegacyAdmin, KharbarchiRoles.SalesManager, KharbarchiRoles.ShippingOrderManager))
     .AddPolicy(AuthorizationPolicyNames.OrderPaymentWorkflow, policy =>
@@ -361,6 +369,7 @@ builder.Services.AddScoped<WooCommerceImportService>();
 builder.Services.AddScoped<KharbarchiPriceControlService>();
 builder.Services.AddScoped<KharbarchiWooPayloadFactory>();
 builder.Services.AddScoped<KharbarchiWooCatalogSyncService>();
+builder.Services.AddScoped<BarokCustomerImportService>();
 builder.Services.AddScoped<BarookPaymentService>();
 builder.Services.AddScoped<AccountingReceiptService>();
 builder.Services.AddScoped<WorkflowJobService>();

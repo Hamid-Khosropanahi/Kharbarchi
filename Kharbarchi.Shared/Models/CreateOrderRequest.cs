@@ -8,6 +8,7 @@ namespace Kharbarchi.Shared.Models;
 
 public class CreateOrderRequest
 {
+    public int CustomerId { get; set; }
     public string FullName { get; set; } = default!;
     public string PhoneNumber { get; set; } = default!;
     public string? Email { get; set; }
@@ -17,6 +18,8 @@ public class CreateOrderRequest
     public string PostalCode { get; set; } = default!;
 
     public string PaymentMethod { get; set; } = "Offline";
+    public string? Description { get; set; }
+    public decimal TotalDiscount { get; set; }
 
     public List<CartItemDto> Items { get; set; } = new();
 }

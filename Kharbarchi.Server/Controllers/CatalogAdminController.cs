@@ -233,6 +233,7 @@ public sealed class CatalogAdminController : ControllerBase
 
         _context.Products.Add(product);
         await _context.SaveChangesAsync(cancellationToken);
+        await SyncCurrentPriceHistoryAsync(product, "CatalogCreate", cancellationToken);
         await AuditAsync("Product", product.Id, "Create", null, cancellationToken);
         return await GetProduct(product.Id, cancellationToken);
     }
@@ -266,6 +267,7 @@ public sealed class CatalogAdminController : ControllerBase
         }
 
         await _context.SaveChangesAsync(cancellationToken);
+        await SyncCurrentPriceHistoryAsync(product, "CatalogUpdate", cancellationToken);
         await AuditAsync("Product", product.Id, "Update", null, cancellationToken);
         return await GetProduct(product.Id, cancellationToken);
     }
@@ -390,5 +392,47 @@ public sealed class CatalogAdminController : ControllerBase
             Note = note
         });
         await _context.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task SyncCurrentPriceHistoryAsync(Product product, string source, CancellationToken cancellationToken)
+    {
+        await RegisterCurrentPriceAsync(product.Id, null, "Sale", product.Price, source, cancellationToken);
+        if (product.PurchasePrice.HasValue)
+            await RegisterCurrentPriceAsync(product.Id, null, "Purchase", product.PurchasePrice.Value, source, cancellationToken);
+
+        foreach (var variant in product.Variants)
+        {
+            await RegisterCurrentPriceAsync(product.Id, variant.Id, "Sale", variant.Price, source, cancellationToken);
+            if (variant.PurchasePrice.HasValue)
+                await RegisterCurrentPriceAsync(product.Id, variant.Id, "Purchase", variant.PurchasePrice.Value, source, cancellationToken);
+        }
+        await _context.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task RegisterCurrentPriceAsync(int productId, int? variantId, string priceType, decimal amount, string source, CancellationToken cancellationToken)
+    {
+        if (amount <= 0) return;
+        var current = await _context.ProductPriceHistory
+            .Where(x => x.ProductId == productId && x.ProductVariantId == variantId && x.PriceType == priceType && x.IsCurrent)
+            .ToListAsync(cancellationToken);
+        if (current.Count == 1 && current[0].Amount == amount) return;
+
+        var now = DateTime.UtcNow;
+        foreach (var row in current)
+        {
+            row.IsCurrent = false;
+            row.ValidToUtc = now;
+        }
+        _context.ProductPriceHistory.Add(new ProductPriceHistory
+        {
+            ProductId = productId,
+            ProductVariantId = variantId,
+            PriceType = priceType,
+            Amount = amount,
+            IsCurrent = true,
+            ValidFromUtc = now,
+            Source = source,
+            ChangedByUserName = User.Identity?.Name ?? "unknown"
+        });
     }
 }

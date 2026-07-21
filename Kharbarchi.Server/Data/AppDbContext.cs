@@ -18,6 +18,8 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRo
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();
     public DbSet<Customer> Customers => Set<Customer>();
+    public DbSet<CustomerCreditHistory> CustomerCreditHistory => Set<CustomerCreditHistory>();
+    public DbSet<ProductPriceHistory> ProductPriceHistory => Set<ProductPriceHistory>();
     public DbSet<ProductVariant> ProductVariants => Set<ProductVariant>();
     public DbSet<ProductWooControlProfile> ProductWooControlProfiles => Set<ProductWooControlProfile>();
     public DbSet<Brand> Brands => Set<Brand>();
@@ -252,23 +254,69 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRo
         modelBuilder.Entity<Customer>(entity =>
         {
             entity.ToTable("cbi_customers");
+            entity.HasIndex(x => x.LegalEntityId).IsUnique();
+            entity.HasIndex(x => x.PhoneNumber);
             entity.Property(x => x.FullName).HasMaxLength(250).IsRequired();
             entity.Property(x => x.PhoneNumber).HasMaxLength(30).IsRequired();
             entity.Property(x => x.Email).HasMaxLength(320);
             entity.Property(x => x.AddressLine).HasMaxLength(1000).IsRequired();
             entity.Property(x => x.City).HasMaxLength(150).IsRequired();
             entity.Property(x => x.PostalCode).HasMaxLength(30);
+            entity.Property(x => x.LegalEntityId).HasMaxLength(30);
+            entity.Property(x => x.CreditLimit).HasPrecision(18, 2);
+            entity.Property(x => x.UsedCredit).HasPrecision(18, 2);
+            entity.Property(x => x.CreditPlanTitle).HasMaxLength(250);
+            entity.Property(x => x.DistributionStatus).HasMaxLength(100);
+        });
+
+        modelBuilder.Entity<CustomerCreditHistory>(entity =>
+        {
+            entity.ToTable("cbi_customercredithistory");
+            entity.HasIndex(x => new { x.CustomerId, x.ChangedAtUtc });
+            entity.Property(x => x.PreviousCreditLimit).HasPrecision(18, 2);
+            entity.Property(x => x.NewCreditLimit).HasPrecision(18, 2);
+            entity.Property(x => x.Source).HasMaxLength(80).IsRequired();
+            entity.Property(x => x.ChangedByUserName).HasMaxLength(256).IsRequired();
+            entity.HasOne(x => x.Customer)
+                .WithMany(x => x.CreditHistory)
+                .HasForeignKey(x => x.CustomerId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<ProductPriceHistory>(entity =>
+        {
+            entity.ToTable("prc_productpricehistory");
+            entity.HasIndex(x => new { x.ProductId, x.ProductVariantId, x.PriceType, x.IsCurrent });
+            entity.Property(x => x.PriceType).HasMaxLength(50).IsRequired();
+            entity.Property(x => x.Amount).HasPrecision(18, 2);
+            entity.Property(x => x.Source).HasMaxLength(80).IsRequired();
+            entity.Property(x => x.ChangedByUserName).HasMaxLength(256).IsRequired();
+            entity.HasOne(x => x.Product)
+                .WithMany(x => x.PriceHistory)
+                .HasForeignKey(x => x.ProductId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.ProductVariant)
+                .WithMany()
+                .HasForeignKey(x => x.ProductVariantId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<Order>(entity =>
         {
             entity.ToTable("com_orders");
             entity.Property(x => x.TotalAmount).HasPrecision(18, 2);
+            entity.Property(x => x.GrossAmount).HasPrecision(18, 2);
+            entity.Property(x => x.TotalDiscount).HasPrecision(18, 2);
             entity.Property(x => x.Status).HasMaxLength(50).IsRequired();
             entity.Property(x => x.PaymentMethod).HasMaxLength(50).IsRequired();
             entity.Property(x => x.PaymentStatus).HasMaxLength(50).IsRequired();
             entity.Property(x => x.PaymentReference).HasMaxLength(160);
             entity.Property(x => x.GatewayName).HasMaxLength(80);
+            entity.Property(x => x.DeliveryAddressLine).HasMaxLength(1000).IsRequired();
+            entity.Property(x => x.DeliveryCity).HasMaxLength(150).IsRequired();
+            entity.Property(x => x.DeliveryPostalCode).HasMaxLength(30);
+            entity.Property(x => x.Description).HasMaxLength(2000);
+            entity.Property(x => x.CreatedByUserName).HasMaxLength(256).IsRequired();
             entity.HasIndex(x => x.CreatedAt);
             entity.HasIndex(x => x.WooCommerceOrderId);
         });
@@ -278,7 +326,10 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRo
             entity.ToTable("com_orderitems");
             entity.Property(x => x.VariantName).HasMaxLength(150);
             entity.Property(x => x.Sku).HasMaxLength(120);
+            entity.Property(x => x.ProductName).HasMaxLength(300).IsRequired();
             entity.Property(x => x.UnitPrice).HasPrecision(18, 2);
+            entity.Property(x => x.OriginalUnitPrice).HasPrecision(18, 2);
+            entity.Property(x => x.LineDiscount).HasPrecision(18, 2);
         });
     }
 
@@ -501,6 +552,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRo
             new IdentityRole { Id = "6240e185-5c3a-410b-99d3-9767571fdf24", Name = KharbarchiRoles.Customer, NormalizedName = "CUSTOMER", ConcurrencyStamp = "6240e185-5c3a-410b-99d3-9767571fdf24" },
             new IdentityRole { Id = "67320cb2-92a2-4de7-971b-7e9e80244f4b", Name = KharbarchiRoles.GatewayAdmin, NormalizedName = "GATEWAYADMIN", ConcurrencyStamp = "67320cb2-92a2-4de7-971b-7e9e80244f4b" },
             new IdentityRole { Id = "0c5e0418-46b3-4c6e-887e-0c182171ab11", Name = KharbarchiRoles.SalesManager, NormalizedName = "SALESMANAGER", ConcurrencyStamp = "0c5e0418-46b3-4c6e-887e-0c182171ab11" },
+            new IdentityRole { Id = "b52865dd-a178-45a1-82ae-59f2e75c9c17", Name = KharbarchiRoles.Seller, NormalizedName = "SELLER", ConcurrencyStamp = "b52865dd-a178-45a1-82ae-59f2e75c9c17" },
             new IdentityRole { Id = "e572b070-82bd-47f0-b486-cc1b644b2d9e", Name = KharbarchiRoles.ShippingOrderManager, NormalizedName = "SHIPPINGORDERMANAGER", ConcurrencyStamp = "e572b070-82bd-47f0-b486-cc1b644b2d9e" },
             new IdentityRole { Id = "e8d1a7c0-7763-4fc8-b2fa-1e0df03b8b52", Name = KharbarchiRoles.Accountant, NormalizedName = "ACCOUNTANT", ConcurrencyStamp = "e8d1a7c0-7763-4fc8-b2fa-1e0df03b8b52" });
     }

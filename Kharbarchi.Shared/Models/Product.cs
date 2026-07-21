@@ -39,4 +39,5 @@ public class Product
     public List<ProductProductTag> ProductTags { get; set; } = [];
     public List<ProductSpecValue> SpecValues { get; set; } = [];
     public ProductWooControlProfile? WooControlProfile { get; set; }
+    public List<ProductPriceHistory> PriceHistory { get; set; } = [];
 }

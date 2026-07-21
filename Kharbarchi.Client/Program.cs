@@ -111,6 +111,7 @@ builder.Services.AddScoped<PriceWorkflowClient>();
 builder.Services.AddScoped<InventoryWorkflowClient>();
 builder.Services.AddScoped<SyncOutboxClient>();
 builder.Services.AddScoped<OrderWorkflowClient>();
+builder.Services.AddScoped<ErpSalesClient>();
 
 builder.Services.AddScoped<Kharbarchi.Client.Services.WooConnectionService>();
 builder.Services.AddScoped<WooConnectionService>();

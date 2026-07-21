@@ -7,6 +7,7 @@ public static class KharbarchiRoles
     public const string PricingEmployee = "PricingEmployee";
     public const string WarehouseEmployee = "WarehouseEmployee";
     public const string SalesManager = "SalesManager";
+    public const string Seller = "Seller";
     public const string ShippingOrderManager = "ShippingOrderManager";
     public const string Accountant = "Accountant";
     public const string CentralSyncAgent = "CentralSyncAgent";
@@ -23,6 +24,7 @@ public static class KharbarchiRoles
         PricingEmployee,
         WarehouseEmployee,
         SalesManager,
+        Seller,
         ShippingOrderManager,
         Accountant,
         CentralSyncAgent,
@@ -38,6 +40,7 @@ public static class KharbarchiRoles
         PricingEmployee,
         WarehouseEmployee,
         SalesManager,
+        Seller,
         ShippingOrderManager,
         Accountant,
         CentralSyncAgent,
@@ -51,6 +54,7 @@ public static class KharbarchiRoles
         PricingManager,
         PricingEmployee,
         SalesManager,
+        Seller,
         WarehouseEmployee
     ];
 
@@ -98,6 +102,7 @@ public static class KharbarchiRoles
         new(PricingEmployee, "کارشناس قیمت‌گذاری", "ثبت پیشنهاد قیمت فروش بدون دسترسی به قیمت خرید."),
         new(WarehouseEmployee, "انباردار", "مشاهده موجودی و ثبت پیشنهاد کسری، افزایش یا اصلاح موجودی بدون مشاهده قیمت‌ها."),
         new(SalesManager, "مدیر فروش", "مشاهده سفارش‌ها، وضعیت سفارش، مشتری و محصولات قابل فروش."),
+        new(Seller, "فروشنده", "انتخاب مشتری، مشاهده کاتالوگ قیمت‌دار و ثبت سفارش در ERP."),
         new(ShippingOrderManager, "مسئول ارسال و سفارش", "تغییر وضعیت سفارش، ارسال لینک پرداخت باروک و آماده‌سازی ارسال."),
         new(Accountant, "حسابدار", "مشاهده سفارش‌ها، رسیدهای پرداخت و ثبت دریافت دستی."),
         new(CentralSyncAgent, "عامل همگام‌سازی مرکزی", "اجرای صف خروجی و همگام‌سازی امن با ووکامرس."),

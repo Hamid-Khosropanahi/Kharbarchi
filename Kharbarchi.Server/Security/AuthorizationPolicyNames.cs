@@ -22,6 +22,10 @@ public static class AuthorizationPolicyNames
     public const string ProductImportRead = "ProductImportRead";
     public const string ProductImportWrite = KharbarchiPolicies.ProductImportWrite;
     public const string OrdersRead = "OrdersRead";
+    public const string CustomersRead = "CustomersRead";
+    public const string CustomerImportWrite = "CustomerImportWrite";
+    public const string SellerCatalogRead = "SellerCatalogRead";
+    public const string ErpOrderCreate = "ErpOrderCreate";
     public const string OrdersImportWrite = "OrdersImportWrite";
     public const string OrderPaymentWorkflow = "OrderPaymentWorkflow";
     public const string BarookPaymentOperator = "BarookPaymentOperator";

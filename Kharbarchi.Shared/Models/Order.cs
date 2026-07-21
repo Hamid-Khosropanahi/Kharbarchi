@@ -5,6 +5,8 @@ public class Order
     public int Id { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public decimal TotalAmount { get; set; }
+    public decimal GrossAmount { get; set; }
+    public decimal TotalDiscount { get; set; }
     public string Status { get; set; } = "New"; // New, Processing, Shipped, Completed, Canceled
     public string PaymentMethod { get; set; } = "Offline"; // Offline, Online, WooCommerce
     public string PaymentStatus { get; set; } = "Pending"; // Pending, Paid, Failed, Canceled
@@ -14,5 +16,10 @@ public class Order
     public long? WooCommerceOrderId { get; set; }
     public int CustomerId { get; set; }
     public Customer? Customer { get; set; }
+    public string DeliveryAddressLine { get; set; } = string.Empty;
+    public string DeliveryCity { get; set; } = string.Empty;
+    public string DeliveryPostalCode { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public string CreatedByUserName { get; set; } = string.Empty;
     public ICollection<OrderItem> Items { get; set; } = new List<OrderItem>();
 }
