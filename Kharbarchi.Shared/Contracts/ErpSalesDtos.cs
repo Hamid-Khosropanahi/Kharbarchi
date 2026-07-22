@@ -7,6 +7,10 @@ public sealed record CustomerListItemDto(
     string FullName,
     string PhoneNumber,
     string? LegalEntityId,
+    string? NationalCode,
+    string CustomerType,
+    string? StoreName,
+    string? Province,
     string AddressLine,
     string City,
     decimal CreditLimit,
@@ -15,6 +19,19 @@ public sealed record CustomerListItemDto(
     bool IsCreditBlocked,
     bool IsActive,
     DateTime? LastImportedAtUtc);
+
+public sealed record PagedCustomerResultDto(
+    IReadOnlyList<CustomerListItemDto> Items,
+    int Page,
+    int PageSize,
+    long Total,
+    int TotalPages);
+
+public static class CustomerTypes
+{
+    public const string Individual = "Individual";
+    public const string Legal = "Legal";
+}
 
 public sealed record CustomerImportResultDto(
     int CustomerRows,
@@ -34,6 +51,9 @@ public sealed record ErpCatalogItemDto(
     decimal? OldPrice,
     int StockQuantity,
     string? BrandName,
+    string CategoryName,
+    string? CommodityName,
+    string? PackageTitle,
     string? ImageUrl);
 
 public sealed record ErpOrderLineRequest

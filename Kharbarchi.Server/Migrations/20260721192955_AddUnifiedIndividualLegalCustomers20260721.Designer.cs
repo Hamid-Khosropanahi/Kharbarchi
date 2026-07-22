@@ -3,6 +3,7 @@ using System;
 using Kharbarchi.Server.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Kharbarchi.Server.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260721192955_AddUnifiedIndividualLegalCustomers20260721")]
+    partial class AddUnifiedIndividualLegalCustomers20260721
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1528,9 +1531,6 @@ namespace Kharbarchi.Server.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
-                    b.Property<string>("ProtectedWordPressApplicationPassword")
-                        .HasColumnType("longtext");
-
                     b.Property<int>("TimeoutSeconds")
                         .HasColumnType("int");
 
@@ -1541,10 +1541,6 @@ namespace Kharbarchi.Server.Migrations
 
                     b.Property<bool>("VerifySsl")
                         .HasColumnType("tinyint(1)");
-
-                    b.Property<string>("WordPressUsername")
-                        .HasMaxLength(255)
-                        .HasColumnType("varchar(255)");
 
                     b.HasKey("Id");
 

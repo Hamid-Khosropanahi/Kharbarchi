@@ -319,12 +319,14 @@ internal static class KharbarchiWorkflowModelConfiguration
             entity.HasIndex(x => x.ProfileName).IsUnique();
             entity.HasIndex(x => new { x.EnvironmentType, x.IsActive });
             entity.Property(x => x.ProtectedConsumerSecret).HasColumnType("longtext").IsRequired();
+            entity.Property(x => x.ProtectedWordPressApplicationPassword).HasColumnType("longtext");
             entity.Property(x => x.LastTestMessage).HasMaxLength(2000);
             SetMaxLengths(entity,
                 (nameof(WooCommerceConnectionProfile.ProfileName), 160),
                 (nameof(WooCommerceConnectionProfile.EnvironmentType), 20),
                 (nameof(WooCommerceConnectionProfile.BaseUrl), 1000),
                 (nameof(WooCommerceConnectionProfile.ConsumerKey), 255),
+                (nameof(WooCommerceConnectionProfile.WordPressUsername), 255),
                 (nameof(WooCommerceConnectionProfile.ApiVersion), 40));
             SetTimestampDefaults(entity);
         });

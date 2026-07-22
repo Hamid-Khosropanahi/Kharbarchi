@@ -6,89 +6,152 @@
 @using Microsoft.AspNetCore.Components.Forms
 @inject ErpSalesClient SalesClient
 
-<PageTitle>مشتریان و اعتبار باروک</PageTitle>
+<PageTitle>مشتریان ERP و اعتبار باروک</PageTitle>
 
-<section class="khb-control-page" dir="rtl">
-    <header class="khb-control-hero">
+<section class="khb-control-page customer-workspace" dir="rtl">
+    <header class="khb-control-hero customer-hero">
         <div>
-            <span class="khb-eyebrow">ERP Customers</span>
-            <h1>ورود مشتریان و به‌روزرسانی اعتبار</h1>
-            <p>دو فایل باروک با شناسه یکتای شرکت تطبیق داده می‌شوند. ورود مجدد، مشتری تکراری نمی‌سازد و مقدار اعتبار را همراه سابقه تغییر به‌روز می‌کند.</p>
+            <span class="khb-eyebrow">Customer Workspace</span>
+            <h1>مشتریان ERP و اعتبار باروک</h1>
+            <p>نوع مشتری را انتخاب کنید، سپس مشخصات و اعتبار همان مشتریان را در دو مرحله ثبت یا به‌روزرسانی کنید.</p>
         </div>
+        <div class="hero-stat"><strong>@_customers.Count</strong><span>مشتری نمایش‌داده‌شده</span></div>
     </header>
 
-    <section class="khb-control-card">
-        <h2>فایل‌های ورودی</h2>
-        <div class="khb-form-grid">
-            <label>فایل مشتریان (Customer_Barok_Hoghoghi)
-                <InputFile OnChange="SelectCustomersFile" accept=".xls,.xlsx" />
-            </label>
-            <label>فایل اعتبار (Etebar_Hoghoghi)
-                <InputFile OnChange="SelectCreditsFile" accept=".xls,.xlsx" />
-            </label>
+    <details class="wizard-card khb-collapsible">
+        <summary><span><i class="bi bi-file-earmark-spreadsheet-fill"></i><b>ورود دو مرحله‌ای اطلاعات مشتری و اعتبار</b></span><small>برای نمایش فرم کلیک کنید</small></summary>
+        <div class="khb-collapsible-body">
+        <div class="customer-type-selector">
+            <span>نوع فایل مشتری</span>
+            <button class="type-option @(_customerType == CustomerTypes.Individual ? "selected" : null)" disabled="@(_busy || _step != 1)" @onclick="() => SelectCustomerType(CustomerTypes.Individual)"><b>حقیقی</b><small>اتصال دو فایل با کد ملی</small></button>
+            <button class="type-option @(_customerType == CustomerTypes.Legal ? "selected" : null)" disabled="@(_busy || _step != 1)" @onclick="() => SelectCustomerType(CustomerTypes.Legal)"><b>حقوقی</b><small>اتصال دو فایل با شناسه شرکت</small></button>
         </div>
-        <button class="khb-btn khb-btn-primary" type="button" disabled="@(_busy || _customersFile is null || _creditsFile is null)" @onclick="ImportAsync">
-            @(_busy ? "در حال ثبت..." : "ثبت/به‌روزرسانی در ERP")
-        </button>
+        <div class="wizard-steps">
+            <div class="step @StepClass(1)"><span>۱</span><div><b>اطلاعات مشتری</b><small>نام، شناسه، موبایل و آدرس</small></div></div>
+            <div class="step-line"><i style="width:@($"{ProgressPercent}%")"></i></div>
+            <div class="step @StepClass(2)"><span>۲</span><div><b>اعتبار مشتری</b><small>سقف، مسدودی و طرح باروک</small></div></div>
+            <div class="step-line"><i style="width:@($"{Math.Max(0, ProgressPercent - 50) * 2}%")"></i></div>
+            <div class="step @StepClass(3)"><span>✓</span><div><b>تکمیل</b><small>آماده استفاده در سفارش</small></div></div>
+        </div>
+        <div class="progress-track" aria-label="پیشرفت ورود"><div class="@(_busy ? "progress-fill running" : "progress-fill")" style="width:@($"{ProgressPercent}%")"></div></div>
+        <div class="progress-caption"><span>@ProgressText</span><b>@ProgressPercent٪</b></div>
+
+        @if (_step == 1)
+        {
+            <div class="upload-panel">
+                <div class="upload-icon"><i class="bi bi-people-fill" aria-hidden="true"></i></div>
+                <div><h2>مرحله ۱ — فایل مشخصات مشتریان @_customerTypeLabel</h2><p>@(_customerType == CustomerTypes.Individual ? "ستون‌های فارسی نام، نام خانوادگی، موبایل، کد ملی و آدرس خوانده می‌شوند." : "ستون‌های فارسی نام شرکت، شناسه یکتای شرکت، موبایل و آدرس خوانده می‌شوند.") فایل‌های بزرگ در batchهای ۱٬۰۰۰تایی ذخیره می‌شوند.</p></div>
+                <InputFile OnChange="SelectCustomersFile" accept=".xls,.xlsx" />
+                @if (_customersFile is not null) { <span class="file-chip">@_customersFile.Name — @FormatSize(_customersFile.Size)</span> }
+                <button class="khb-btn khb-btn-primary" disabled="@(_busy || _customersFile is null)" @onclick="ImportDetailsAsync">@(_busy ? "در حال پردازش batchها..." : "ورود اطلاعات مشتریان")</button>
+            </div>
+        }
+        else if (_step == 2)
+        {
+            <div class="upload-panel">
+                <div class="upload-icon credit"><i class="bi bi-credit-card-2-front-fill" aria-hidden="true"></i></div>
+                <div><h2>مرحله ۲ — فایل اعتبار مشتریان @_customerTypeLabel</h2><p>اعتبار با @(_customerType == CustomerTypes.Individual ? "کد ملی" : "شناسه شرکت") به مرحله اول متصل می‌شود. مقادیر بله/خیر به‌صورت boolean و هر تغییر اعتبار در تاریخچه ذخیره می‌شود.</p></div>
+                <InputFile OnChange="SelectCreditsFile" accept=".xls,.xlsx" />
+                @if (_creditsFile is not null) { <span class="file-chip">@_creditsFile.Name — @FormatSize(_creditsFile.Size)</span> }
+                <div class="button-row"><button class="khb-btn khb-btn-ghost" disabled="@_busy" @onclick="() => _step = 1">بازگشت</button><button class="khb-btn khb-btn-primary" disabled="@(_busy || _creditsFile is null)" @onclick="ImportCreditsAsync">@(_busy ? "در حال به‌روزرسانی اعتبار..." : "ثبت اعتبار و تکمیل")</button></div>
+            </div>
+        }
+        else
+        {
+            <div class="complete-panel"><span>✓</span><div><h2>ورود مشتریان تکمیل شد</h2><p>مشتریان اکنون در فرم سفارش قابل انتخاب هستند.</p></div><button class="khb-btn khb-btn-ghost" @onclick="ResetWizard">ورود فایل جدید</button><a class="khb-btn khb-btn-primary" href="/local-admin/sales-order">ثبت سفارش</a></div>
+        }
+
         @if (!string.IsNullOrWhiteSpace(_message))
         {
-            <p class="@(_isError ? "khb-alert khb-alert-danger" : "khb-alert khb-alert-success")">@_message</p>
+            <div class="@(_isError ? "result-banner error" : "result-banner success")">@_message</div>
         }
-    </section>
+        @if (_result is not null)
+        {
+            <div class="result-grid"><article><b>@_result.Inserted.ToString("N0")</b><span>جدید</span></article><article><b>@_result.Updated.ToString("N0")</b><span>به‌روزشده</span></article><article><b>@_result.CreditChanges.ToString("N0")</b><span>تغییر اعتبار</span></article><article><b>@_result.Errors.Count.ToString("N0")</b><span>هشدار</span></article></div>
+        }
+        </div>
+    </details>
 
-    @if (_result is not null)
-    {
-        <section class="khb-control-card">
-            <h2>نتیجه ورود</h2>
-            <div class="khb-principle-grid">
-                <article><b>@_result.Inserted</b><span>مشتری جدید</span></article>
-                <article><b>@_result.Updated</b><span>مشتری به‌روزشده</span></article>
-                <article><b>@_result.CreditChanges</b><span>تغییر اعتبار ثبت‌شده</span></article>
-                <article><b>@_result.Errors.Count</b><span>هشدار/ردیف ردشده</span></article>
-            </div>
-            @if (_result.Errors.Count > 0)
-            {
-                <ul>@foreach (var error in _result.Errors) { <li>@error</li> }</ul>
-            }
-        </section>
-    }
+    <details class="khb-control-card khb-collapsible credit-only-shell">
+        <summary><span><i class="bi bi-credit-card-2-front-fill"></i><b>به‌روزرسانی فقط اعتبار مشتریان</b></span><small>برای نمایش فرم کلیک کنید</small></summary>
+        <div class="credit-only-card khb-collapsible-body">
+        <div class="credit-only-icon"><i class="bi bi-arrow-repeat" aria-hidden="true"></i></div>
+        <div class="credit-only-copy"><span class="khb-eyebrow">Credit Update</span><h2>به‌روزرسانی فقط اعتبار مشتریان</h2><p>اگر مشخصات مشتری قبلاً وارد شده است، فقط فایل اعتبار را انتخاب کنید. اتصال برای حقیقی با کد ملی و برای حقوقی با شناسه شرکت انجام می‌شود.</p></div>
+        <select class="khb-input" @bind="_creditOnlyType"><option value="@CustomerTypes.Individual">مشتری حقیقی</option><option value="@CustomerTypes.Legal">مشتری حقوقی</option></select>
+        <InputFile OnChange="SelectCreditOnlyFile" accept=".xls,.xlsx" />
+        @if (_creditOnlyFile is not null) { <span class="file-chip">@_creditOnlyFile.Name — @FormatSize(_creditOnlyFile.Size)</span> }
+        <button class="khb-btn khb-btn-primary" disabled="@(_busy || _creditOnlyFile is null)" @onclick="ImportCreditOnlyAsync"><i class="bi bi-cloud-arrow-up-fill" aria-hidden="true"></i> ثبت/به‌روزرسانی اعتبار</button>
+        </div>
+    </details>
+
+    <section class="khb-control-card customer-list-card">
+        <div class="section-heading"><div><span class="khb-eyebrow">Imported Customers</span><h2>مشتریان قابل استفاده در سفارش</h2></div></div>
+        <details class="khb-collapsible khb-filter-collapse"><summary><span><i class="bi bi-funnel-fill"></i><b>فیلتر و جستجوی مشتریان</b></span><small>برای نمایش فیلترها کلیک کنید</small></summary><div class="khb-collapsible-body"><div class="filter-panel"><label>جستجو<input class="khb-input" @bind="_search" @onkeyup="SearchOnEnter" placeholder="نام، موبایل، کد ملی یا شناسه" /></label><label>نوع<select class="khb-input" @bind="_typeFilter"><option value="">همه</option><option value="@CustomerTypes.Individual">حقیقی</option><option value="@CustomerTypes.Legal">حقوقی</option></select></label><label>استان<input class="khb-input" @bind="_provinceFilter" placeholder="مثلاً تهران" /></label><label>شهر<input class="khb-input" @bind="_cityFilter" placeholder="مثلاً تهران" /></label><label>وضعیت<select class="khb-input" @bind="_blockedFilter"><option value="">همه</option><option value="false">فعال</option><option value="true">مسدود</option></select></label><label>اعتبار کل از<input type="text" inputmode="numeric" class="khb-input money-input" @bind="MinCreditLimitText" @bind:event="oninput" placeholder="0" /></label><label>اعتبار کل تا<input type="text" inputmode="numeric" class="khb-input money-input" @bind="MaxCreditLimitText" @bind:event="oninput" placeholder="0" /></label><label>مانده اعتبار از<input type="text" inputmode="numeric" class="khb-input money-input" @bind="MinAvailableCreditText" @bind:event="oninput" placeholder="0" /></label><label>مانده اعتبار تا<input type="text" inputmode="numeric" class="khb-input money-input" @bind="MaxAvailableCreditText" @bind:event="oninput" placeholder="0" /></label><button class="khb-btn khb-btn-primary filter-action" @onclick="ApplyFiltersAsync"><i class="bi bi-funnel-fill" aria-hidden="true"></i> اعمال فیلتر</button><button class="khb-btn khb-btn-ghost filter-action" @onclick="ClearFiltersAsync"><i class="bi bi-x-circle" aria-hidden="true"></i> پاک‌کردن</button></div></div></details>
+        <div class="khb-table-wrap"><table class="khb-table customer-table"><thead><tr><th>مشتری</th><th>نوع</th><th>کد ملی / شناسه شرکت</th><th>موبایل</th><th>استان</th><th>شهر</th><th>فروشگاه / آدرس</th><th>اعتبار کل</th><th>مانده اعتبار</th><th>وضعیت</th></tr></thead><tbody>
+        @if (_customers.Count == 0) { <tr><td colspan="10" class="empty-cell">مشتری‌ای با فیلتر انتخاب‌شده پیدا نشد.</td></tr> }
+        @foreach (var customer in _customers) { <tr><td><b>@customer.FullName</b></td><td>@(customer.CustomerType == CustomerTypes.Individual ? "حقیقی" : "حقوقی")</td><td class="ltr-cell">@(customer.CustomerType == CustomerTypes.Individual ? customer.NationalCode : customer.LegalEntityId)</td><td class="ltr-cell">@customer.PhoneNumber</td><td>@(customer.Province ?? "—")</td><td>@(string.IsNullOrWhiteSpace(customer.City) ? "—" : customer.City)</td><td class="address-cell"><b>@customer.StoreName</b><small class="muted-row">@customer.AddressLine</small></td><td>@customer.CreditLimit.ToString("N0")</td><td><b>@customer.AvailableCredit.ToString("N0")</b></td><td><span class="status-pill @(customer.IsCreditBlocked ? "blocked" : "active")">@(customer.IsCreditBlocked ? "مسدود" : "فعال")</span></td></tr> }
+        </tbody></table></div>
+        <div class="grid-footer"><span>نمایش @(_customers.Count) از @_total مورد</span><div><label>تعداد ردیف <select class="khb-input compact" value="@_pageSize" @onchange="ChangePageSizeAsync">@foreach (var size in PageSizes) { <option value="@size">@size</option> }</select></label><button class="khb-btn khb-btn-ghost" disabled="@(_page <= 1)" @onclick="PreviousPageAsync">قبلی</button><b>صفحه @_page از @Math.Max(1, _totalPages)</b><button class="khb-btn khb-btn-ghost" disabled="@(_page >= _totalPages)" @onclick="NextPageAsync">بعدی</button></div></div>
+    </section>
 </section>
 
+<style>
+.customer-workspace{max-width:1500px;margin:auto}.customer-hero{background:linear-gradient(135deg,#0b3d35,#136f5e);color:#fff}.hero-stat{min-width:150px;padding:18px;border:1px solid #ffffff30;border-radius:18px;background:#ffffff12;text-align:center}.hero-stat strong{display:block;font-size:2rem}.wizard-card{background:var(--khb-surface,#fff);border:1px solid #dce8e4;border-radius:24px;padding:28px;box-shadow:0 16px 50px #123c3212;margin-bottom:24px}.customer-type-selector{display:flex;align-items:stretch;gap:12px;margin-bottom:24px}.customer-type-selector>span{align-self:center;font-weight:800;margin-left:8px}.type-option{min-width:190px;padding:12px 18px;border:1px solid #cddbd7;border-radius:14px;background:#fff;color:#43534f;text-align:right;cursor:pointer}.type-option b,.type-option small,.muted-row{display:block}.type-option.selected{border-color:#0d6756;background:#eaf8f3;color:#075846;box-shadow:0 0 0 3px #0d675616}.wizard-steps{display:flex;align-items:center}.step{display:flex;align-items:center;gap:10px;min-width:190px;color:#83948f}.step>span{display:grid;place-items:center;width:42px;height:42px;border-radius:14px;background:#edf3f1;font-weight:800}.step b,.step small{display:block}.step.active,.step.done{color:#0d6756}.step.active>span,.step.done>span{background:#0d6756;color:white}.step-line{height:4px;background:#e8efed;flex:1;border-radius:9px;overflow:hidden}.step-line i{display:block;height:100%;background:#18a47f;transition:.4s}.progress-track{height:10px;background:#e8efed;border-radius:20px;overflow:hidden;margin-top:26px}.progress-fill{height:100%;background:linear-gradient(90deg,#0d6756,#22c492);transition:.5s}.progress-fill.running{background-size:200% 100%;animation:flow 1.4s linear infinite}.progress-caption{display:flex;justify-content:space-between;margin-top:8px;color:#62736e}@@keyframes flow{to{background-position:-200% 0}}.upload-panel{margin-top:24px;padding:28px;border:2px dashed #b9d4cc;border-radius:20px;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:20px;background:#f8fcfa}.upload-icon{width:64px;height:64px;display:grid;place-items:center;border-radius:18px;background:#dff5ed;color:#0d6756;font-size:1.7rem}.upload-icon.credit{background:#fff0cf;color:#9a6300}.upload-panel .khb-btn,.upload-panel .file-chip,.button-row{grid-column:2/4}.file-chip{background:#e8f5f1;padding:9px 14px;border-radius:12px;width:max-content}.button-row{display:flex;gap:10px}.complete-panel{margin-top:24px;display:flex;align-items:center;gap:18px;padding:25px;background:#edfaf5;border-radius:20px}.complete-panel>span{font-size:2rem;color:#0d8b69}.complete-panel div{flex:1}.result-banner{margin-top:18px;padding:14px;border-radius:12px}.result-banner.success{background:#e8f8f1;color:#096447}.result-banner.error{background:#fff0f0;color:#a52a2a}.result-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:16px}.result-grid article{padding:16px;background:#f5f8f7;border-radius:14px;text-align:center}.result-grid b,.result-grid span{display:block}.result-grid b{font-size:1.45rem}.credit-only-card{display:grid;grid-template-columns:auto minmax(260px,1fr) 180px minmax(220px,auto) auto;align-items:center;gap:16px;margin-bottom:24px}.credit-only-icon{width:58px;height:58px;display:grid;place-items:center;border-radius:17px;background:#eef0ff;color:#5147b8;font-size:1.55rem}.credit-only-copy h2,.credit-only-copy p{margin:3px 0}.section-heading{display:flex;justify-content:space-between;align-items:center;gap:20px}.filter-panel{display:grid;grid-template-columns:2fr repeat(4,1fr);gap:12px;margin:18px 0;padding:16px;background:#f6faf8;border:1px solid #e0ebe7;border-radius:16px}.filter-panel label{display:grid;gap:6px;color:#52645f;font-size:.82rem}.money-input{direction:ltr;text-align:left;font-variant-numeric:tabular-nums}.filter-action{align-self:end}.customer-table .address-cell{max-width:300px;white-space:normal}.muted-row{color:#71827d;font-size:.78rem;margin-top:4px}.ltr-cell{direction:ltr}.status-pill{padding:6px 10px;border-radius:20px;font-size:.82rem}.status-pill.active{background:#dff6ed;color:#087657}.status-pill.blocked{background:#ffe4e4;color:#a52a2a}.empty-cell{text-align:center;padding:30px!important}.grid-footer{display:flex;justify-content:space-between;align-items:center;gap:16px;padding-top:18px}.grid-footer>div,.grid-footer label{display:flex;align-items:center;gap:9px}.compact{width:75px}@@media(max-width:1100px){.credit-only-card,.filter-panel{grid-template-columns:repeat(2,1fr)}}@@media(max-width:850px){.customer-type-selector,.grid-footer,.grid-footer>div,.credit-only-card,.filter-panel{display:flex;align-items:stretch;flex-direction:column}.type-option{min-width:0}.wizard-steps{align-items:flex-start}.step{min-width:0}.step div{display:none}.upload-panel{grid-template-columns:1fr}.upload-panel>*{grid-column:1!important}.result-grid{grid-template-columns:repeat(2,1fr)}.section-heading{align-items:stretch;flex-direction:column}}
+</style>
+
 @code {
-    private const long MaxFileSize = 10 * 1024 * 1024;
-    private IBrowserFile? _customersFile;
-    private IBrowserFile? _creditsFile;
-    private CustomerImportResultDto? _result;
-    private bool _busy;
-    private bool _isError;
-    private string? _message;
-
-    private void SelectCustomersFile(InputFileChangeEventArgs args) => _customersFile = args.File;
-    private void SelectCreditsFile(InputFileChangeEventArgs args) => _creditsFile = args.File;
-
-    private async Task ImportAsync()
+    private const long MaxFileSize = 100 * 1024 * 1024;
+    private IBrowserFile? _customersFile; private IBrowserFile? _creditsFile; private IBrowserFile? _creditOnlyFile;
+    private CustomerImportResultDto? _result; private IReadOnlyList<CustomerListItemDto> _customers = [];
+    private static readonly int[] PageSizes = [5, 10, 20, 50, 100];
+    private int _step = 1; private bool _busy; private bool _isError; private string? _message; private string? _search;
+    private string _customerType = CustomerTypes.Individual; private string _typeFilter = string.Empty; private string _blockedFilter = string.Empty;
+    private string _creditOnlyType = CustomerTypes.Individual; private string? _provinceFilter; private string? _cityFilter;
+    private decimal? _minCreditLimit; private decimal? _maxCreditLimit; private decimal? _minAvailableCredit; private decimal? _maxAvailableCredit;
+    private string MinCreditLimitText { get => FormatNumber(_minCreditLimit); set => _minCreditLimit = ParseNumber(value); }
+    private string MaxCreditLimitText { get => FormatNumber(_maxCreditLimit); set => _maxCreditLimit = ParseNumber(value); }
+    private string MinAvailableCreditText { get => FormatNumber(_minAvailableCredit); set => _minAvailableCredit = ParseNumber(value); }
+    private string MaxAvailableCreditText { get => FormatNumber(_maxAvailableCredit); set => _maxAvailableCredit = ParseNumber(value); }
+    private int _page = 1; private int _pageSize = 20; private long _total; private int _totalPages;
+    private string _customerTypeLabel => _customerType == CustomerTypes.Individual ? "حقیقی" : "حقوقی";
+    private int ProgressPercent => _busy ? (_step == 1 ? 25 : 75) : _step switch { 1 => 0, 2 => 50, _ => 100 };
+    private string ProgressText => _busy ? "در حال پردازش و ذخیره batchها" : _step switch { 1 => "آماده دریافت اطلاعات مشتری", 2 => "اطلاعات مشتری ثبت شد؛ فایل اعتبار را انتخاب کنید", _ => "ورود دو مرحله‌ای کامل شد" };
+    protected override async Task OnInitializedAsync() => await LoadCustomersAsync();
+    private string StepClass(int step) => _step > step ? "done" : _step == step ? "active" : string.Empty;
+    private void SelectCustomersFile(InputFileChangeEventArgs e) => _customersFile = e.File;
+    private void SelectCreditsFile(InputFileChangeEventArgs e) => _creditsFile = e.File;
+    private void SelectCreditOnlyFile(InputFileChangeEventArgs e) => _creditOnlyFile = e.File;
+    private async Task ImportDetailsAsync()
     {
-        if (_customersFile is null || _creditsFile is null) return;
-        _busy = true;
-        _result = null;
-        _message = null;
-        try
-        {
-            await using var customers = _customersFile.OpenReadStream(MaxFileSize);
-            await using var credits = _creditsFile.OpenReadStream(MaxFileSize);
-            var response = await SalesClient.ImportCustomersAsync(customers, _customersFile.Name, credits, _creditsFile.Name);
-            _result = response.Result;
-            _isError = response.Result is null;
-            _message = response.Result is null ? response.Error : "اطلاعات مشتری و اعتبار با موفقیت در پایگاه داده ERP ثبت شد.";
-        }
-        catch (Exception exception)
-        {
-            _isError = true;
-            _message = exception.Message;
-        }
-        finally
-        {
-            _busy = false;
-        }
+        if (_customersFile is null) return; _busy = true; _message = null;
+        try { await using var stream = _customersFile.OpenReadStream(MaxFileSize); var response = await SalesClient.ImportCustomerDetailsAsync(stream,_customersFile.Name,_customerType); SetResult(response); if (response.Result is not null) { _step=2; await LoadCustomersAsync(); } }
+        catch(Exception ex){_isError=true;_message=ex.Message;} finally{_busy=false;}
     }
+    private async Task ImportCreditsAsync()
+    {
+        if (_creditsFile is null) return; _busy = true; _message = null;
+        try { await using var stream = _creditsFile.OpenReadStream(MaxFileSize); var response = await SalesClient.ImportCustomerCreditsAsync(stream,_creditsFile.Name,_customerType); SetResult(response); if(response.Result is not null){_step=3;await LoadCustomersAsync();} }
+        catch(Exception ex){_isError=true;_message=ex.Message;} finally{_busy=false;}
+    }
+    private void SetResult((CustomerImportResultDto? Result,string? Error) response){_result=response.Result;_isError=response.Result is null;_message=response.Result is null?response.Error:"مرحله با موفقیت پردازش شد.";}
+    private async Task ImportCreditOnlyAsync(){if(_creditOnlyFile is null)return;_busy=true;_message=null;try{await using var stream=_creditOnlyFile.OpenReadStream(MaxFileSize);var response=await SalesClient.ImportCustomerCreditsAsync(stream,_creditOnlyFile.Name,_creditOnlyType);SetResult(response);if(response.Result is not null){_creditOnlyFile=null;await LoadCustomersAsync();}}catch(Exception ex){_isError=true;_message=ex.Message;}finally{_busy=false;}}
+    private async Task LoadCustomersAsync(){bool? blocked=bool.TryParse(_blockedFilter,out var parsed)?parsed:null;var result=await SalesClient.GetCustomersPageAsync(_search,string.IsNullOrWhiteSpace(_typeFilter)?null:_typeFilter,blocked,_provinceFilter,_cityFilter,_minCreditLimit,_maxCreditLimit,_minAvailableCredit,_maxAvailableCredit,_page,_pageSize);_customers=result.Items;_total=result.Total;_totalPages=result.TotalPages;if(_page>Math.Max(1,_totalPages)){_page=Math.Max(1,_totalPages);await LoadCustomersAsync();}}
+    private async Task ApplyFiltersAsync(){_page=1;await LoadCustomersAsync();}
+    private async Task ClearFiltersAsync(){_search=null;_typeFilter=string.Empty;_blockedFilter=string.Empty;_provinceFilter=null;_cityFilter=null;_minCreditLimit=null;_maxCreditLimit=null;_minAvailableCredit=null;_maxAvailableCredit=null;await ApplyFiltersAsync();}
+    private async Task SearchOnEnter(KeyboardEventArgs e){if(e.Key=="Enter")await ApplyFiltersAsync();}
+    private async Task ChangePageSizeAsync(ChangeEventArgs e){if(int.TryParse(e.Value?.ToString(),out var value)&&PageSizes.Contains(value)){_pageSize=value;_page=1;await LoadCustomersAsync();}}
+    private async Task PreviousPageAsync(){if(_page>1){_page--;await LoadCustomersAsync();}}
+    private async Task NextPageAsync(){if(_page<_totalPages){_page++;await LoadCustomersAsync();}}
+    private void SelectCustomerType(string type){_customerType=type;_customersFile=null;_creditsFile=null;_result=null;_message=null;}
+    private void ResetWizard(){_step=1;_customersFile=null;_creditsFile=null;_result=null;_message=null;}
+    private static string FormatNumber(decimal? value) => value.HasValue ? value.Value.ToString("N0", System.Globalization.CultureInfo.InvariantCulture) : string.Empty;
+    private static decimal? ParseNumber(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        var normalized = value.Trim().Replace(",", string.Empty).Replace("٬", string.Empty);
+        normalized = normalized.Replace('۰','0').Replace('۱','1').Replace('۲','2').Replace('۳','3').Replace('۴','4').Replace('۵','5').Replace('۶','6').Replace('۷','7').Replace('۸','8').Replace('۹','9')
+            .Replace('٠','0').Replace('١','1').Replace('٢','2').Replace('٣','3').Replace('٤','4').Replace('٥','5').Replace('٦','6').Replace('٧','7').Replace('٨','8').Replace('٩','9');
+        return decimal.TryParse(normalized, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var result) ? result : null;
+    }
+    private static string FormatSize(long bytes)=>bytes<1024*1024?$"{bytes/1024d:N1} KB":$"{bytes/1024d/1024d:N1} MB";
 }

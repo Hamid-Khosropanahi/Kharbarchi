@@ -1,4 +1,3 @@
-@page "/local-admin/products"
 @page "/local-admin/product-management"
 @attribute [Authorize]
 @using System.Net.Http.Json
@@ -26,7 +25,7 @@
         </div>
     </div>
 
-    <div class="khb-product-toolbar khb-glass-card">
+    <details class="khb-collapsible khb-filter-collapse"><summary><span><i class="bi bi-funnel-fill"></i><b>فیلتر و ورود اطلاعات محصول</b></span><small>برای نمایش ابزارها کلیک کنید</small></summary><div class="khb-product-toolbar khb-glass-card khb-collapsible-body">
         <div class="khb-field compact">
             <label>جستجو</label>
             <input class="khb-input" placeholder="نام، SKU، Slug، بسته‌بندی..." @bind="Search" @bind:event="oninput" />
@@ -46,7 +45,7 @@
         </div>
         <button class="khb-btn khb-btn-soft" @onclick="ImportFromSourceTable" disabled="@Busy">ساخت محصولات از جدول منبع</button>
         <button class="khb-btn khb-btn-primary" @onclick="SearchProducts" disabled="@Busy">اعمال فیلتر</button>
-    </div>
+    </div></details>
 
     <div class="khb-grid khb-grid-4 khb-product-stats">
         <div class="khb-glass-card khb-mini-stat"><span>کل محصولات</span><strong>@Total</strong></div>

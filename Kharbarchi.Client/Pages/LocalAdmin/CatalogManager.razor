@@ -49,7 +49,7 @@
                     <h2>محصولات قابل فروش</h2>
                     <p>قیمت شرایطی قیمت رسمی است؛ قیمت نقدی تخفیف تسویه نقدی محسوب می‌شود.</p>
                 </div>
-                <div class="khb-control-filters">
+                <details class="khb-collapsible compact-collapse"><summary><span><i class="bi bi-funnel-fill"></i><b>فیلتر محصولات</b></span></summary><div class="khb-control-filters khb-collapsible-body">
                     <input placeholder="جستجو نام، SKU، دسته..." @bind="Search" @bind:event="oninput" />
                     <select @bind="StatusFilter">
                         <option value="all">همه وضعیت‌ها</option>
@@ -58,7 +58,7 @@
                         <option value="red">قرمز</option>
                     </select>
                     <button class="khb-btn" @onclick="LoadProducts" disabled="@Busy">جستجو</button>
-                </div>
+                </div></details>
             </div>
 
             <div class="khb-control-table-wrap">
@@ -232,7 +232,7 @@
     @if (ActiveTab == "orders")
     {
         <section class="khb-control-card">
-            <div class="khb-control-toolbar"><div><h2>تأیید سفارش و ثبت دریافتی ERP</h2><p>دریافتی ERP به WooCommerce به‌صورت meta و وضعیت پرداخت منتقل می‌شود.</p></div><div class="khb-control-filters"><input placeholder="جستجوی سفارش" @bind="OrderSearch" @bind:event="oninput" /><button class="khb-btn" @onclick="LoadOrders" disabled="@Busy">جستجو</button></div></div>
+            <div class="khb-control-toolbar"><div><h2>تأیید سفارش و ثبت دریافتی ERP</h2><p>دریافتی ERP به WooCommerce به‌صورت meta و وضعیت پرداخت منتقل می‌شود.</p></div><details class="khb-collapsible compact-collapse"><summary><span><i class="bi bi-search"></i><b>جستجوی سفارش</b></span></summary><div class="khb-control-filters khb-collapsible-body"><input placeholder="جستجوی سفارش" @bind="OrderSearch" @bind:event="oninput" /><button class="khb-btn" @onclick="LoadOrders" disabled="@Busy">جستجو</button></div></details></div>
             <div class="khb-control-table-wrap">
                 <table class="khb-control-table">
                     <thead>

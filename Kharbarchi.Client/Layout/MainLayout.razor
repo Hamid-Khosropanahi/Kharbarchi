@@ -24,32 +24,33 @@
             </div>
 
             <nav class="khb-nav" aria-label="منوی مدیریت">
-    <div class="khb-nav-section">اصلی</div>
-    <NavLink class="khb-nav-item" href="/local-admin" Match="NavLinkMatch.All"><span>⌂</span><b>داشبورد</b></NavLink>
+    <div class="khb-nav-section">جنرال</div>
+    <NavLink class="khb-nav-item" href="/local-admin" Match="NavLinkMatch.All"><span><i class="bi bi-grid-1x2-fill"></i></span><b>داشبورد</b></NavLink>
+    <NavLink class="khb-nav-item" href="/account"><span><i class="bi bi-person-circle"></i></span><b>حساب کاربری</b></NavLink>
+    <NavLink class="khb-nav-item" href="/local-admin/users"><span><i class="bi bi-people-fill"></i></span><b>کاربران و نقش‌ها</b></NavLink>
+    <NavLink class="khb-nav-item" href="/local-admin/settings"><span><i class="bi bi-gear-fill"></i></span><b>تنظیمات سامانه</b></NavLink>
 
-    <div class="khb-nav-section">محصولات و کاتالوگ</div>
-    <NavLink class="khb-nav-item" href="/local-admin/product-csv-import"><span>CSV</span><b>ورود CSV محصولات</b></NavLink>
-    <NavLink class="khb-nav-item" href="/local-admin/products"><span>PRD</span><b>مدیریت محصولات</b></NavLink>
-    <NavLink class="khb-nav-item" href="/local-admin/catalog"><span>CAT</span><b>کاتالوگ کالا</b></NavLink>
-    <NavLink class="khb-nav-item" href="/local-admin/pricing"><span>٪</span><b>قیمت‌گذاری</b></NavLink>
-    <NavLink class="khb-nav-item" href="/local-admin/inventory"><span>INV</span><b>بسته‌بندی و موجودی</b></NavLink>
+    <div class="khb-nav-section">فروش</div>
+    <NavLink class="khb-nav-item" href="/local-admin/sales-order"><span><i class="bi bi-cart-plus-fill"></i></span><b>کاتالوگ و ثبت سفارش</b></NavLink>
+    <NavLink class="khb-nav-item" href="/local-admin/customers"><span><i class="bi bi-person-vcard-fill"></i></span><b>مشتریان و اعتبار</b></NavLink>
+    <NavLink class="khb-nav-item" href="/local-admin/orders"><span><i class="bi bi-receipt-cutoff"></i></span><b>سفارش‌ها</b></NavLink>
 
-    <div class="khb-nav-section">ووکامرس</div>
-    <NavLink class="khb-nav-item" href="/local-admin/woocommerce-settings"><span>WOO</span><b>تنظیمات ووکامرس</b></NavLink>
-    <NavLink class="khb-nav-item" href="/local-admin/woocommerce-import"><span>IMP</span><b>دریافت از ووکامرس</b></NavLink>
-    <NavLink class="khb-nav-item" href="/local-admin/sync-outbox"><span>SYN</span><b>صف ارسال تغییرات</b></NavLink>
+    <div class="khb-nav-section">انبار</div>
+    <NavLink class="khb-nav-item" href="/local-admin/inventory"><span><i class="bi bi-box-seam-fill"></i></span><b>بسته‌بندی و موجودی</b></NavLink>
 
-    <div class="khb-nav-section">عملیات و مالی</div>
-    <NavLink class="khb-nav-item" href="/local-admin/sales-order"><span>CRT</span><b>کاتالوگ و ثبت سفارش</b></NavLink>
-    <NavLink class="khb-nav-item" href="/local-admin/customers"><span>CUS</span><b>مشتریان و اعتبار</b></NavLink>
-    <NavLink class="khb-nav-item" href="/local-admin/orders"><span>ORD</span><b>سفارش‌ها</b></NavLink>
-    <NavLink class="khb-nav-item" href="/local-admin/barook-payment"><span>PAY</span><b>پرداخت باروک</b></NavLink>
-    <NavLink class="khb-nav-item" href="/local-admin/accounting"><span>ACC</span><b>حسابداری</b></NavLink>
+    <div class="khb-nav-section">کالا</div>
+    <NavLink class="khb-nav-item" href="/local-admin/products"><span><i class="bi bi-boxes"></i></span><b>محصولات و ورود CSV</b></NavLink>
+    <NavLink class="khb-nav-item" href="/local-admin/catalog"><span><i class="bi bi-tags-fill"></i></span><b>برند، دسته و مشخصات</b></NavLink>
+    <NavLink class="khb-nav-item" href="/local-admin/pricing"><span><i class="bi bi-cash-coin"></i></span><b>قیمت‌گذاری</b></NavLink>
 
-    <div class="khb-nav-section">مدیریت سامانه</div>
-    <NavLink class="khb-nav-item" href="/account"><span>USR</span><b>حساب کاربری</b></NavLink>
-    <NavLink class="khb-nav-item" href="/local-admin/users"><span>USR</span><b>کاربران و نقش‌ها</b></NavLink>
-    <NavLink class="khb-nav-item" href="/local-admin/settings"><span>SET</span><b>تنظیمات سامانه</b></NavLink>
+    <div class="khb-nav-section">مالی</div>
+    <NavLink class="khb-nav-item" href="/local-admin/barook-payment"><span><i class="bi bi-credit-card-fill"></i></span><b>پرداخت باروک</b></NavLink>
+    <NavLink class="khb-nav-item" href="/local-admin/accounting"><span><i class="bi bi-calculator-fill"></i></span><b>حسابداری</b></NavLink>
+
+    <div class="khb-nav-section">سایت</div>
+    <NavLink class="khb-nav-item" href="/local-admin/woocommerce-settings"><span><i class="bi bi-shop"></i></span><b>تنظیمات ووکامرس</b></NavLink>
+    <NavLink class="khb-nav-item" href="/local-admin/woocommerce-import"><span><i class="bi bi-cloud-arrow-down-fill"></i></span><b>دریافت از ووکامرس</b></NavLink>
+    <NavLink class="khb-nav-item" href="/local-admin/sync-outbox"><span><i class="bi bi-arrow-repeat"></i></span><b>صف ارسال تغییرات</b></NavLink>
 </nav>
 
 

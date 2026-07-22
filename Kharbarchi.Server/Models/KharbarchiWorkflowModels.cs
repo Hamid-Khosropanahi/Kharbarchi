@@ -301,6 +301,8 @@ public sealed class WooCommerceConnectionProfile
     public string BaseUrl { get; set; } = string.Empty;
     public string ConsumerKey { get; set; } = string.Empty;
     public string ProtectedConsumerSecret { get; set; } = string.Empty;
+    public string? WordPressUsername { get; set; }
+    public string? ProtectedWordPressApplicationPassword { get; set; }
     public string ApiVersion { get; set; } = "wc/v3";
     public bool VerifySsl { get; set; } = true;
     public int TimeoutSeconds { get; set; } = 30;

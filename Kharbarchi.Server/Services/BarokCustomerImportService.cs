@@ -10,7 +10,8 @@ namespace Kharbarchi.Server.Services;
 
 public sealed class BarokCustomerImportService
 {
-    private const int MaxRows = 20_000;
+    private const int MaxRows = 250_000;
+    private const int SaveBatchSize = 1_000;
     private readonly AppDbContext _context;
 
     public BarokCustomerImportService(AppDbContext context)
@@ -24,53 +25,58 @@ public sealed class BarokCustomerImportService
         string userName,
         CancellationToken cancellationToken)
     {
+        var customerResult = await ImportCustomerDetailsAsync(customerWorkbook, CustomerTypes.Legal, userName, cancellationToken);
+        var creditResult = await ImportCreditsAsync(creditWorkbook, CustomerTypes.Legal, userName, cancellationToken);
+        return new CustomerImportResultDto(
+            customerResult.CustomerRows,
+            creditResult.CreditRows,
+            customerResult.Inserted,
+            customerResult.Updated + creditResult.Updated,
+            creditResult.CreditChanges,
+            customerResult.Errors.Concat(creditResult.Errors).Take(200).ToArray());
+    }
+
+    public async Task<CustomerImportResultDto> ImportCustomerDetailsAsync(
+        Stream customerWorkbook,
+        string customerType,
+        string userName,
+        CancellationToken cancellationToken)
+    {
         var customerRows = ReadFirstSheet(customerWorkbook);
-        var creditRows = ReadFirstSheet(creditWorkbook);
         var errors = new List<string>();
-        var creditByLegalId = new Dictionary<string, CreditImportRow>(StringComparer.Ordinal);
 
-        foreach (var row in creditRows)
-        {
-            var legalId = DigitsOnly(Get(row, "شناسه یکتای شرکت"));
-            if (string.IsNullOrWhiteSpace(legalId))
-            {
-                errors.Add("یک ردیف اعتبار به علت نداشتن شناسه یکتای شرکت رد شد.");
-                continue;
-            }
-
-            if (!decimal.TryParse(NormalizeNumber(Get(row, "اعتبار تخصیص داده شده")), NumberStyles.Number, CultureInfo.InvariantCulture, out var limit) || limit < 0)
-            {
-                errors.Add($"اعتبار شرکت {legalId} عدد معتبر و غیرمنفی نیست.");
-                continue;
-            }
-
-            creditByLegalId[legalId] = new CreditImportRow(
-                limit,
-                IsYes(Get(row, "آیا پذیرنده مسدود است؟")),
-                NullIfEmpty(Get(row, "عنوان طرح")));
-        }
-
+        var isIndividual = string.Equals(customerType, CustomerTypes.Individual, StringComparison.Ordinal);
+        var keyHeader = isIndividual ? "کد ملی پذیرنده" : "شناسه یکتای شرکت";
         var importedLegalIds = customerRows
-            .Select(x => DigitsOnly(Get(x, "شناسه یکتای شرکت")))
+            .Select(x => DigitsOnly(Get(x, keyHeader)))
             .Where(x => !string.IsNullOrWhiteSpace(x))
             .Distinct(StringComparer.Ordinal)
             .ToArray();
 
-        var existing = await _context.Customers
-            .Where(x => x.LegalEntityId != null && importedLegalIds.Contains(x.LegalEntityId))
-            .ToDictionaryAsync(x => x.LegalEntityId!, StringComparer.Ordinal, cancellationToken);
+        // MySql.EntityFrameworkCore cannot assign a relational type mapping to a
+        // parameterized primitive collection used by Enumerable.Contains. Load
+        // legal customers as tracked entities and apply the imported-ID set in
+        // memory so updates remain provider-compatible and persist normally.
+        var importedLegalIdSet = importedLegalIds.ToHashSet(StringComparer.Ordinal);
+        var existingLegalCustomers = await _context.Customers
+            .Where(x => isIndividual ? x.NationalCode != null : x.LegalEntityId != null)
+            .ToListAsync(cancellationToken);
+        var existing = existingLegalCustomers
+            .Where(x => importedLegalIdSet.Contains(isIndividual ? x.NationalCode! : x.LegalEntityId!))
+            .ToDictionary(x => isIndividual ? x.NationalCode! : x.LegalEntityId!, StringComparer.Ordinal);
 
         var inserted = 0;
         var updated = 0;
-        var creditChanges = 0;
         var now = DateTime.UtcNow;
 
         await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
 
         foreach (var row in customerRows)
         {
-            var legalId = DigitsOnly(Get(row, "شناسه یکتای شرکت"));
-            var name = NormalizeText(Get(row, "نام شرکت"));
+            var legalId = DigitsOnly(Get(row, keyHeader));
+            var firstName = isIndividual ? NormalizeText(Get(row, "نام پذیرنده")) : string.Empty;
+            var lastName = isIndividual ? NormalizeText(Get(row, "نام خانوادگی پذیرنده")) : string.Empty;
+            var name = isIndividual ? NormalizeText($"{firstName} {lastName}") : NormalizeText(Get(row, "نام شرکت"));
             var phone = DigitsOnly(Get(row, "شماره موبایل پذیرنده"));
             if (string.IsNullOrWhiteSpace(legalId) || string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(phone))
             {
@@ -81,30 +87,31 @@ public sealed class BarokCustomerImportService
             var isNew = !existing.TryGetValue(legalId, out var customer);
             customer ??= new Customer
             {
-                LegalEntityId = legalId,
-                IsLegalEntity = true,
                 CreatedAtUtc = now
             };
 
-            var previousLimit = customer.CreditLimit;
-            var previousBlocked = customer.IsCreditBlocked;
+            customer.CustomerType = isIndividual ? CustomerTypes.Individual : CustomerTypes.Legal;
+            customer.IsLegalEntity = !isIndividual;
+            customer.LegalEntityId = isIndividual ? null : legalId;
+            customer.NationalCode = isIndividual ? legalId : null;
+            customer.FirstName = isIndividual ? firstName : null;
+            customer.LastName = isIndividual ? lastName : null;
             customer.FullName = name;
             customer.PhoneNumber = phone;
             customer.AddressLine = NormalizeText(Get(row, "آدرس"));
-            customer.City = customer.City ?? string.Empty;
-            customer.PostalCode = customer.PostalCode ?? string.Empty;
+            customer.City = isIndividual ? NormalizeText(Get(row, "شهر")) : customer.City ?? string.Empty;
+            customer.PostalCode = isIndividual ? DigitsOnly(Get(row, "کد پستی")) : customer.PostalCode ?? string.Empty;
+            customer.StoreName = isIndividual ? NullIfEmpty(Get(row, "نام فروشگاه")) : null;
+            customer.Province = isIndividual ? NullIfEmpty(Get(row, "استان")) : null;
+            customer.BusinessCategory = isIndividual ? NullIfEmpty(Get(row, "صنف")) : null;
             customer.DistributionStatus = NullIfEmpty(Get(row, "توسط پخش تعریف شده"));
+            customer.IsDefinedByDistribution = IsYes(Get(row, "توسط پخش تعریف شده"));
             customer.CreditReceivedAtUtc = ParseExcelDate(Get(row, "تاریخ دریافت اعتبار"));
+            customer.CreditExpiresAtUtc = ParseExcelDate(Get(row, "تاریخ منقضی شدن اعتبار"));
+            if (isIndividual) customer.CreditPlanTitle = NullIfEmpty(Get(row, "عنوان طرح"));
             customer.IsActive = true;
             customer.LastImportedAtUtc = now;
             customer.UpdatedAtUtc = now;
-
-            if (creditByLegalId.TryGetValue(legalId, out var credit))
-            {
-                customer.CreditLimit = credit.Limit;
-                customer.IsCreditBlocked = credit.IsBlocked;
-                customer.CreditPlanTitle = credit.PlanTitle;
-            }
 
             if (isNew)
             {
@@ -117,31 +124,94 @@ public sealed class BarokCustomerImportService
                 updated++;
             }
 
-            if (isNew || previousLimit != customer.CreditLimit || previousBlocked != customer.IsCreditBlocked)
+            if ((inserted + updated) % SaveBatchSize == 0)
             {
-                customer.CreditHistory.Add(new CustomerCreditHistory
-                {
-                    PreviousCreditLimit = previousLimit,
-                    NewCreditLimit = customer.CreditLimit,
-                    PreviousBlocked = previousBlocked,
-                    NewBlocked = customer.IsCreditBlocked,
-                    Source = "BarokExcel",
-                    ChangedByUserName = userName,
-                    ChangedAtUtc = now
-                });
-                creditChanges++;
+                await _context.SaveChangesAsync(cancellationToken);
             }
-        }
-
-        foreach (var missing in creditByLegalId.Keys.Except(importedLegalIds, StringComparer.Ordinal).Take(100))
-        {
-            errors.Add($"اعتبار شرکت {missing} فاقد ردیف متناظر در فایل مشتریان بود و وارد نشد.");
         }
 
         await _context.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 
-        return new CustomerImportResultDto(customerRows.Count, creditRows.Count, inserted, updated, creditChanges, errors.Take(200).ToArray());
+        return new CustomerImportResultDto(customerRows.Count, 0, inserted, updated, 0, errors.Take(200).ToArray());
+    }
+
+    public async Task<CustomerImportResultDto> ImportCreditsAsync(
+        Stream creditWorkbook,
+        string customerType,
+        string userName,
+        CancellationToken cancellationToken)
+    {
+        var creditRows = ReadFirstSheet(creditWorkbook);
+        var errors = new List<string>();
+        var isIndividual = string.Equals(customerType, CustomerTypes.Individual, StringComparison.Ordinal);
+        var keyHeader = isIndividual ? "کد ملی پذیرنده" : "شناسه یکتای شرکت";
+        var existing = (await _context.Customers
+                .Where(x => isIndividual ? x.NationalCode != null : x.LegalEntityId != null)
+                .ToListAsync(cancellationToken))
+            .ToDictionary(x => isIndividual ? x.NationalCode! : x.LegalEntityId!, StringComparer.Ordinal);
+        var updated = 0;
+        var creditChanges = 0;
+        var processed = 0;
+        var now = DateTime.UtcNow;
+
+        await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+        foreach (var row in creditRows)
+        {
+            processed++;
+            var legalId = DigitsOnly(Get(row, keyHeader));
+            if (string.IsNullOrWhiteSpace(legalId))
+            {
+                errors.Add("یک ردیف اعتبار به علت نداشتن شناسه یکتای شرکت رد شد.");
+                continue;
+            }
+            if (!existing.TryGetValue(legalId, out var customer))
+            {
+                errors.Add($"اعتبار شرکت {legalId} وارد نشد؛ ابتدا باید اطلاعات این مشتری در مرحله ۱ ثبت شود.");
+                continue;
+            }
+            var creditHeader = isIndividual ? "اعتبار کل (ریال)" : "اعتبار تخصیص داده شده";
+            if (!decimal.TryParse(NormalizeSignedNumber(Get(row, creditHeader)), NumberStyles.Number, CultureInfo.InvariantCulture, out var limit) || limit < 0)
+            {
+                errors.Add($"اعتبار شرکت {legalId} عدد معتبر و غیرمنفی نیست.");
+                continue;
+            }
+
+            var blocked = IsYes(Get(row, "آیا پذیرنده مسدود است؟"));
+            if (customer.CreditLimit != limit || customer.IsCreditBlocked != blocked)
+            {
+                customer.CreditHistory.Add(new CustomerCreditHistory
+                {
+                    PreviousCreditLimit = customer.CreditLimit,
+                    NewCreditLimit = limit,
+                    PreviousBlocked = customer.IsCreditBlocked,
+                    NewBlocked = blocked,
+                    Source = "BarokCreditExcel",
+                    ChangedByUserName = userName,
+                    ChangedAtUtc = now
+                });
+                creditChanges++;
+            }
+            customer.CreditLimit = limit;
+            if (isIndividual)
+            {
+                customer.SourceRemainingCredit = ParseNullableDecimal(Get(row, "مانده اعتبار (ریال)"));
+                customer.AllowedSpending = ParseNullableDecimal(Get(row, "مقدار مجاز خرجکرد"));
+                customer.UsedCredit = customer.SourceRemainingCredit.HasValue ? limit - customer.SourceRemainingCredit.Value : customer.UsedCredit;
+            }
+            customer.IsCreditBlocked = blocked;
+            customer.CreditPlanTitle = NullIfEmpty(Get(row, "عنوان طرح"));
+            customer.LastImportedAtUtc = now;
+            customer.UpdatedAtUtc = now;
+            updated++;
+
+            if (processed % SaveBatchSize == 0)
+                await _context.SaveChangesAsync(cancellationToken);
+        }
+
+        await _context.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return new CustomerImportResultDto(0, creditRows.Count, 0, updated, creditChanges, errors.Take(200).ToArray());
     }
 
     private static List<Dictionary<string, string>> ReadFirstSheet(Stream input)
@@ -151,7 +221,7 @@ public sealed class BarokCustomerImportService
         var worksheet = archive.GetEntry("xl/worksheets/sheet1.xml")
             ?? throw new InvalidDataException("فایل Excel فاقد شیت اول است.");
 
-        if (worksheet.Length > 50_000_000)
+        if (worksheet.Length > 250_000_000)
         {
             throw new InvalidDataException("اندازه داده‌های شیت بیش از حد مجاز است.");
         }
@@ -262,6 +332,14 @@ public sealed class BarokCustomerImportService
     private static string Get(IReadOnlyDictionary<string, string> row, string name) => row.GetValueOrDefault(name, string.Empty);
     private static string NormalizeText(string? value) => (value ?? string.Empty).Replace('\u064a', '\u06cc').Replace('\u0643', '\u06a9').Trim();
     private static string NormalizeNumber(string? value) => DigitsOnly(value);
+    private static string NormalizeSignedNumber(string? value)
+    {
+        var normalized = NormalizeText(value);
+        var digits = DigitsOnly(normalized);
+        return normalized.StartsWith('-') ? "-" + digits : digits;
+    }
+    private static decimal? ParseNullableDecimal(string? value)
+        => decimal.TryParse(NormalizeSignedNumber(value), NumberStyles.Number, CultureInfo.InvariantCulture, out var number) ? number : null;
     private static string DigitsOnly(string? value)
     {
         var text = NormalizeText(value);
@@ -282,6 +360,12 @@ public sealed class BarokCustomerImportService
         if (string.IsNullOrWhiteSpace(normalized)) return null;
         if (double.TryParse(normalized, NumberStyles.Number, CultureInfo.InvariantCulture, out var serial) && serial > 0)
             return DateTime.FromOADate(serial).ToUniversalTime();
+        var parts = normalized.Split('/', '-', '.');
+        if (parts.Length == 3 && int.TryParse(DigitsOnly(parts[0]), out var year) && int.TryParse(DigitsOnly(parts[1]), out var month) && int.TryParse(DigitsOnly(parts[2]), out var day) && year < 1700)
+        {
+            try { return DateTime.SpecifyKind(new PersianCalendar().ToDateTime(year, month, day, 0, 0, 0, 0), DateTimeKind.Local).ToUniversalTime(); }
+            catch (ArgumentOutOfRangeException) { return null; }
+        }
         return DateTime.TryParse(normalized, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out var date) ? date.ToUniversalTime() : null;
     }
 

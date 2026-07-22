@@ -964,6 +964,16 @@ Do not display technical packaging metadata in a way that confuses the buyer.
 
 For carton sales, customer-facing language should emphasize carton/package purchase unit.
 
+### 16.4 Collapsible input and filter panels
+Data-entry/import forms and filter/search panels must:
+
+- be collapsed by default
+- use a clear, meaningful icon for each panel
+- open and close by clicking the accessible panel header/icon area
+- use a polished, smooth transition for the panel, icon, and state indicator
+- respect the user's `prefers-reduced-motion` accessibility setting
+- share a consistent reusable visual behavior across all ERP pages
+
 ---
 
 ## 17. Validation Rules

@@ -8,6 +8,8 @@ public sealed class WooConnectionProfileDto
     public string BaseUrl { get; set; } = string.Empty;
     public string ConsumerKeyMasked { get; set; } = string.Empty;
     public bool HasConsumerSecret { get; set; }
+    public string? WordPressUsername { get; set; }
+    public bool HasWordPressApplicationPassword { get; set; }
     public string ApiVersion { get; set; } = "wc/v3";
     public bool VerifySsl { get; set; } = true;
     public int TimeoutSeconds { get; set; } = 30;
@@ -27,6 +29,8 @@ public sealed class WooConnectionProfileUpsertRequest
     public string BaseUrl { get; set; } = string.Empty;
     public string ConsumerKey { get; set; } = string.Empty;
     public string? ConsumerSecret { get; set; }
+    public string? WordPressUsername { get; set; }
+    public string? WordPressApplicationPassword { get; set; }
     public string ApiVersion { get; set; } = "wc/v3";
     public bool VerifySsl { get; set; } = true;
     public int TimeoutSeconds { get; set; } = 30;

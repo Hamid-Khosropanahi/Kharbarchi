@@ -31,7 +31,7 @@ public sealed class ProductCsvImportController : ControllerBase
     CancellationToken cancellationToken = default)
     {
         page = Math.Max(1, page);
-        pageSize = Math.Clamp(pageSize, 10, 500);
+        pageSize = Math.Clamp(pageSize, 5, 100);
         var offset = (page - 1) * pageSize;
 
         var tableName = (kind ?? string.Empty).Trim().ToLowerInvariant() switch
@@ -659,7 +659,7 @@ ORDER BY Id;";
     {
         var safeTableName = NormalizeTableName(tableName);
         page = Math.Max(1, page);
-        pageSize = Math.Clamp(pageSize, 10, 500);
+        pageSize = Math.Clamp(pageSize, 5, 100);
         var offset = (page - 1) * pageSize;
 
         await using var connection = new MySqlConnection(GetConnectionString());
@@ -876,7 +876,7 @@ FROM `{safeTableName}`;";
     public async Task<IActionResult> GetSaleProducts([FromQuery] int page = 1, [FromQuery] int pageSize = 50, [FromQuery] string? search = null, CancellationToken cancellationToken = default)
     {
         page = Math.Max(1, page);
-        pageSize = Math.Clamp(pageSize, 10, 500);
+        pageSize = Math.Clamp(pageSize, 5, 100);
         var offset = (page - 1) * pageSize;
 
         await using var connection = new MySqlConnection(GetConnectionString());
@@ -885,7 +885,7 @@ FROM `{safeTableName}`;";
 
         var where = string.IsNullOrWhiteSpace(search)
             ? ""
-            : "WHERE p.ProductName LIKE @Search OR p.SKU LIKE @Search OR p.ProductSlug LIKE @Search OR g.MainProductName LIKE @Search";
+            : "WHERE p.ProductName LIKE @Search OR p.SKU LIKE @Search OR p.ProductSlug LIKE @Search OR g.MainProductName LIKE @Search OR p.BrandName LIKE @Search OR g.CategoryName LIKE @Search";
 
         long total;
         await using (var count = connection.CreateCommand())
@@ -924,7 +924,9 @@ SELECT
     p.Status,
     p.ImageUrl,
     p.UpdatedAtUtc,
-    g.MainProductName
+    g.MainProductName,
+    p.BrandName,
+    g.CategoryName
 FROM khb_sale_products p
 LEFT JOIN khb_product_main_groups g ON g.Id = p.MainGroupId
 {where}
@@ -959,7 +961,9 @@ LIMIT @Take OFFSET @Skip;";
                     status = ReadString(reader, 17),
                     imageUrl = ReadString(reader, 18),
                     updatedAtUtc = reader.IsDBNull(19) ? null : reader.GetDateTime(19).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture),
-                    mainProductName = ReadString(reader, 20)
+                    mainProductName = ReadString(reader, 20),
+                    brandName = ReadString(reader, 21),
+                    categoryName = ReadString(reader, 22)
                 });
             }
         }

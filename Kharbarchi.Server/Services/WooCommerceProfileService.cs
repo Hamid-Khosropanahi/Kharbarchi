@@ -166,6 +166,16 @@ public sealed class WooCommerceProfileService
             profile.ProtectedConsumerSecret = _protector.Protect(request.ConsumerSecret.Trim());
         }
 
+        if (!string.IsNullOrWhiteSpace(request.WordPressUsername))
+        {
+            profile.WordPressUsername = request.WordPressUsername.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.WordPressApplicationPassword))
+        {
+            profile.ProtectedWordPressApplicationPassword = _protector.Protect(request.WordPressApplicationPassword.Trim());
+        }
+
         if (string.IsNullOrWhiteSpace(profile.ConsumerKey) || string.IsNullOrWhiteSpace(profile.ProtectedConsumerSecret))
         {
             throw new InvalidOperationException("Consumer Key and Consumer Secret are required.");
@@ -209,6 +219,9 @@ public sealed class WooCommerceProfileService
             _configuredOptions.BaseUrl);
 
         var secret = _protector.Unprotect(profile.ProtectedConsumerSecret);
+        var applicationPassword = string.IsNullOrWhiteSpace(profile.ProtectedWordPressApplicationPassword)
+            ? null
+            : _protector.Unprotect(profile.ProtectedWordPressApplicationPassword);
         return new WooProfileConnection(
             profile.Id,
             profile.ProfileName,
@@ -216,6 +229,8 @@ public sealed class WooCommerceProfileService
             profile.BaseUrl,
             profile.ConsumerKey,
             secret,
+            profile.WordPressUsername,
+            applicationPassword,
             profile.ApiVersion,
             profile.EnvironmentType == "Production" || profile.VerifySsl,
             profile.TimeoutSeconds);
@@ -240,6 +255,8 @@ public sealed class WooCommerceProfileService
         BaseUrl = profile.BaseUrl,
         ConsumerKeyMasked = Mask(profile.ConsumerKey),
         HasConsumerSecret = !string.IsNullOrWhiteSpace(profile.ProtectedConsumerSecret),
+        WordPressUsername = profile.WordPressUsername,
+        HasWordPressApplicationPassword = !string.IsNullOrWhiteSpace(profile.ProtectedWordPressApplicationPassword),
         ApiVersion = profile.ApiVersion,
         VerifySsl = profile.VerifySsl,
         TimeoutSeconds = profile.TimeoutSeconds,
@@ -353,6 +370,13 @@ public sealed class WooCommerceProfileService
         profile.BaseUrl = _configuredOptions.BaseUrl.Trim();
         profile.ConsumerKey = _configuredOptions.ConsumerKey.Trim();
         profile.ProtectedConsumerSecret = _protector.Protect(_configuredOptions.ConsumerSecret.Trim());
+        profile.WordPressUsername = string.IsNullOrWhiteSpace(_configuredOptions.WordPressUsername)
+            ? profile.WordPressUsername
+            : _configuredOptions.WordPressUsername.Trim();
+        if (!string.IsNullOrWhiteSpace(_configuredOptions.WordPressApplicationPassword))
+        {
+            profile.ProtectedWordPressApplicationPassword = _protector.Protect(_configuredOptions.WordPressApplicationPassword.Trim());
+        }
         profile.ApiVersion = "wc/v3";
         profile.VerifySsl = requiredEnvironment == EnvironmentBindingRules.ProductionProfileEnvironmentType
             || _configuredOptions.VerifySsl;
@@ -418,6 +442,8 @@ public sealed record WooProfileConnection(
     string BaseUrl,
     string ConsumerKey,
     string ConsumerSecret,
+    string? WordPressUsername,
+    string? WordPressApplicationPassword,
     string ApiVersion,
     bool VerifySsl,
     int TimeoutSeconds);
@@ -456,6 +482,40 @@ public sealed class ProfileWooCommerceClient : IDisposable
         {
             using var response = await SendAsync(HttpMethod.Get, relativeUrl, null, cancellationToken);
             var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            if (response.IsSuccessStatusCode)
+            {
+                if (string.IsNullOrWhiteSpace(_connection.WordPressUsername)
+                    || string.IsNullOrWhiteSpace(_connection.WordPressApplicationPassword))
+                {
+                    watch.Stop();
+                    return new WooConnectionProfileTestResultDto
+                    {
+                        Success = false,
+                        StatusCode = 428,
+                        Url = BuildSafeUrl("wp-json/wp/v2/users/me"),
+                        Message = "اتصال wc/v3 موفق بود، اما برای endpointهای khb/v1 باید WordPress Username و Application Password در پروفایل ثبت شود.",
+                        ElapsedMilliseconds = watch.ElapsedMilliseconds,
+                        TestedAtUtc = DateTime.UtcNow
+                    };
+                }
+
+                const string wordpressTestUrl = "wp-json/wp/v2/users/me?context=edit";
+                using var wordpressResponse = await SendAsync(HttpMethod.Get, wordpressTestUrl, null, cancellationToken);
+                var wordpressBody = await wordpressResponse.Content.ReadAsStringAsync(cancellationToken);
+                watch.Stop();
+                return new WooConnectionProfileTestResultDto
+                {
+                    Success = wordpressResponse.IsSuccessStatusCode,
+                    StatusCode = (int)wordpressResponse.StatusCode,
+                    Url = BuildSafeUrl(wordpressTestUrl),
+                    Message = wordpressResponse.IsSuccessStatusCode
+                        ? "اتصال WooCommerce و احراز هویت WordPress Application Password موفق بود."
+                        : $"WooCommerce متصل است، اما احراز هویت WordPress ناموفق بود: {(int)wordpressResponse.StatusCode} {wordpressResponse.ReasonPhrase}",
+                    ElapsedMilliseconds = watch.ElapsedMilliseconds,
+                    ResponsePreview = SanitizeProfileSecrets(wordpressBody, 3000),
+                    TestedAtUtc = DateTime.UtcNow
+                };
+            }
             watch.Stop();
             return new WooConnectionProfileTestResultDto
             {
@@ -503,11 +563,7 @@ public sealed class ProfileWooCommerceClient : IDisposable
         var body = await response.Content.ReadAsStringAsync(cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
-            var safeBody = WooCommerceRequestSecurity.Sanitize(
-                body,
-                _connection.ConsumerKey,
-                _connection.ConsumerSecret,
-                3000);
+            var safeBody = SanitizeProfileSecrets(body, 3000);
             throw new WooCommerceProfileException(
                 $"WooCommerce HTTP {(int)response.StatusCode}: {safeBody}",
                 (int)response.StatusCode,
@@ -542,10 +598,27 @@ public sealed class ProfileWooCommerceClient : IDisposable
             try
             {
                 using var request = new HttpRequestMessage(method, relativeUrl.TrimStart('/'));
-                WooCommerceRequestSecurity.ApplyBasicAuthentication(
-                    request,
-                    _connection.ConsumerKey,
-                    _connection.ConsumerSecret);
+                if (IsWordPressApplicationPasswordEndpoint(relativeUrl))
+                {
+                    if (string.IsNullOrWhiteSpace(_connection.WordPressUsername)
+                        || string.IsNullOrWhiteSpace(_connection.WordPressApplicationPassword))
+                    {
+                        throw new InvalidOperationException(
+                            "برای ارسال به endpoint سفارشی khb/v1، نام کاربری WordPress و Application Password را در پروفایل WooCommerce ثبت کنید.");
+                    }
+
+                    WooCommerceRequestSecurity.ApplyBasicAuthentication(
+                        request,
+                        _connection.WordPressUsername,
+                        _connection.WordPressApplicationPassword);
+                }
+                else
+                {
+                    WooCommerceRequestSecurity.ApplyBasicAuthentication(
+                        request,
+                        _connection.ConsumerKey,
+                        _connection.ConsumerSecret);
+                }
 
                 if (json is not null)
                 {
@@ -580,6 +653,27 @@ public sealed class ProfileWooCommerceClient : IDisposable
             or System.Net.HttpStatusCode.ServiceUnavailable
             or System.Net.HttpStatusCode.GatewayTimeout
         || (int)statusCode >= 500;
+
+    private static bool IsWordPressApplicationPasswordEndpoint(string relativeUrl)
+    {
+        var path = relativeUrl.TrimStart('/');
+        return path.StartsWith("wp-json/khb/", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWith("wp-json/wp/v2/users/me", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private string SanitizeProfileSecrets(string? value, int maxLength)
+    {
+        var sanitized = WooCommerceRequestSecurity.Sanitize(
+            value,
+            _connection.ConsumerKey,
+            _connection.ConsumerSecret,
+            maxLength);
+        return WooCommerceRequestSecurity.Sanitize(
+            sanitized,
+            _connection.WordPressUsername,
+            _connection.WordPressApplicationPassword,
+            maxLength);
+    }
 
     private static string Trim(string? value, int maxLength)
     {

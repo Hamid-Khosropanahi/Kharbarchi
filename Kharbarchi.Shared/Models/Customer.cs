@@ -14,6 +14,13 @@ public class Customer
 
     // شناسه یکتای شرکت، کلید تطبیق پایدار فایل‌های باروک است.
     public string? LegalEntityId { get; set; }
+    public string CustomerType { get; set; } = "Legal";
+    public string? FirstName { get; set; }
+    public string? LastName { get; set; }
+    public string? NationalCode { get; set; }
+    public string? StoreName { get; set; }
+    public string? Province { get; set; }
+    public string? BusinessCategory { get; set; }
     public bool IsLegalEntity { get; set; }
     public bool IsActive { get; set; } = true;
     public bool IsCreditBlocked { get; set; }
@@ -21,7 +28,11 @@ public class Customer
     public decimal UsedCredit { get; set; }
     public string? CreditPlanTitle { get; set; }
     public string? DistributionStatus { get; set; }
+    public bool IsDefinedByDistribution { get; set; }
     public DateTime? CreditReceivedAtUtc { get; set; }
+    public DateTime? CreditExpiresAtUtc { get; set; }
+    public decimal? SourceRemainingCredit { get; set; }
+    public decimal? AllowedSpending { get; set; }
     public DateTime? LastImportedAtUtc { get; set; }
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAtUtc { get; set; }

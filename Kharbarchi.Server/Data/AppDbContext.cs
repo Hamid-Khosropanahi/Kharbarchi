@@ -255,6 +255,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRo
         {
             entity.ToTable("cbi_customers");
             entity.HasIndex(x => x.LegalEntityId).IsUnique();
+            entity.HasIndex(x => x.NationalCode).IsUnique();
             entity.HasIndex(x => x.PhoneNumber);
             entity.Property(x => x.FullName).HasMaxLength(250).IsRequired();
             entity.Property(x => x.PhoneNumber).HasMaxLength(30).IsRequired();
@@ -263,10 +264,19 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRo
             entity.Property(x => x.City).HasMaxLength(150).IsRequired();
             entity.Property(x => x.PostalCode).HasMaxLength(30);
             entity.Property(x => x.LegalEntityId).HasMaxLength(30);
+            entity.Property(x => x.CustomerType).HasMaxLength(20).IsRequired().HasDefaultValue("Legal");
+            entity.Property(x => x.FirstName).HasMaxLength(150);
+            entity.Property(x => x.LastName).HasMaxLength(150);
+            entity.Property(x => x.NationalCode).HasMaxLength(20);
+            entity.Property(x => x.StoreName).HasMaxLength(250);
+            entity.Property(x => x.Province).HasMaxLength(150);
+            entity.Property(x => x.BusinessCategory).HasMaxLength(200);
             entity.Property(x => x.CreditLimit).HasPrecision(18, 2);
             entity.Property(x => x.UsedCredit).HasPrecision(18, 2);
             entity.Property(x => x.CreditPlanTitle).HasMaxLength(250);
             entity.Property(x => x.DistributionStatus).HasMaxLength(100);
+            entity.Property(x => x.SourceRemainingCredit).HasPrecision(18, 2);
+            entity.Property(x => x.AllowedSpending).HasPrecision(18, 2);
         });
 
         modelBuilder.Entity<CustomerCreditHistory>(entity =>

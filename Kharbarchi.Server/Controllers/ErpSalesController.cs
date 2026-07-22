@@ -30,6 +30,9 @@ public sealed class ErpSalesController : ControllerBase
         var query = _context.Products
             .AsNoTracking()
             .Include(x => x.Brand)
+            .Include(x => x.Category)
+            .Include(x => x.Commodity)
+            .Include(x => x.WooControlProfile)
             .Include(x => x.Variants)
             .Where(x => x.IsAvailable && x.Price > 0);
 
@@ -47,12 +50,14 @@ public sealed class ErpSalesController : ControllerBase
             if (variants.Length == 0)
             {
                 rows.Add(new ErpCatalogItemDto(product.Id, null, product.Name, null, product.Sku, product.Price, product.OldPrice,
-                    product.StockQuantity, product.Brand?.Name, product.ImageUrl));
+                    product.StockQuantity, product.Brand?.Name, product.Category?.Name ?? string.Empty, product.Commodity?.Name,
+                    product.WooControlProfile?.PackageTitle, product.ImageUrl));
                 continue;
             }
 
             rows.AddRange(variants.Select(variant => new ErpCatalogItemDto(product.Id, variant.Id, product.Name, variant.Name,
-                variant.Sku ?? product.Sku, variant.Price, variant.OldPrice, variant.StockQuantity, product.Brand?.Name, product.ImageUrl)));
+                variant.Sku ?? product.Sku, variant.Price, variant.OldPrice, variant.StockQuantity, product.Brand?.Name,
+                product.Category?.Name ?? string.Empty, product.Commodity?.Name, product.WooControlProfile?.PackageTitle, product.ImageUrl)));
         }
         return Ok(rows);
     }

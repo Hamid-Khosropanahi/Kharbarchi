@@ -1,4 +1,5 @@
 @page "/local-admin/product-csv-import"
+@page "/local-admin/products"
 @attribute [Authorize(Policy = KharbarchiPolicies.ProductImportWrite)]
 @implements IAsyncDisposable
 @using System.Net
@@ -30,7 +31,8 @@
         </div>
     </section>
 
-    <section class="khb-card khb-control-panel">
+    <details class="khb-card khb-control-panel khb-collapsible">
+        <summary><span><i class="bi bi-plug-fill"></i><b>اطلاعات اتصال WooCommerce</b></span><small>برای نمایش فرم کلیک کنید</small></summary><div class="khb-collapsible-body">
         <div class="khb-toolbar">
             <div>
                 <h2>پروفایل اتصال WooCommerce</h2>
@@ -61,6 +63,8 @@
             <label>BaseUrl<input class="ltr" @bind="profileEditor.BaseUrl" readonly="@IsProductionEnvironment" /></label>
             <label>Consumer Key<input class="ltr" @bind="profileEditor.ConsumerKey" placeholder="@selectedProfileKeyMask" autocomplete="off" /></label>
             <label>Consumer Secret<input class="ltr" type="password" @bind="profileEditor.ConsumerSecret" placeholder="برای حفظ Secret فعلی خالی بگذارید" autocomplete="new-password" /></label>
+            <label>WordPress Username<input class="ltr" @bind="profileEditor.WordPressUsername" placeholder="نام کاربری دارای manage_woocommerce" autocomplete="username" /></label>
+            <label>WordPress Application Password<input class="ltr" type="password" @bind="profileEditor.WordPressApplicationPassword" placeholder="برای حفظ Application Password فعلی خالی بگذارید" autocomplete="new-password" /></label>
             <label>API Version<input class="ltr" @bind="profileEditor.ApiVersion" /></label>
             <label>Timeout<input type="number" min="5" max="180" @bind="profileEditor.TimeoutSeconds" /></label>
         </div>
@@ -70,9 +74,11 @@
         </label>
         <label class="khb-check-row"><input type="checkbox" @bind="profileEditor.IsActive" /><span>پروفایل فعال این محیط</span></label>
         <button class="khb-btn primary" @onclick="SaveProfile" disabled="@busy">ذخیره پروفایل</button>
-    </section>
+        </div>
+    </details>
 
-    <section class="khb-card khb-control-panel">
+    <details class="khb-card khb-control-panel khb-collapsible">
+        <summary><span><i class="bi bi-filetype-csv"></i><b>ورود CSV و پردازش محصول</b></span><small>برای نمایش فرم کلیک کنید</small></summary><div class="khb-collapsible-body">
         <label>
             نام جدول منبع
             <input @bind="tableName" readonly />
@@ -131,7 +137,8 @@
             <button class="khb-btn primary" @onclick="SyncWooCommerceAll" disabled="@busy">تست + ارسال مرحله‌ای همه</button>
             <button class="khb-btn" @onclick="SyncWooCommerceProducts" disabled="@busy">تست + ارسال مرحله‌ای محصولات</button>
         </div>
-    </section>
+        </div>
+    </details>
 
     <section class="khb-card khb-woo-progress-card">
         <div class="khb-toolbar">
@@ -207,16 +214,17 @@
                     <span>@SourcePriceUnitText</span>
                 </div>
             </div>
-            <div class="khb-inline-controls">
+            <details class="khb-collapsible compact-collapse"><summary><span><i class="bi bi-search"></i><b>فیلتر Source</b></span></summary><div class="khb-inline-controls khb-collapsible-body">
                 <input placeholder="جستجو در Source..." @bind="sourceSearch" @bind:event="oninput" />
                 <select @bind="sourcePageSize">
+                    <option value="5">5</option>
+                    <option value="10">10</option>
                     <option value="20">20</option>
                     <option value="50">50</option>
                     <option value="100">100</option>
-                    <option value="200">200</option>
                 </select>
                 <button class="khb-btn" @onclick="SearchSourceRows" disabled="@busy">جستجو</button>
-            </div>
+            </div></details>
         </div>
         <section class="khb-card">
             <div class="khb-workflow-tabs">
@@ -233,15 +241,16 @@
                     <h2>@WorkflowTabTitle</h2>
                     <p class="khb-muted">Total: @workflowTotalRows</p>
                 </div>
-                <div class="khb-inline-controls">
+                <details class="khb-collapsible compact-collapse"><summary><span><i class="bi bi-sliders"></i><b>تنظیم نمایش</b></span></summary><div class="khb-inline-controls khb-collapsible-body">
                     <select @bind="workflowPageSize">
+                        <option value="5">5</option>
+                        <option value="10">10</option>
                         <option value="20">20</option>
                         <option value="50">50</option>
                         <option value="100">100</option>
-                        <option value="200">200</option>
                     </select>
                     <button class="khb-btn" @onclick="LoadWorkflowTab" disabled="@busy">Refresh</button>
-                </div>
+                </div></details>
             </div>
 
             <div class="khb-table-wrap">
@@ -366,17 +375,17 @@
                     <span>تومان</span>
                 </div>
             </div>
-            <div class="khb-inline-controls">
+            <details class="khb-collapsible compact-collapse"><summary><span><i class="bi bi-search"></i><b>فیلتر محصولات</b></span></summary><div class="khb-inline-controls khb-collapsible-body">
                 <input placeholder="جستجو در محصولات..." @bind="productSearch" @bind:event="oninput" />
                 <select @bind="productPageSize">
+                    <option value="5">5</option>
+                    <option value="10">10</option>
                     <option value="20">20</option>
                     <option value="50">50</option>
                     <option value="100">100</option>
-                    <option value="200">200</option>
-                    <option value="500">500</option>
                 </select>
                 <button class="khb-btn" @onclick="SearchProducts" disabled="@busy">جستجو</button>
-            </div>
+            </div></details>
         </div>
 
         <div class="khb-table-wrap">
@@ -385,6 +394,8 @@
                     <tr>
                         <th>ID</th>
                         <th>محصول اصلی</th>
+                        <th>برند</th>
+                        <th>دسته‌بندی</th>
                         <th>نام محصول</th>
                         <th>SKU</th>
                         <th>Slug</th>
@@ -404,6 +415,8 @@
                         <tr @ondblclick="() => ShowDetails(item)">
                             <td>@item.Id</td>
                             <td>@item.MainProductName</td>
+                            <td>@item.BrandName</td>
+                            <td>@item.CategoryName</td>
                             <td>@item.ProductName</td>
                             <td class="ltr">@item.Sku</td>
                             <td class="ltr">@item.ProductSlug</td>
@@ -807,6 +820,8 @@
             BaseUrl = IsProductionEnvironment ? productionShopUrl : profile.BaseUrl,
             ConsumerKey = string.Empty,
             ConsumerSecret = string.Empty,
+            WordPressUsername = profile.WordPressUsername,
+            WordPressApplicationPassword = string.Empty,
             ApiVersion = profile.ApiVersion,
             VerifySsl = profile.VerifySsl,
             TimeoutSeconds = profile.TimeoutSeconds,
@@ -1132,6 +1147,8 @@
         public long? WooProductId { get; set; }
         public string? ProductName { get; set; }
         public string? MainProductName { get; set; }
+        public string? BrandName { get; set; }
+        public string? CategoryName { get; set; }
         public string? Sku { get; set; }
         public string? ProductSlug { get; set; }
         public string? PackageName { get; set; }

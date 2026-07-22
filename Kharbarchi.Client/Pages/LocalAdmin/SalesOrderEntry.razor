@@ -7,7 +7,7 @@
 
 <PageTitle>ثبت سفارش فروش ERP</PageTitle>
 
-<section class="khb-control-page" dir="rtl">
+<section class="khb-control-page sales-workspace" dir="rtl">
     <header class="khb-control-hero">
         <div><span class="khb-eyebrow">Seller Catalog</span><h1>کاتالوگ فروش و ثبت سفارش</h1><p>ابتدا مشتری را انتخاب کن، سپس کالاهای قیمت‌دار ERP را به سبد اضافه کن.</p></div>
     </header>
@@ -19,10 +19,10 @@
 
     <section class="khb-control-card">
         <h2>۱. انتخاب مشتری</h2>
-        <div class="khb-control-actions">
-            <input class="khb-input" @bind="_customerSearch" placeholder="نام شرکت، موبایل یا شناسه شرکت" />
+        <details class="khb-collapsible khb-filter-collapse"><summary><span><i class="bi bi-search"></i><b>جستجوی مشتری</b></span><small>برای نمایش جستجو کلیک کنید</small></summary><div class="khb-control-actions khb-collapsible-body">
+            <input class="khb-input" @bind="_customerSearch" placeholder="نام مشتری، موبایل، کد ملی یا شناسه شرکت" />
             <button class="khb-btn khb-btn-ghost" @onclick="LoadCustomersAsync">جستجو</button>
-        </div>
+        </div></details>
         <select class="khb-input" @bind="_selectedCustomerId" @bind:after="CustomerChanged">
             <option value="0">انتخاب مشتری...</option>
             @foreach (var customer in _customers)
@@ -32,23 +32,25 @@
         </select>
         @if (SelectedCustomer is not null)
         {
-            <p>شناسه: @SelectedCustomer.LegalEntityId | تلفن: @SelectedCustomer.PhoneNumber | وضعیت اعتبار: @(SelectedCustomer.IsCreditBlocked ? "مسدود" : "فعال")</p>
+            <div class="selected-customer"><div><small>مشتری انتخاب‌شده</small><b>@SelectedCustomer.FullName</b></div><div><small>شناسه شرکت</small><b>@SelectedCustomer.LegalEntityId</b></div><div><small>اعتبار باقی‌مانده</small><b>@SelectedCustomer.AvailableCredit.ToString("N0")</b></div><div><small>وضعیت</small><b class="@(SelectedCustomer.IsCreditBlocked ? "danger-text" : "success-text")">@(SelectedCustomer.IsCreditBlocked ? "مسدود" : "فعال")</b></div></div>
         }
     </section>
 
     <section class="khb-control-card">
         <h2>۲. کاتالوگ قیمت‌دار</h2>
-        <div class="khb-control-actions">
+        <details class="khb-collapsible khb-filter-collapse"><summary><span><i class="bi bi-funnel-fill"></i><b>فیلتر کاتالوگ</b></span><small>برای نمایش فیلترها کلیک کنید</small></summary><div class="khb-control-actions khb-collapsible-body">
             <input class="khb-input" @bind="_productSearch" placeholder="نام یا SKU" />
+            <select class="khb-input" @bind="_selectedCategory"><option value="">همه دسته‌بندی‌ها</option>@foreach(var category in Categories){<option value="@category">@category</option>}</select>
             <button class="khb-btn khb-btn-ghost" @onclick="LoadCatalogAsync">جستجو</button>
-        </div>
+        </div></details>
         <div class="khb-table-wrap">
-            <table class="khb-table"><thead><tr><th>کالا</th><th>برند</th><th>قیمت</th><th>موجودی</th><th></th></tr></thead>
-            <tbody>@foreach (var item in _catalog)
+            <table class="khb-table"><thead><tr><th>محصول اصلی / نوع</th><th>برند</th><th>دسته‌بندی</th><th>کالا / بسته‌بندی</th><th>قیمت</th><th>موجودی</th><th></th></tr></thead>
+            <tbody>@foreach (var item in PagedCatalog)
             {
-                <tr><td>@item.Name @(string.IsNullOrWhiteSpace(item.VariantName) ? null : $"- {item.VariantName}")<small>@item.Sku</small></td><td>@item.BrandName</td><td>@item.Price.ToString("N0")</td><td>@item.StockQuantity</td><td><button class="khb-btn khb-btn-primary" disabled="@(item.StockQuantity <= 0)" @onclick="() => AddToCart(item)">افزودن</button></td></tr>
+                <tr><td><b>@item.Name</b><small>@item.VariantName — @item.Sku</small></td><td>@(item.BrandName ?? "—")</td><td>@item.CategoryName</td><td>@(item.CommodityName ?? "—")<small>@item.PackageTitle</small></td><td><b>@item.Price.ToString("N0")</b></td><td>@item.StockQuantity</td><td><button class="khb-btn khb-btn-primary" disabled="@(item.StockQuantity <= 0)" @onclick="() => AddToCart(item)">افزودن</button></td></tr>
             }</tbody></table>
         </div>
+        <div class="catalog-pager"><label>تعداد ردیف <select class="khb-input" value="@_catalogPageSize" @onchange="ChangeCatalogPageSize">@foreach(var size in PageSizes){<option value="@size">@size</option>}</select></label><button class="khb-btn khb-btn-ghost" disabled="@(_catalogPage <= 1)" @onclick="PreviousCatalogPage">قبلی</button><b>صفحه @_catalogPage از @CatalogTotalPages</b><button class="khb-btn khb-btn-ghost" disabled="@(_catalogPage >= CatalogTotalPages)" @onclick="NextCatalogPage">بعدی</button></div>
     </section>
 
     <section class="khb-control-card">
@@ -66,10 +68,14 @@
             <label>تخفیف کل<input class="khb-input" type="number" min="0" @bind="_totalDiscount" /></label>
             <label>توضیحات<textarea class="khb-input" @bind="_description"></textarea></label>
         </div>
-        <p><b>جمع ناخالص:</b> @GrossAmount.ToString("N0") | <b>تخفیف:</b> @_totalDiscount.ToString("N0") | <b>مبلغ نهایی:</b> @Math.Max(0, GrossAmount - _totalDiscount).ToString("N0")</p>
+        <div class="order-total"><div><span>جمع ناخالص</span><b>@GrossAmount.ToString("N0")</b></div><div><span>تخفیف</span><b>@_totalDiscount.ToString("N0")</b></div><div class="final"><span>مبلغ نهایی</span><b>@Math.Max(0, GrossAmount - _totalDiscount).ToString("N0")</b></div></div>
         <button class="khb-btn khb-btn-primary" disabled="@(_busy || _selectedCustomerId == 0 || _cart.Count == 0)" @onclick="CreateOrderAsync">@(_busy ? "در حال ثبت..." : "ثبت نهایی سفارش")</button>
     </section>
 </section>
+
+<style>
+.sales-workspace{max-width:1500px;margin:auto}.selected-customer{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:12px;margin-top:16px}.selected-customer>div{padding:15px;background:#f2f8f6;border:1px solid #dceae5;border-radius:14px}.selected-customer small,.selected-customer b{display:block}.success-text{color:#087657}.danger-text{color:#b42323}.khb-table small{display:block;color:#71817c;margin-top:4px}.order-total{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:20px 0}.order-total>div{padding:18px;border-radius:16px;background:#f3f7f6}.order-total span,.order-total b{display:block}.order-total b{font-size:1.45rem;margin-top:6px}.order-total .final{background:linear-gradient(135deg,#0b6655,#11846d);color:white}@@media(max-width:800px){.selected-customer,.order-total{grid-template-columns:1fr 1fr}}
+</style>
 
 @code {
     private IReadOnlyList<CustomerListItemDto> _customers = [];
@@ -77,6 +83,9 @@
     private readonly List<CartLine> _cart = [];
     private string? _customerSearch;
     private string? _productSearch;
+    private string _selectedCategory = string.Empty;
+    private static readonly int[] PageSizes = [5, 10, 20, 50, 100];
+    private int _catalogPage = 1; private int _catalogPageSize = 20;
     private int _selectedCustomerId;
     private string _deliveryAddress = string.Empty;
     private string _deliveryCity = string.Empty;
@@ -89,10 +98,17 @@
     private string? _message;
     private CustomerListItemDto? SelectedCustomer => _customers.FirstOrDefault(x => x.Id == _selectedCustomerId);
     private decimal GrossAmount => _cart.Sum(x => x.Item.Price * x.Quantity);
+    private IReadOnlyList<string> Categories => _catalog.Select(x => x.CategoryName).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct().OrderBy(x => x).ToArray();
+    private IEnumerable<ErpCatalogItemDto> FilteredCatalog => string.IsNullOrWhiteSpace(_selectedCategory) ? _catalog : _catalog.Where(x => x.CategoryName == _selectedCategory);
+    private int CatalogTotalPages => Math.Max(1, (int)Math.Ceiling(FilteredCatalog.Count() / (double)_catalogPageSize));
+    private IEnumerable<ErpCatalogItemDto> PagedCatalog => FilteredCatalog.Skip((_catalogPage - 1) * _catalogPageSize).Take(_catalogPageSize);
 
     protected override async Task OnInitializedAsync() => await Task.WhenAll(LoadCustomersAsync(), LoadCatalogAsync());
     private async Task LoadCustomersAsync() => _customers = await SalesClient.GetCustomersAsync(_customerSearch);
-    private async Task LoadCatalogAsync() => _catalog = await SalesClient.GetCatalogAsync(_productSearch);
+    private async Task LoadCatalogAsync(){_catalog = await SalesClient.GetCatalogAsync(_productSearch);_catalogPage=1;}
+    private void ChangeCatalogPageSize(ChangeEventArgs e){if(int.TryParse(e.Value?.ToString(),out var value)&&PageSizes.Contains(value)){_catalogPageSize=value;_catalogPage=1;}}
+    private void PreviousCatalogPage(){if(_catalogPage>1)_catalogPage--;}
+    private void NextCatalogPage(){if(_catalogPage<CatalogTotalPages)_catalogPage++;}
     private void CustomerChanged()
     {
         if (SelectedCustomer is null) return;
@@ -107,6 +123,10 @@
     }
     private async Task CreateOrderAsync()
     {
+        if (SelectedCustomer is null) { _isError=true; _message="ابتدا مشتری را انتخاب کنید."; return; }
+        if (SelectedCustomer.IsCreditBlocked && _paymentMethod == "Credit") { _isError=true; _message="اعتبار مشتری مسدود است؛ سفارش اعتباری قابل ثبت نیست."; return; }
+        if (string.IsNullOrWhiteSpace(_deliveryAddress) || string.IsNullOrWhiteSpace(_deliveryCity)) { _isError=true; _message="آدرس تحویل و شهر الزامی است."; return; }
+        if (_totalDiscount < 0 || _totalDiscount > GrossAmount) { _isError=true; _message="تخفیف باید بین صفر و جمع ناخالص باشد."; return; }
         _busy = true; _message = null;
         var request = new ErpOrderCreateRequest
         {
@@ -119,11 +139,8 @@
             PaymentMethod = _paymentMethod,
             Items = _cart.Select(x => new ErpOrderLineRequest { ProductId = x.Item.ProductId, ProductVariantId = x.Item.ProductVariantId, Quantity = x.Quantity }).ToArray()
         };
-        var response = await SalesClient.CreateOrderAsync(request);
-        _isError = response.Result is null;
-        _message = response.Result is null ? response.Error : $"سفارش شماره {response.Result.OrderId} با مبلغ نهایی {response.Result.TotalAmount:N0} ثبت شد.";
-        if (response.Result is not null) { _cart.Clear(); _totalDiscount = 0; await LoadCatalogAsync(); await LoadCustomersAsync(); }
-        _busy = false;
+        try { var response = await SalesClient.CreateOrderAsync(request); _isError = response.Result is null; _message = response.Result is null ? response.Error : $"سفارش شماره {response.Result.OrderId} با مبلغ نهایی {response.Result.TotalAmount:N0} ثبت شد."; if (response.Result is not null) { _cart.Clear(); _totalDiscount = 0; await LoadCatalogAsync(); await LoadCustomersAsync(); } }
+        catch(Exception ex){_isError=true;_message=ex.Message;} finally{_busy=false;}
     }
     private sealed class CartLine(ErpCatalogItemDto item) { public ErpCatalogItemDto Item { get; } = item; public int Quantity { get; set; } = 1; }
 }

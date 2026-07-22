@@ -15,6 +15,10 @@ public sealed class WooCommerceOptions
     [Required]
     public string ConsumerSecret { get; init; } = string.Empty;
 
+    // Required only for authenticated custom WordPress khb/v1 endpoints.
+    public string? WordPressUsername { get; init; }
+    public string? WordPressApplicationPassword { get; init; }
+
     // Must be explicitly configured as "Local" or "Production".
     // An empty default prevents Production from silently inheriting a Local profile.
     public string EnvironmentType { get; init; } = string.Empty;
